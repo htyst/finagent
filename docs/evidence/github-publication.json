@@ -15,7 +15,16 @@
     "backend": {"passed": 293, "failed": 33, "errors": 48, "subtests_passed": 4, "warnings": 2, "seconds": 73.38},
     "frontend_and_cloud": "skipped after backend failure; independent jobs added for subsequent checks"
   },
-  "pending": ["backend full-suite failures need investigation and repair", "independent frontend and cloud checks", "Render account and cost approval", "actual cloud deployment and live-provider acceptance"],
+  "independent_ci": {
+    "commit": "785de1479aaaf48432ee8bb44f0439d7d3ec6653",
+    "url": "https://github.com/htyst/finagent/actions/runs/38854342239",
+    "frontend_job": 116822340677,
+    "frontend": {"conclusion": "success", "tests_passed": 14, "tests_failed": 0, "typecheck_and_production_build": "success"},
+    "cloud_job": 116822340864,
+    "cloud": {"conclusion": "success", "linux_image_build": true, "empty_disk_start": true, "unauthorized_401": true, "authorized_page": true, "volume_sentinel_survives_restart": true},
+    "limits": "CI container checks do not establish Render deployment, full business correctness, browser acceptance or actual DeepSeek connectivity. Full backend failures are not ignored."
+  },
+  "pending": ["backend full-suite failures need investigation and repair", "Render account and cost approval", "actual cloud deployment and live-provider acceptance"],
   "paid_service_created": false,
   "website_published": false
 }
