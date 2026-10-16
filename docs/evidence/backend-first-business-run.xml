@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="58" time="53.038" timestamp="2026-10-15T16:12:37.459631+08:00" hostname="石头"><testcase classname="tests.test_background" name="test_schedule_contract_executes_once" time="1.851" /><testcase classname="tests.test_background" name="test_schedule_stops_when_user_locked" time="1.756" /><testcase classname="tests.test_background" name="test_schedule_does_not_upgrade_its_own_authorization" time="1.515"><failure message="app.domain.errors.DomainError: 资源不存在">bank = (&lt;sqlalchemy.orm.session.Session object at 0x0000024A36773CB0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/8628c32570e446e78536a449ceef735a/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+
+    def test_schedule_does_not_upgrade_its_own_authorization(bank):
+        from test_security import transfer, confirm
+        db, _ = bank
+        sid, due = schedule(db, 60000)
+&gt;       confirm(db, transfer(db, 50000, sid='s2'))
+
+finagent\backend\tests\test_background.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+finagent\backend\tests\test_security.py:21: in confirm
+    token = issue_confirmation_token(db, session_id=sid, proposal_id=pid)['confirmation_token']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\backend\app\domain\operations.py:371: in issue_confirmation_token
+    result = _write(db, work)
+             ^^^^^^^^^^^^^^^^
+finagent\backend\app\domain\operations.py:55: in _write
+    return work()
+           ^^^^^^
+finagent\backend\app\domain\operations.py:359: in work
+    proposal = _proposal(db, session, proposal_id)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+db = &lt;sqlalchemy.orm.session.Session object at 0x0000024A36773CB0&gt;
+session = &lt;app.data.models.DemoSession object at 0x0000024A36CB2E90&gt;
+proposal_id = 'cb69f1ca54c249fab4876ebe3c805d10'
+
+    def _proposal(db: Session, session: DemoSession, proposal_id: str) -&gt; Proposal:
+        row = db.scalar(select(Proposal).where(Proposal.id == proposal_id,
+                                               Proposal.owner_id == session.owner_id,
+                                               Proposal.session_id == session.id,
+                                               Proposal.dataset_version == session.dataset_version))
+        if row is None:
+&gt;           raise DomainError("RESOURCE_NOT_FOUND", "资源不存在", 404)
+E           app.domain.errors.DomainError: 资源不存在
+
+finagent\backend\app\domain\operations.py:73: DomainError</failure></testcase><testcase classname="tests.test_background" name="test_birthday_locked_before_due_never_pays" time="1.641" /><testcase classname="tests.test_background" name="test_birthday_pays_only_once_and_never_invents_delivery" time="1.549" /><testcase classname="tests.test_background" name="test_subscription_requires_bounded_contract_and_obeys_lock[False]" time="1.454" /><testcase classname="tests.test_background" name="test_subscription_requires_bounded_contract_and_obeys_lock[True]" time="1.580" /><testcase classname="tests.test_http" name="test_health_and_green_reads" time="1.468" /><testcase classname="tests.test_http" name="test_subscription_confirmation_and_csrf" time="1.503" /><testcase classname="tests.test_http" name="test_injection_fields_do_not_grant_authority" time="1.401" /><testcase classname="tests.test_http" name="test_mfa_challenge_does_not_expose_code_or_secret" time="1.532" /><testcase classname="tests.test_migrations" name="test_upgrade_from_0012_preserves_balances" time="1.961" /><testcase classname="tests.test_planning" name="test_invalid_semantics_rejected[plan0]" time="0.006" /><testcase classname="tests.test_planning" name="test_invalid_semantics_rejected[plan1]" time="0.001" /><testcase classname="tests.test_planning" name="test_invalid_semantics_rejected[plan2]" time="0.008" /><testcase classname="tests.test_planning" name="test_invalid_semantics_rejected[plan3]" time="0.003" /><testcase classname="tests.test_planning" name="test_invalid_semantics_rejected[plan4]" time="0.002" /><testcase classname="tests.test_planning" name="test_goal_omission_and_parameter_rewrite_rejected" time="0.002" /><testcase classname="tests.test_planning" name="test_repairs_are_bounded_and_directed" time="0.002" /><testcase classname="tests.test_planning" name="test_business_denial_never_causes_parameter_repair" time="0.003" /><testcase classname="tests.test_planning" name="test_model_cannot_supply_owner_or_permission" time="0.002" /><testcase classname="tests.test_planning" name="test_registry_checks_session_owner" time="1.441" /><testcase classname="tests.test_planning" name="test_composite_reads_preserve_all_goals" time="1.998" /><testcase classname="tests.test_planning" name="test_multiwrite_is_listed_without_partial_draft" time="1.564" /><testcase classname="tests.test_planning" name="test_pause_handoff_and_termination_block_execution" time="1.823" /><testcase classname="tests.test_planning" name="test_checkpoint_survives_dialogue_context_replacement" time="1.696" /><testcase classname="tests.test_planning" name="test_new_request_and_pause_invalidate_late_plan" time="1.729" /><testcase classname="tests.test_privacy_stdlib.PrivacyTests" name="test_bank_intent_and_amount_are_preserved" time="0.002" /><testcase classname="tests.test_privacy_stdlib.PrivacyTests" name="test_explicit_auth_material_redacted" time="0.004" /><testcase classname="tests.test_privacy_stdlib.PrivacyTests" name="test_nested_secret_keys_redacted" time="0.001" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_confirmation_tool_not_available" time="0.115" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_file_access_denied" time="0.138" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_generated_code_denied" time="0.141" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_invalid_json" time="0.106" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_known_prepare_does_not_execute_payment" time="0.106" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_known_read" time="0.104" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_network_access_denied" time="0.145" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_payload_limit" time="0.002" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_shell_tool_rejected" time="0.109" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_timeout_fails_closed" time="0.003" /><testcase classname="tests.test_sandbox_stdlib.SandboxTests" name="test_unknown_mfa_tool_not_available" time="0.111" /><testcase classname="tests.test_security" name="test_thresholds[99999-yellow]" time="1.508"><failure message="app.domain.errors.DomainError: 操作单已不再等待确认">bank = (&lt;sqlalchemy.orm.session.Session object at 0x0000024A36837E00&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/24285ee748914513bfdc340762556dc5/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+amount = 99999, level = 'yellow'
+
+    @pytest.mark.parametrize('amount,level', [(99999, 'yellow'), (100000, 'yellow'), (100001, 'red')])
+    def test_thresholds(bank, amount, level):
+        db, _ = bank
+        pid = transfer(db, amount)
+        assert security.describe(db, 's1', 'proposal', pid)['level'] == level
+        if level == 'red':
+            with pytest.raises(DomainError, match='红色'):
+                confirm(db, pid)
+            mfa(db, pid)
+        assert confirm(db, pid)['status'] == 'executed'
+&gt;       assert confirm(db, pid)['status'] == 'executed'
+               ^^^^^^^^^^^^^^^^
+
+finagent\backend\tests\test_security.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+finagent\backend\tests\test_security.py:21: in confirm
+    token = issue_confirmation_token(db, session_id=sid, proposal_id=pid)['confirmation_token']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+db = &lt;sqlalchemy.orm.session.Session object at 0x0000024A36837E00&gt;
+session_id = 's1', proposal_id = 'fa1c742cc28744a480840fc65c0ce2aa', now = None
+
+    def issue_confirmation_token(db: Session, *, session_id: str, proposal_id: str,
+                                 now: datetime | None = None) -&gt; dict:
+        instant = _now(now)
+    
+        def work():
+            session, _setting = _session(db, session_id, instant)
+            proposal = _proposal(db, session, proposal_id)
+            if proposal.status != PENDING:
+                return DomainError("INVALID_PROPOSAL_STATE", "操作单已不再等待确认", 409)
+            if datetime.fromisoformat(proposal.expires_at_utc) &lt;= instant:
+                _end(db, proposal, "expired", instant)
+                return DomainError("PROPOSAL_EXPIRED", "确认已过期，请重新准备", 409)
+            token = secrets.token_urlsafe(32)
+            proposal.token_hash = _digest(token)
+            proposal.updated_at_utc = _stamp(instant)
+            _audit(db, session.owner_id, proposal.id, "token_issued", instant)
+            return {"confirmation_token": token, "expires_at_utc": proposal.expires_at_utc}
+    
+        result = _write(db, work)
+        if isinstance(result, DomainError):
+&gt;           raise result
+E           app.domain.errors.DomainError: 操作单已不再等待确认
+
+finagent\backend\app\domain\operations.py:373: DomainError</failure></testcase><testcase classname="tests.test_security" name="test_thresholds[100000-yellow]" time="1.490"><failure message="app.domain.errors.DomainError: 操作单已不再等待确认">bank = (&lt;sqlalchemy.orm.session.Session object at 0x0000024A368367B0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/bce9d875cd664780b106cb170bc663ce/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+amount = 100000, level = 'yellow'
+
+    @pytest.mark.parametrize('amount,level', [(99999, 'yellow'), (100000, 'yellow'), (100001, 'red')])
+    def test_thresholds(bank, amount, level):
+        db, _ = bank
+        pid = transfer(db, amount)
+        assert security.describe(db, 's1', 'proposal', pid)['level'] == level
+        if level == 'red':
+            with pytest.raises(DomainError, match='红色'):
+                confirm(db, pid)
+            mfa(db, pid)
+        assert confirm(db, pid)['status'] == 'executed'
+&gt;       assert confirm(db, pid)['status'] == 'executed'
+               ^^^^^^^^^^^^^^^^
+
+finagent\backend\tests\test_security.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+finagent\backend\tests\test_security.py:21: in confirm
+    token = issue_confirmation_token(db, session_id=sid, proposal_id=pid)['confirmation_token']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+db = &lt;sqlalchemy.orm.session.Session object at 0x0000024A368367B0&gt;
+session_id = 's1', proposal_id = '4fd5e47ec71542fb87b9141d9dc82861', now = None
+
+    def issue_confirmation_token(db: Session, *, session_id: str, proposal_id: str,
+                                 now: datetime | None = None) -&gt; dict:
+        instant = _now(now)
+    
+        def work():
+            session, _setting = _session(db, session_id, instant)
+            proposal = _proposal(db, session, proposal_id)
+            if proposal.status != PENDING:
+                return DomainError("INVALID_PROPOSAL_STATE", "操作单已不再等待确认", 409)
+            if datetime.fromisoformat(proposal.expires_at_utc) &lt;= instant:
+                _end(db, proposal, "expired", instant)
+                return DomainError("PROPOSAL_EXPIRED", "确认已过期，请重新准备", 409)
+            token = secrets.token_urlsafe(32)
+            proposal.token_hash = _digest(token)
+            proposal.updated_at_utc = _stamp(instant)
+            _audit(db, session.owner_id, proposal.id, "token_issued", instant)
+            return {"confirmation_token": token, "expires_at_utc": proposal.expires_at_utc}
+    
+        result = _write(db, work)
+        if isinstance(result, DomainError):
+&gt;           raise result
+E           app.domain.errors.DomainError: 操作单已不再等待确认
+
+finagent\backend\app\domain\operations.py:373: DomainError</failure></testcase><testcase classname="tests.test_security" name="test_thresholds[100001-red]" time="1.631"><failure message="app.domain.errors.DomainError: 操作单已不再等待确认">bank = (&lt;sqlalchemy.orm.session.Session object at 0x0000024A368378C0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/5e817263bb144b00a51858a09a0c4eda/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+amount = 100001, level = 'red'
+
+    @pytest.mark.parametrize('amount,level', [(99999, 'yellow'), (100000, 'yellow'), (100001, 'red')])
+    def test_thresholds(bank, amount, level):
+        db, _ = bank
+        pid = transfer(db, amount)
+        assert security.describe(db, 's1', 'proposal', pid)['level'] == level
+        if level == 'red':
+            with pytest.raises(DomainError, match='红色'):
+                confirm(db, pid)
+            mfa(db, pid)
+        assert confirm(db, pid)['status'] == 'executed'
+&gt;       assert confirm(db, pid)['status'] == 'executed'
+               ^^^^^^^^^^^^^^^^
+
+finagent\backend\tests\test_security.py:42: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+finagent\backend\tests\test_security.py:21: in confirm
+    token = issue_confirmation_token(db, session_id=sid, proposal_id=pid)['confirmation_token']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+db = &lt;sqlalchemy.orm.session.Session object at 0x0000024A368378C0&gt;
+session_id = 's1', proposal_id = 'ad113c618bcf49e29c1b07584a7b7865', now = None
+
+    def issue_confirmation_token(db: Session, *, session_id: str, proposal_id: str,
+                                 now: datetime | None = None) -&gt; dict:
+        instant = _now(now)
+    
+        def work():
+            session, _setting = _session(db, session_id, instant)
+            proposal = _proposal(db, session, proposal_id)
+            if proposal.status != PENDING:
+                return DomainError("INVALID_PROPOSAL_STATE", "操作单已不再等待确认", 409)
+            if datetime.fromisoformat(proposal.expires_at_utc) &lt;= instant:
+                _end(db, proposal, "expired", instant)
+                return DomainError("PROPOSAL_EXPIRED", "确认已过期，请重新准备", 409)
+            token = secrets.token_urlsafe(32)
+            proposal.token_hash = _digest(token)
+            proposal.updated_at_utc = _stamp(instant)
+            _audit(db, session.owner_id, proposal.id, "token_issued", instant)
+            return {"confirmation_token": token, "expires_at_utc": proposal.expires_at_utc}
+    
+        result = _write(db, work)
+        if isinstance(result, DomainError):
+&gt;           raise result
+E           app.domain.errors.DomainError: 操作单已不再等待确认
+
+finagent\backend\app\domain\operations.py:373: DomainError</failure></testcase><testcase classname="tests.test_security" name="test_600_then_500_cross_account_and_session" time="1.532" /><testcase classname="tests.test_security" name="test_concurrent_yellow_drafts_recheck_in_writer_transaction" time="1.547" /><testcase classname="tests.test_security" name="test_plain_token_cannot_execute_red" time="1.488" /><testcase classname="tests.test_security" name="test_mfa_wrong_expired_replayed_and_bound_to_operation" time="1.668" /><testcase classname="tests.test_security" name="test_expired_proof" time="1.527" /><testcase classname="tests.test_security" name="test_changed_terms_and_cross_user_rejected" time="1.563" /><testcase classname="tests.test_security" name="test_five_failures_persist_across_sessions_and_allow_cancel" time="1.633" /><testcase classname="tests.test_security" name="test_subscription_query_is_yellow" time="1.431" /><testcase classname="tests.test_security" name="test_small_wealth_purchase_is_red" time="1.582" /><testcase classname="tests.test_security" name="test_card_loss_is_red" time="1.803" /></testsuite></testsuites>

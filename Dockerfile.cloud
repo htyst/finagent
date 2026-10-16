@@ -1,0 +1,19 @@
+FROM node:24-alpine AS frontend
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm ci --ignore-scripts
+COPY frontend ./
+RUN npm run build
+
+FROM python:3.13-slim
+WORKDIR /app
+COPY backend/requirements.lock backend/requirements.lock
+RUN pip install --no-cache-dir -r backend/requirements.lock
+COPY backend backend
+COPY scripts/container-start.py scripts/cloud-start.py scripts/local-auth.py scripts/cloud-approver.py scripts/backup-database.py scripts/
+COPY --from=frontend /build/dist frontend/dist
+RUN mkdir -p /app/var && chown 10001:10001 /app/var
+ENV PYTHONPATH=/app/backend PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 FINAGENT_MODE=mock FINAGENT_SECURE_COOKIE=1
+EXPOSE 8000
+# Entrypoint fixes only the disk mount directory's owner, then drops privileges.
+CMD ["python", "scripts/cloud-start.py"]

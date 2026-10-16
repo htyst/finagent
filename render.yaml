@@ -1,0 +1,39 @@
+# Preparation only: creating this service is a paid action in Render.
+# This repository must have finagent's contents at its root.
+services:
+  - type: web
+    name: finagent-demo
+    runtime: docker
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile.cloud
+    dockerContext: .
+    healthCheckPath: /api/health
+    numInstances: 1
+    autoDeployTrigger: off
+    disk:
+      name: finagent-data
+      mountPath: /app/var
+      sizeGB: 1
+    envVars:
+      - key: FINAGENT_MODE
+        value: mock
+      - key: FINAGENT_ACCESS_USER
+        value: guest
+      - key: FINAGENT_ACCESS_PASSWORD
+        generateValue: true
+      - key: CLOUD_DAILY_CHAT_LIMIT
+        value: "100"
+      - key: CLOUD_CHAT_PER_MINUTE
+        value: "6"
+      - key: MODEL_PROVIDER
+        value: deepseek
+      - key: MODEL_NAME
+        value: deepseek-flash
+      - key: MODEL_BASE_URL
+        value: https://api.deepseek.com
+      - key: DIALOGUE_MAX_MODEL_CALLS
+        value: "4"
+      - key: DIALOGUE_MAX_TOOLS
+        value: "6"
+      - key: DIALOGUE_TIMEOUT_SECONDS
+        value: "55"

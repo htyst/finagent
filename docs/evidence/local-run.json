@@ -1,0 +1,124 @@
+﻿{
+    "mode":  "mock",
+    "url":  "http://127.0.0.1:5173",
+    "ledger_check":  "passed",
+    "demo_date":  "2026-09-24",
+    "dependency_modules":  [
+                               {
+                                   "module":  "/node_modules/.vite/deps/react.js?v=f6ba4bf4",
+                                   "status":  200
+                               },
+                               {
+                                   "module":  "/node_modules/.vite/deps/react-dom_client.js?v=5df13f6d",
+                                   "status":  200
+                               },
+                               {
+                                   "module":  "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=f6ba4bf4",
+                                   "status":  200
+                               }
+                           ],
+    "production_build":  "not run in this local-start repair",
+    "date":  "2026-10-15",
+    "browser_visual":  "not inspected",
+    "accounts_read":  2,
+    "frontend_modules":  [
+                             {
+                                 "file":  "AgentPanel.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "AnalyticsReport.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "api.ts",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "App.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "BankingWorkflows.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "Birthdays.css",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "Birthdays.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "CardManagement.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "ConditionDetails.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "main.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "OperationPanel.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "OperatorPanel.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "RecipientNotes.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "SecurityGate.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "SecurityStatus.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "SpendingChart.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "SpendingPanel.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "style.css",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "Subscriptions.css",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "Subscriptions.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "TaskDetailsForm.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "TransactionEvidence.tsx",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "useTaskSync.ts",
+                                 "status":  200
+                             },
+                             {
+                                 "file":  "WealthPanel.tsx",
+                                 "status":  200
+                             }
+                         ],
+    "first_initialization":  "created only after checking database did not exist",
+    "database":  "var/finagent.sqlite3"
+}

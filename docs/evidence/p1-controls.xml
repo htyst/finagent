@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="10.669" timestamp="2026-10-15T19:24:57.057621+08:00" hostname="石头"><testcase classname="tests.test_p1_controls" name="test_separate_user_operator_and_approver_roles" time="2.038" /><testcase classname="tests.test_p1_controls" name="test_model_payload_redacts_known_contacts_accounts_and_auth" time="0.008" /><testcase classname="tests.test_p1_controls" name="test_task_audit_is_scoped_and_contains_rules_and_resource_evidence" time="2.504"><failure message="AssertionError: assert '9b121af0e[完整账号留在本地]d88b3' == '9b121af0e834...19352607d88b3'&#10;  &#10;  - 9b121af0e834463987319352607d88b3&#10;  + 9b121af0e[完整账号留在本地]d88b3">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000001E12D9A9400&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/dc7bdd2a4c864c8c8551546de9341637/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+client = &lt;starlette.testclient.TestClient object at 0x000001E12DAFF110&gt;
+
+    def test_task_audit_is_scoped_and_contains_rules_and_resource_evidence(bank, client):
+        from app.agent.service import create
+        db, _ = bank
+        result = create(db, db.get(DemoSession, 's1'), 'mock', '从活期账户转100元到储蓄账户')
+        client.cookies.set('finagent_demo_session', 's1')
+        report = client.get(f"/api/tasks/{result['id']}/audit").json()['data']
+        assert report['trace_id'] == result['id']
+        assert report['decision']['policy_version'] and report['steps']
+&gt;       assert report['resources'][0]['id'] == result['proposal']['id']
+E       AssertionError: assert '9b121af0e[完整账号留在本地]d88b3' == '9b121af0e834...19352607d88b3'
+E         
+E         - 9b121af0e834463987319352607d88b3
+E         + 9b121af0e[完整账号留在本地]d88b3
+
+finagent\backend\tests\test_p1_controls.py:62: AssertionError</failure></testcase><testcase classname="tests.test_p1_controls" name="test_actual_subprocess_timeout_terminates_and_reaps_child" time="0.333" /><testcase classname="tests.test_p1_controls" name="test_0006_to_head_preserves_recipients_balances_and_historical_receipts" time="4.206" /></testsuite></testsuites>

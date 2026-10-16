@@ -1,0 +1,600 @@
+{
+  "baseline": "DeepSeek-unified-20261015",
+  "code_sha256": "db23b564efcb17fffb718c08d990bd6bc09e954afb88511de740092f81deda64",
+  "code_files": {
+    "backend/alembic.ini": "848215020df3df17a66d2c0f97fd80d03a0237d259876ffaf43b796cb7d7700c",
+    "backend/app/__init__.py": "3beddbbdfbfe7ec48776d59db1579a0a6fcf7304e0fea33966c8caf9620bf80a",
+    "backend/app/agent/__init__.py": "7ebd82e5cae8bb8cb4c07f829966a548123333760babb0595639ffbcadb47073",
+    "backend/app/agent/analytics.py": "8dfa5d9bce8812e0b6d5d334cc83872bc5d54b7d98979bc696f9354902bfaea3",
+    "backend/app/agent/analytics_summary.py": "130b84e70802d2e82e9b891d100f1a8b19aab6168d551898406a3b96374c627d",
+    "backend/app/agent/audit.py": "fe5a1faf6327312f40a6e8053206ea6d0449513c633d4d8eb6e8a2a6984b9fcd",
+    "backend/app/agent/birthday_flow.py": "87ff85c1c65a45be4cc171c09b51d5ad04025e0b38a535984e8b3f7b999e342a",
+    "backend/app/agent/business_flow.py": "de8a8b42f096aa84de6a3a758fd52670d90f0807bb51f706c84249a030c3d8fe",
+    "backend/app/agent/card_flow.py": "4cb8264e2530455d79a7b9c0c1f4bb24e70304d7489192db2fa80f0202566279",
+    "backend/app/agent/check_config.py": "7aff2d18782f213ed9cd988f18f7926680cab7f279f8306db1acebe35a62d9d8",
+    "backend/app/agent/clarification.py": "314040151b11938a050e9f6358346760d40805a2ab6cfaad07ec70a74c54a409",
+    "backend/app/agent/constraints.py": "241349d00fc04f231f53ddd776daf469b2169f658795988a7b3749cc33f051bc",
+    "backend/app/agent/control.py": "f10922cf62ff1cf5d825803fca24cf66d6a4695cc9a166fad4c62ecd9d1d54f3",
+    "backend/app/agent/crossflow.py": "1d95b4785e03ae399a76d0a56d3327547aa1b68dd6b5db5e5e98524b26cb619c",
+    "backend/app/agent/dialogue.py": "e8dce236bdc639302a90aee6d18192aea737b0359f661d6a800fb8d822a76551",
+    "backend/app/agent/dialogue_schema.py": "4f6e3d410d66910b686c63fecd8bcdab0535ecb155c5e7b3343fe274ad858091",
+    "backend/app/agent/forms.py": "7d036949c60c7a4b3f3b973ca37817e90fbb7503ed2933d34a4bcee5f21d8558",
+    "backend/app/agent/knowledge-v1.json": "0de407b5c062c3e9a666ba3df2d4a4724906f14311f4301f685dd521e5a30de2",
+    "backend/app/agent/knowledge.py": "b52784cdfeeb62d4958c46891d52005086f98c7da5650940af8b7eaa05c61941",
+    "backend/app/agent/language.py": "24c4583b945559236ccdc88d9ee01f93cf001e42a9063fe4d864c9e30ca9f793",
+    "backend/app/agent/model_budget.py": "a8e7cbfd558751d259b9c9591c93e9c245735ac8fc14fe0e8954dca56e01a591",
+    "backend/app/agent/model_client.py": "588bb83ef010ce084da1e37d5e23895187de52930ee2bcf7540a0a9433d7d039",
+    "backend/app/agent/orchestrator.py": "9573c83a1f2b0c7a570323fc615db3ce4c20eb60733c96abaa6c1d84415455e2",
+    "backend/app/agent/plans.py": "6e57e742cd6e949640f7d9ae12f5917d6ffbe1f4d6955f804b42814d101c0f60",
+    "backend/app/agent/privacy.py": "12287bdefa888d58999c36becf593c898124be87f653ece9269ff70fb8117de6",
+    "backend/app/agent/provider.py": "76b8378dd885110aa886b7e69ca9b634d40d45c41095a0a4f95fa2e3ff3c0080",
+    "backend/app/agent/registry.py": "290a042a2779c15a95e955640a7a5834bca8a36d950f9d6e8902f51c0d9a92dd",
+    "backend/app/agent/requirements.py": "11870a8a621ecbb4d5c5395ea5e88777e675b373f97deab2e44dba02bd4b3dad",
+    "backend/app/agent/sandbox.py": "89a6165a7ff3bb1c02eb6794ba2e05e51e9245bd241bfdd365816585020e8c1a",
+    "backend/app/agent/sandbox_worker.py": "04b326dd17ffe9b89d23da02242b776d24ca8cc7befca83be7f891ef2e1eb697",
+    "backend/app/agent/service.py": "98877b7d51ae35b4b0c07cbc3db67aeeac61fdd4ac4f0f50291f8ef6cd5a43db",
+    "backend/app/agent/subscription_flow.py": "aa316c8c9de487343aa931f48e527e949f99d783644c5f8439c59bed333e7fc5",
+    "backend/app/agent/telemetry.py": "c94566e993e12c5323edcaafc786ddd088884a7123b190a1325a612c24c42f88",
+    "backend/app/agent/wealth_flow.py": "7d324b84b5427b89f73b7f4fc2233623d007f146a3d80694abfc9e41a37b76bf",
+    "backend/app/api/birthdays.py": "922b8311902199239ba1c7bd2051f504ea27547d36941f8b80956a81f73e7eec",
+    "backend/app/api/cards.py": "9f0d4e52c7e3be907f8da486e5fe095cbb5e16d13abf8ce49aa4d744064e6d08",
+    "backend/app/api/collections.py": "0f1afb1f526adb486cd666c654eedf77414c520a2a57ffc700d46b720aaa2619",
+    "backend/app/api/control.py": "fd8f5f3cff88b1e2facd044f9462de0804f5a2868d0e2d25a568a49a0b959214",
+    "backend/app/api/roles.py": "876195053f589d6fa3e8d91fd0c0bbae127c372f5fc9a0f1bef9feab34f9e00f",
+    "backend/app/api/schedules.py": "bbe88ab4a4a2f3824f3d3fcd7ffe57fa755c1c177140285a7390a5e460f698b6",
+    "backend/app/api/security.py": "6fba33302f302d2fc46b3225a77187f5156da9b05546ca6db5990243cd00b835",
+    "backend/app/api/subscriptions.py": "ec9c5a3139b159a0b33331e1f0e02e37435537ddcd1a745c3f2d9afc2c4cf36e",
+    "backend/app/api/wealth.py": "838cc3f6f3f21de58fad6f842000b1a41818500c843486a6bac52b93930c9624",
+    "backend/app/config.py": "e117a1058c8c75479ef0bbc48c6cb8eb9b52d6917013b1e80de7fdb709255027",
+    "backend/app/data/__init__.py": "9859aa67f89d54c48d8253b8bbb07ddc8c71c9373359bdeb03447c0ca720b951",
+    "backend/app/data/atomic.py": "dc8e3077b8be233bccca0f1652d88105130004db8cb9ae4cc41d0fac45c5e048",
+    "backend/app/data/birthday_models.py": "3ed4e518c51df16cee2e7e89093867808b2c55269f72b0292ed75661fbc01cc4",
+    "backend/app/data/card_models.py": "0dd2415b6a045db0a61fdefc220d241de4e5f692e1c332304ebce26d2f52cd00",
+    "backend/app/data/cli.py": "daacb966f339fe2c6d270c3bf8009b95ddf6f758802a6322d9288aa1724622c8",
+    "backend/app/data/collection_models.py": "79688f220f9c71edfe1f49ecaf6b333a4ec1106091919e1ae0705f2764097eba",
+    "backend/app/data/db.py": "ee899cd47c6ac3fb71f7414673c126a30c3a8fe0213d1c36df89216d868c09f3",
+    "backend/app/data/models.py": "1781e378b5abfefc085ec53b582a1f93da4b524fcdc00ca94c9be77c33e320d1",
+    "backend/app/data/scheduled_models.py": "3912a5de5737d0a88a503c63951815d588426643b7c0965b120abe5feb70c2fb",
+    "backend/app/data/security_models.py": "ec6cc08369450141555c37a10822679ac4f15f8f151ed84b73807531689ddd1f",
+    "backend/app/data/seed.py": "dacc6a57243347c7dcf7e2401597e58e96a0ed9e8f3ddbc475cc4f37680cb140",
+    "backend/app/data/subscription_models.py": "ab70a7629350e4e3f2b0afe3664c43e869b5ba633dc4384727cc7e4ad2e818d4",
+    "backend/app/data/wealth_models.py": "40c162b0eab0ae3dc7441777b1c39f5175d0fe6a688450405ab8885f8e1c64ba",
+    "backend/app/domain/__init__.py": "e6a430510207d3c8bb47e4b6dc3e0fa946f5aba4c72e6ec0d346842445bc73f7",
+    "backend/app/domain/birthdays.py": "4d547864697799b6a0147ba7c1dff9a939c2c625e51dab94008ba9cd26811d2e",
+    "backend/app/domain/card_management.py": "8a42b7c66324d2b0068739d7014300262d6c72eb8311be01299feb2a042de9be",
+    "backend/app/domain/clock.py": "6147ff63245a2ca401efb272dc3438655abdc98572d650075a8d34fb88ba56eb",
+    "backend/app/domain/collections.py": "8ae472f7a190724fbfe3db1777eae53e73b556ad80c05489460c220aaedfe3e5",
+    "backend/app/domain/conditions.py": "5bae41d3d12bbae2c568504eeb97d62536f3337c6f844fc07e981ddf85c32948",
+    "backend/app/domain/direct_recipient.py": "16714448444ea6a3d508e310fc8aa09e469b0e6c121cb146202fb734c12cdd12",
+    "backend/app/domain/errors.py": "c94f561fce82dc62680db3e0caef9e22aa5e7bfcff71c29a38c5b541587b2a0c",
+    "backend/app/domain/ledger.py": "bfdeea6fa567d8c21807d5eaaace75f087479a1f080330b143efc75eb2588496",
+    "backend/app/domain/money.py": "9b581f51babf7411a7b400feb5193746e32ea16d942b562827f92907c63067f4",
+    "backend/app/domain/operations.py": "a47a630100ce52f9650ac6d301834624d7195a560b8a9c941ce1bed0ed6b1a28",
+    "backend/app/domain/recipient_directory.py": "6ded23d8ae1a325f4975448759a12cc48d156047d04acae0eda594de88f0aa47",
+    "backend/app/domain/scheduled_transfers.py": "6dc7f7f68341bc0ada893d922a9adf044e4630441fc6082801e78d15d1955f66",
+    "backend/app/domain/security.py": "74464cda9dc06063342abc30ebe84833b0d2d90458d0fe469342f760c028a746",
+    "backend/app/domain/spending.py": "6fddabb133bc1951285bf9edf061790da4ea595b0a686fbb9c119366905dc07d",
+    "backend/app/domain/statement.py": "e9da680e1df4fce4827d1f2eac1856146930e2321ae5cc50e4a858a35ea0f6e4",
+    "backend/app/domain/subscriptions.py": "9174a9491f95274bd5f0ebb01f32cbcd1c1a858b5ef843c099c6901c271d94c3",
+    "backend/app/domain/wealth.py": "8879d492f1cc1cf5641dc50042cfeeb72b4ed8e1e15c8c93a7f9c0799e90a869",
+    "backend/app/main.py": "ad91f9286ebeeea15ab81a6cc00f86c828fe7a7106292123102476ef996c080f",
+    "backend/evals/browser_app.py": "7b7a306c372911b1ba9b93e383bbf5651fbee1ec2f04e486f6ad2bfaa1759820",
+    "backend/evals/dialogue-v1.json": "86ba490bbdac9b9d826451bc6b3d580604dc3b37a6386290d6029e5a198acd3f",
+    "backend/evals/unified-dialogue-v1.json": "d90fd40fbb462d1ffdbc20ad136ce20a3a6438bca1530b700ed8caa0787d2916",
+    "backend/migrations/env.py": "dca159def4e60daed80095d7687d94d1ea8f9b80197f69f2360084ba7e0a29e8",
+    "backend/migrations/versions/0001_initial.py": "33c5305e3980db04829350b345229b29b3c2f79ac1d7eb7a4ce4b8ffbe37d5a6",
+    "backend/migrations/versions/0002_m3_operations.py": "24ceda84cbe3670bbc6fe77e60e1b41c0d92ed963935610583aae113d7485fef",
+    "backend/migrations/versions/0003_m4_agent.py": "dd19ad28e82b2d64b92ed02deb2c42fa6f19ce3e3ec7abb31380a348f068932a",
+    "backend/migrations/versions/0004_m5_plans.py": "a9ba501aca33191263e64ff0924e48b857ff2b67fb160b1345e956d577d0e123",
+    "backend/migrations/versions/0005_recipient_credits.py": "d2b17b8aa7d180367f3a859178441c9fc2fc37d67ebb41be607ca7194ff8683e",
+    "backend/migrations/versions/0006_recipient_phone.py": "ab347852f4d8feef1f95df8f18222648d7a39cc8495fb15bf47090f680224d71",
+    "backend/migrations/versions/0007_recipient_remark.py": "2dc7f59fe7544b759ae612154be5f2e7d582a0afdadcc1cb37cbecb803ef961e",
+    "backend/migrations/versions/0008_banking_workflows.py": "002df0577317af58505e031a342be9c0be14e06ed64f2e111217e6aa532fb0a6",
+    "backend/migrations/versions/0009_wealth_workflows.py": "28f4793bfb817dc0af7f4c4e6137df43510cb5cc5c9ce0584a9e14e55c0c8b1a",
+    "backend/migrations/versions/0010_card_management.py": "0194b3182be774bec97aeb3c534bf6678c962e649acaaa46fee6f6a9e70b5f65",
+    "backend/migrations/versions/0011_subscription_management.py": "2ad0ba15144764cc07546dbf74dd98d510928f4a705b41c9aded370a208667cd",
+    "backend/migrations/versions/0012_birthday_workflows.py": "1df76ea1b755b76d35231eb92da959d548025f9d59c247047e02a2884d8a70f2",
+    "backend/migrations/versions/0013_security.py": "8a90d36891598885ef81e8e173e1cbb07e028482e3101a3e88fd7d068254ca7d",
+    "backend/pyproject.toml": "9ec9d3771f5a7be483ed1effa4af92b4fff6681417856d5d7218d2a0e4de02ab",
+    "backend/requirements.lock": "5e1e5dfd311817fd1577700028894b8193e5251a5c4a7f4514f2f83f1c5e67e2",
+    "backend/tests/conftest.py": "bc6b348e51fd8c2314b0d2b18f2deb358f43eb7cbd0077ff16931807f37d1694",
+    "backend/tests/test_background.py": "4c0c3b306aa559196f2c392b81a18fd863ea5a2da10c964715a9c0fa23f44756",
+    "backend/tests/test_deepseek.py": "3c71b1f52bf7f23f285a11048df95357c71e735960eed15b843a0ec2bcde3452",
+    "backend/tests/test_http.py": "c0c871b6695b607304adf7698a8902270cb5b12f81bc37a897f9fbf7cdf3f7bb",
+    "backend/tests/test_migrations.py": "f71a57c9d7071a41a63a438c59ce93aff5bca77e8a2df358384e0babb076babe",
+    "backend/tests/test_p1_business.py": "eb24b43b74d7fe88989529208c53e549eadf3a46adfbe1fc0417118f2e63a3b2",
+    "backend/tests/test_p1_controls.py": "fe842236753fb6b83947cc1d75d51254cf6abbd5d5594faec200faafedee6381",
+    "backend/tests/test_p1_recovery.py": "694d33e035e936f6257314324b1083b66ee6a9b2da10e49c20f5a0638af6c1ea",
+    "backend/tests/test_planning.py": "f1a55598bd1381a33be861d7193e0d1c3d6b2cbbabd81f454210a8f0fbd97506",
+    "backend/tests/test_privacy_stdlib.py": "ef19b48e3e3b93a7fc218323aa2f4cb7f93151392a6cb31b3d2fa4a02ea0153b",
+    "backend/tests/test_sandbox_stdlib.py": "d5bbe1bb31a1668f22fad664e2b5864ea4b375b3799a15e9a4cbaa0f542c80a6",
+    "backend/tests/test_security.py": "4a760c41ada45b868dd24acb863f3b22c936854f4223de9a39f8fd8e085275cd",
+    "backend/tests/test_unified_dialogue.py": "da834967532fa7469bb8066d0b933a6054356aabf184d5848beb535c66538460",
+    "frontend/index.html": "35ed86f25fbf7238164da4bef5354b33702d86b42d8153b2aa28964c8185167b",
+    "frontend/package-lock.json": "5b18515af2cd224c9839a1c8b8df2a18b0cb4b680bffd0af3deac4345cf385be",
+    "frontend/package.json": "1e7c3a3306baba98c83e67aca9d056fa3b5acc3848d63da37a2fc73d20485c5d",
+    "frontend/src/AgentPanel.tsx": "b9f6c71e08fb76dba6339e472d3e967f518c1981ed4f795cf603b25bc028a41d",
+    "frontend/src/AnalyticsReport.tsx": "908b834b7ca126c38c82e0c35d46eaa2cb466ba3c08c3c6c77b9b8566c35a2c4",
+    "frontend/src/api.ts": "e9ff5f1c3979d12dbdb3f71ed32910d3f6cdf61b1e847a19f3fd5bf28826f4af",
+    "frontend/src/App.tsx": "4ce9554608f28391eb3a4b1b923bdd4af40d65e935c6cd04523b0306568d6c95",
+    "frontend/src/ApprovalPanel.tsx": "40f5f2db72a9c9e96d6be8b9b0a1715b8a76cdb01e593ceaefabc64a8fa6a157",
+    "frontend/src/BankingWorkflows.tsx": "c614ce0583fe03b5895ced2f8393c0810b9eb142b5be22d64591caf0d0bc57f2",
+    "frontend/src/Birthdays.css": "bdc3354264e549cd0e877f6c516612738ebc59935dd2b6851662dd0c93afec6c",
+    "frontend/src/Birthdays.tsx": "9fa0577e958905aea1de0512ad7e30dc9b2cdd8b2e91ecd33080fecd553a9887",
+    "frontend/src/CardManagement.tsx": "4581adc846542496436b4f6ccb115c39c8b98f1310a0a50861b7420e9cccb538",
+    "frontend/src/ConditionDetails.tsx": "f911b1e6f66a3e7a485502ae7ce51a518d40e871f6eb113e3c106ded22edc8f3",
+    "frontend/src/main.tsx": "d1829f1447aa5e9a718e1ec769ff514019fd5c279b010ab1d6f950f36c63786a",
+    "frontend/src/OperationPanel.tsx": "eded942735ceb73497101301e37187011f79459cf61408a23b74d95a805d385f",
+    "frontend/src/OperatorPanel.tsx": "0b366b40d990300384321d1c2eea968eadeb3b3b93d07b35447bbd1270b94114",
+    "frontend/src/RecipientNotes.tsx": "4d1485462776b36732e1d9897cefbf2e2ab5a2dfe9523b3a653c7ce325fd12af",
+    "frontend/src/SecurityGate.tsx": "d143c0f55953058379c9059fa833c35c3f4e30889ec0d6e9fc42e9e3718479e3",
+    "frontend/src/SecurityStatus.tsx": "eb33da0580953ec91b46859633913d9151f9047c758726c03f3d2d8ffd80b13b",
+    "frontend/src/SpendingChart.tsx": "25f001b2926e293644587023a7fad8fe3bf74a1f96c1fcd7b3978bae9b180ef5",
+    "frontend/src/SpendingPanel.tsx": "6e8359b43d20dcc3fc5213c665709741747599a10f18d910eabb451abb01a263",
+    "frontend/src/style.css": "701f18698529d2c4fac91eb96907ad1abda69f3465f248c9a799512340416582",
+    "frontend/src/Subscriptions.css": "3d9538efc7337f2c6d5d41a8ccf79a96d447e05b4e2c205d522d4b0888e298e8",
+    "frontend/src/Subscriptions.tsx": "ef101089b0a351e8eaf900a07ba9eeca0a9aed3bcb066680961baa22c0408cf5",
+    "frontend/src/TaskDetailsForm.tsx": "0109c7a83cf5414ccd9a02d2359ec3f665d65a9468b164c029c4da3ace8577f9",
+    "frontend/src/TransactionEvidence.tsx": "59f5877f9142f93857df5f6e96ca5cc1f90c95d882cfaf2c09d7f9e8632811d5",
+    "frontend/src/useTaskSync.ts": "39eac7dfa04a64f9526237cf9fef611b2b3143c09b6a8548a9b37bf394812cc6",
+    "frontend/src/WealthPanel.tsx": "1dcdd016763ce2a5020badbcb0ea4d6fe298ca452e53dcac7d865c4e062b4623",
+    "frontend/tests/api-regression.cjs": "e7ff4d1e8e6e0b900fcc30c0107fb6683aadee78d670650ac01b300587d1513f",
+    "frontend/tests/check-syntax.cjs": "b9eafa7738fd66ccedb2733b0b28049e99b3efb252589257d2c30295447bbf93",
+    "frontend/tests/dialogue-browser.mjs": "7065b0955d957c2c89369d6521e4bacf698eae5f92da921acc8d0da3ce940d88",
+    "frontend/tests/p0-browser.mjs": "abaa600342696dab106113b88df9560f1320c39be08e2b8b311f1f5c64148db2",
+    "frontend/tests/p1-browser.mjs": "29928961bf1244cd84afb39813d80c65f91f4e6b72010462601c6e1c0cf77b36",
+    "frontend/tsconfig.json": "205bbf875a6b159b2c3b4639ab45f50603bb6a8bcc281255573c6f71cb058f27",
+    "frontend/vite.config.ts": "12a8f35a9a0d8c083e4468d326d3f377cbfae05e44f78d72637d31f38ffa5ab5",
+    "scripts/approver-key.ps1": "20af3e779fb1479095f6f7a925b922049950d98343aabfcf5ec7741a698c828a",
+    "scripts/auth-code.ps1": "9181c029836f12d178a601bce98f993e705d5fbbc71313d3678cfffa63ef4c86",
+    "scripts/build-launcher.ps1": "188c1f24c7e396fcbad6243cabaaa0f0fc1f98547df3684c74bee2b467a95444",
+    "scripts/check-static.py": "cd178b7ca1435d08a9b3b61d6fee9542d3f66ab522d9c098b5d3f8dd8ade7299",
+    "scripts/container-start.py": "6961397982b9f958862990d6b191c486b94218bb700b3c3c6b2850d74ffcb7db",
+    "scripts/dev.ps1": "91922b26fe65a463d9e7ae0c4699898a10dab67f379ce15f7804cf0652da0438",
+    "scripts/ensure-venv.ps1": "a45174140505db85383459be73b07737ab8cd14a464d6eddcbaef398460b6ed1",
+    "scripts/evaluate-dialogue.py": "4e9233342855ed078aaa5ed1f78f5a228cb921959021c9220288ed9da435cff7",
+    "scripts/evaluate-unified-dialogue.py": "c7de79abd9db34717d8f3e0bab15588130688bb678f939e9eb38bff7f3bbae99",
+    "scripts/inventory-release.py": "2728b2fc71f796b784d56f7d02642dbf183102219f332c0af8148d4751184215",
+    "scripts/launcher-run.ps1": "dab12dde28c733131267f94f12f27f55055c623aa3c61c037cb35058cb3e4487",
+    "scripts/Launcher.cs": "4250dfbb3a3b929b9d106c730deb027fc83a20b52ab2c181825d2a059e4b8cbd",
+    "scripts/local-auth.py": "d065218a1bfbfae74a16b24ea85d7019c46d9cee829ba6800e6d37b1c0ce0f76",
+    "scripts/operator-key.ps1": "c25e26e099585341797095f24e7bb321ee19f3a5788c34f0861324c560b2e3f2",
+    "scripts/package-source.py": "a8ef6c36c47e61aa406da4f96e3a0fd7551660c3bbbd7e3679dbe16970b90c25",
+    "scripts/reset-demo.ps1": "bcef0eaba785b5221a4df5d20792c253af088845e148b7bc558c1fd0cb0fea33",
+    "scripts/resolve-node.ps1": "5af157a46d34299fa8b44be4484226b71ed6f8adc177f07ea11a606a8f6561ab",
+    "scripts/run-browser-tests.py": "825b3763048305e4c84f54d345edd1622b140b11756fb9ab65e3d1f3de737adb",
+    "scripts/setup-node.ps1": "6ad67b2e1372ff907d67cc063ee76a06a35a58b4c04e3830bb20f81ff9e70c11",
+    "scripts/setup.ps1": "e8631fd7d2a165f925bc2bbe3404f7e837fd7b1a59998f136cdc5b15a098e793",
+    "scripts/smoke-backend.py": "f713e5fae7b4a30931e3af057452673ac727697e94bdf6e45f421a41b8b71825",
+    "scripts/test-p0.ps1": "b678128886ce8a9cb5adebc01f7ef0b7dfbcc3b952c4c8cbb25f41c7a8b8c42c"
+  },
+  "database_head": "0013_security",
+  "seed_version": "m2-2026-09-25-1",
+  "actual_model_key_found_in_distributable_sources": false,
+  "private_env_excluded": true,
+  "python_packages": [
+    {
+      "name": "alembic",
+      "pinned": "1.20.0",
+      "installed": "1.20.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "annotated-doc",
+      "pinned": "0.0.5",
+      "installed": "0.0.5",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "annotated-types",
+      "pinned": "0.8.0",
+      "installed": "0.8.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "anyio",
+      "pinned": "4.15.1",
+      "installed": "4.15.1",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "certifi",
+      "pinned": "2026.7.22",
+      "installed": "2026.7.22",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "name": "click",
+      "pinned": "8.5.0",
+      "installed": "8.5.0",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "colorama",
+      "pinned": "0.4.6",
+      "installed": "0.4.6",
+      "license_metadata": "not declared"
+    },
+    {
+      "name": "fastapi",
+      "pinned": "0.141.1",
+      "installed": "0.141.1",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "greenlet",
+      "pinned": "3.5.6",
+      "installed": "3.5.6",
+      "license_metadata": "MIT AND PSF-2.0"
+    },
+    {
+      "name": "h11",
+      "pinned": "0.16.0",
+      "installed": "0.16.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "httpcore",
+      "pinned": "1.0.9",
+      "installed": "1.0.9",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "httpx",
+      "pinned": "0.28.1",
+      "installed": "0.28.1",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "idna",
+      "pinned": "3.20",
+      "installed": "3.20",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "iniconfig",
+      "pinned": "2.3.0",
+      "installed": "2.3.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "Mako",
+      "pinned": "1.4.3",
+      "installed": "1.4.3",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "MarkupSafe",
+      "pinned": "3.0.3",
+      "installed": "3.0.3",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "packaging",
+      "pinned": "26.3",
+      "installed": "26.3",
+      "license_metadata": "Apache-2.0 OR BSD-2-Clause"
+    },
+    {
+      "name": "pluggy",
+      "pinned": "1.6.0",
+      "installed": "1.6.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "pydantic",
+      "pinned": "2.13.5",
+      "installed": "2.13.5",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "pydantic_core",
+      "pinned": "2.46.5",
+      "installed": "2.46.5",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "Pygments",
+      "pinned": "2.21.0",
+      "installed": "2.21.0",
+      "license_metadata": "BSD-2-Clause"
+    },
+    {
+      "name": "pytest",
+      "pinned": "9.1.1",
+      "installed": "9.1.1",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "python-dotenv",
+      "pinned": "1.2.3",
+      "installed": "1.2.3",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "SQLAlchemy",
+      "pinned": "2.0.54",
+      "installed": "2.0.54",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "starlette",
+      "pinned": "1.7.0",
+      "installed": "1.7.0",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "name": "typing-inspection",
+      "pinned": "0.4.4",
+      "installed": "0.4.4",
+      "license_metadata": "MIT"
+    },
+    {
+      "name": "typing_extensions",
+      "pinned": "4.16.0",
+      "installed": "4.16.0",
+      "license_metadata": "PSF-2.0"
+    },
+    {
+      "name": "tzdata",
+      "pinned": "2026.4",
+      "installed": "2026.4",
+      "license_metadata": "Apache-2.0"
+    },
+    {
+      "name": "uvicorn",
+      "pinned": "0.53.0",
+      "installed": "0.53.0",
+      "license_metadata": "BSD-3-Clause"
+    }
+  ],
+  "node_packages": [
+    {
+      "path": "node_modules/@oxc-project/types",
+      "version": "0.151.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-android-arm-eabi",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-android-arm64",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-darwin-arm64",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-darwin-x64",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-freebsd-x64",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm-gnueabihf",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm64-gnu",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-arm64-musl",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-ppc64-gnu",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-s390x-gnu",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-x64-gnu",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-linux-x64-musl",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-openharmony-arm64",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-win32-arm64-msvc",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/binding-win32-x64-msvc",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@rolldown/pluginutils",
+      "version": "1.0.1",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@types/react",
+      "version": "19.3.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@types/react-dom",
+      "version": "19.3.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/@vitejs/plugin-react",
+      "version": "6.1.1",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/csstype",
+      "version": "3.2.3",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/detect-libc",
+      "version": "2.1.2",
+      "license_metadata": "Apache-2.0"
+    },
+    {
+      "path": "node_modules/fdir",
+      "version": "6.5.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/fsevents",
+      "version": "2.3.3",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/lightningcss",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-android-arm64",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-darwin-arm64",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-darwin-x64",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-freebsd-x64",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm-gnueabihf",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm64-gnu",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-linux-arm64-musl",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-linux-x64-gnu",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-linux-x64-musl",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-win32-arm64-msvc",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/lightningcss-win32-x64-msvc",
+      "version": "1.33.0",
+      "license_metadata": "MPL-2.0"
+    },
+    {
+      "path": "node_modules/nanoid",
+      "version": "3.3.19",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/picocolors",
+      "version": "1.1.1",
+      "license_metadata": "ISC"
+    },
+    {
+      "path": "node_modules/picomatch",
+      "version": "4.0.7",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/playwright-core",
+      "version": "1.63.0",
+      "license_metadata": "Apache-2.0"
+    },
+    {
+      "path": "node_modules/postcss",
+      "version": "8.5.28",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/react",
+      "version": "19.3.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/react-dom",
+      "version": "19.3.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/rolldown",
+      "version": "1.2.10",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/scheduler",
+      "version": "0.28.0",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/source-map-js",
+      "version": "1.2.1",
+      "license_metadata": "BSD-3-Clause"
+    },
+    {
+      "path": "node_modules/tinyglobby",
+      "version": "0.2.17",
+      "license_metadata": "MIT"
+    },
+    {
+      "path": "node_modules/typescript",
+      "version": "5.9.3",
+      "license_metadata": "Apache-2.0"
+    },
+    {
+      "path": "node_modules/vite",
+      "version": "8.3.0",
+      "license_metadata": "MIT"
+    }
+  ],
+  "license_review": "Metadata inventory only; absent project LICENSE and third-party notices require team review. No legal compliance conclusion.",
+  "not_final_submission": true
+}

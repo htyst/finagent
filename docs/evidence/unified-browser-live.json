@@ -1,0 +1,25 @@
+{
+  "mode": "actual_Edge_and_DeepSeek",
+  "passed": [
+    "Live同名消歧",
+    "Live改参新单",
+    "Live暂停后插问",
+    "Live黄色确认及响应丢失恢复",
+    "Live原回执只读查询",
+    "Live账单省略追问",
+    "Live卡片指代改参和黄色确认",
+    "Live刷新恢复"
+  ],
+  "errors": [],
+  "metrics": {
+    "mode": "real_deepseek_browser",
+    "api_budget": 30,
+    "http_attempts": 17,
+    "usage_records": 17,
+    "tokens": {
+      "prompt_tokens": 179138,
+      "completion_tokens": 5761,
+      "total_tokens": 184899
+    }
+  }
+}

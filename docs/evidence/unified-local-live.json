@@ -1,0 +1,19 @@
+{
+  "checked_at_utc": "2026-10-15T14:23:02.559205+00:00",
+  "mode": "live",
+  "model": {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "configured": true,
+    "configuration_error": null
+  },
+  "demo_date": "2026-09-24",
+  "health": {
+    "service": "finagent",
+    "phase": "P0",
+    "test_only": false
+  },
+  "frontend_http_status": 200,
+  "database_reset": false,
+  "banking_mutations_during_check": 0
+}

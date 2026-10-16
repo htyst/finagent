@@ -1,0 +1,16 @@
+{
+  "run": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-d0ebbffc08dd438583be0ea03c64f7ba",
+  "status": "passed",
+  "suites": [
+    {
+      "suite": "p0-browser.mjs",
+      "exit_code": 0,
+      "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-d0ebbffc08dd438583be0ea03c64f7ba\\p0-browser\\browser.log"
+    },
+    {
+      "suite": "p1-browser.mjs",
+      "exit_code": 0,
+      "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-d0ebbffc08dd438583be0ea03c64f7ba\\p1-browser\\browser.log"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-15",
+  "timezone": "Asia/Shanghai",
+  "stdlib_tests": {
+    "command": "D:\\Miniconda\\python.exe -m unittest discover -s finagent/backend/tests -p '*_stdlib.py' -v",
+    "passed": 14,
+    "failed": 0,
+    "seconds": 0.865,
+    "scope": "11 sandbox process boundary tests and 3 authentication privacy tests"
+  },
+  "frontend_api": {
+    "command": "VS Code Electron with ELECTRON_RUN_AS_NODE=1: finagent/frontend/tests/api-regression.cjs",
+    "passed": 14,
+    "failed": 0,
+    "duration_ms": 45.0344,
+    "scope": "actual api.ts transpiled into isolated VM with mocked HTTP; not browser E2E",
+    "stderr_note": "Electron Crashpad reported access denied; Node test runner completed and reported 14 pass, 0 fail"
+  },
+  "backend_pytest": {
+    "status": "blocked-before-collection",
+    "collected": null,
+    "passed": null,
+    "failed": null,
+    "output": "D:\\Miniconda\\python.exe: No module named pytest"
+  },
+  "full_runner": {
+    "status": "blocked-before-execution",
+    "output": "PSSecurityException: test-p0.ps1 cannot be loaded because running scripts is disabled on this system",
+    "policy_changed": false
+  },
+  "initial_powershell_parse": {
+    "errors": 6,
+    "cause": "New UTF-8 script without BOM decoded as ANSI by Windows PowerShell",
+    "fix": "Saved test-p0.ps1 as UTF-8 with BOM",
+    "after_fix_errors": 0
+  },
+  "final_typescript_capture": {
+    "first_attempt": "PowerShell capture returned no JSON from Electron GUI host; wrapper failed closed",
+    "fix": "Hidden Start-Process with Wait and redirected stdout",
+    "result": "21 files syntax passed; see typescript-syntax.json"
+  },
+  "not_run": ["full backend pytest", "TypeScript semantic typecheck", "Vite build", "browser E2E", "Docker", "real Live model"],
+  "installation_requests": "venv and dependency installation escalation requests were declined; no retry of denied installation",
+  "release_status": "candidate-not-integration-accepted"
+}

@@ -1,0 +1,54 @@
+{
+  "mode": "live",
+  "split": "dev",
+  "dataset_version": "p1-dialogue-v1-20261015",
+  "review_status": "draft_requires_independent_human_review",
+  "denominator": 3,
+  "passed": 0,
+  "goal_or_safe_clarification_rate": 0.0,
+  "unauthorized_postings": 0,
+  "p50_seconds": 4.347894,
+  "p95_seconds": 4.740089,
+  "provider_usage_records": 0,
+  "provider_tokens": null,
+  "cost": null,
+  "cost_note": "No provider billing record; cost not estimated",
+  "model_attempts": 6,
+  "plan_repairs": null,
+  "plan_repairs_note": "Not inferred from HTTP attempts; inspect task plan violations separately",
+  "results": [
+    {
+      "id": "DEV01",
+      "category": "read",
+      "passed": false,
+      "status": "gathering_info",
+      "intent": null,
+      "error_code": null,
+      "unauthorized_postings": 0,
+      "model_attempts": 2,
+      "seconds": 4.740089
+    },
+    {
+      "id": "DEV02",
+      "category": "read",
+      "passed": false,
+      "status": "gathering_info",
+      "intent": null,
+      "error_code": null,
+      "unauthorized_postings": 0,
+      "model_attempts": 2,
+      "seconds": 4.342431
+    },
+    {
+      "id": "DEV03",
+      "category": "read",
+      "passed": false,
+      "status": "gathering_info",
+      "intent": null,
+      "error_code": null,
+      "unauthorized_postings": 0,
+      "model_attempts": 2,
+      "seconds": 4.347894
+    }
+  ]
+}

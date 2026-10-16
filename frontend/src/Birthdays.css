@@ -1,0 +1,48 @@
+.birthday-management { scroll-margin-top: 24px; }
+.birthday-management h3 { margin: 28px 0 12px; }
+.birthday-management h4 { margin: 0; line-height: 1.5; }
+.birthday-management p { line-height: 1.7; overflow-wrap: anywhere; }
+.birthday-management small { display: block; margin-top: 10px; color: #697586; overflow-wrap: anywhere; }
+.birthday-management button { margin: 8px 10px 0 0; padding: 11px 16px; border: 1px solid #4355DB; border-radius: 9px; background: #4355DB; color: white; font: inherit; font-size: 14px; min-height: 44px; cursor: pointer; }
+.birthday-management button.secondary { background: white; color: #3547C1; border-color: #DCE1F6; }
+.birthday-management button:disabled { opacity: .45; cursor: not-allowed; }
+.birthday-management button:focus-visible { outline: 3px solid #4355DB; outline-offset: 3px; }
+.birthday-management .section-heading { gap: 16px; }
+.birthday-management .task-sync { flex-wrap: wrap; gap: 10px; }
+.birthday-management .task-sync > span:last-child { color: #697586; font-size: 12px; }
+.birthday-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.birthday-funds, .birthday-request, .birthday-plan, .birthday-order, .birthday-notification { padding: 20px; margin-top: 12px; border: 1px solid #E5E9F0; border-radius: 14px; background: #fff; overflow-wrap: anywhere; min-width: 0; }
+.birthday-grid > article { margin-top: 0; }
+.birthday-card-heading { display: flex; gap: 12px; align-items: start; justify-content: space-between; }
+.birthday-card-heading .tag { flex-shrink: 0; }
+.birthday-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px; background: #F7F8FC; border-radius: 10px; }
+.birthday-summary-grid dt, .birthday-fund-values dt { color: #566274; font-size: 12px; margin-bottom: 7px; }
+.birthday-summary-grid dd { margin: 0; font-weight: 700; line-height: 1.7; }
+.birthday-detail { font-size: 12px; font-weight: 400; color: #697586; }
+.birthday-fund-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 18px 0; margin: 0; }
+.birthday-fund-values dd { margin: 0; font-weight: 700; color: #17212F; font-variant-numeric: tabular-nums; font-size: 19px; }
+.birthday-plan .birthday-fund-values { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.birthday-change { padding: 12px 16px; border-radius: 9px; background: #FFFBEB; color: #92400E; }
+.birthday-receipt { margin: 14px 0; padding: 14px 16px; border-radius: 9px; background: #F0FDF4; }
+.birthday-receipt p { margin-bottom: 0; }
+.birthday-events table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12px; }
+.birthday-events caption { text-align: left; font-weight: 700; padding: 8px 0; }
+.birthday-events th, .birthday-events td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid #E5E9F0; }
+.birthday-events th { background: #F7F8FC; }
+.birthday-events th:first-child, .birthday-events td:first-child { min-width: 132px; }
+.birthday-notification { border-left: 4px solid #4355DB; background: #F7F8FC; }
+.account-card .account-funds { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-top: 14px; margin: 14px 0 0; border-top: 1px solid #eef1ec; }
+.account-funds dt { font-size: 11px; color: #697586; margin-bottom: 4px; }
+.account-funds dd { margin: 0; font-size: 15px; font-weight: 700; color: #3547C1; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .birthday-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .birthday-management .section-heading { align-items: start; flex-wrap: wrap; }
+  .birthday-management .section-heading > button { margin: 0; }
+  .birthday-summary-grid { grid-template-columns: 1fr; }
+  .birthday-card-heading { flex-wrap: wrap; }
+  .birthday-fund-values { grid-template-columns: 1fr; gap: 14px; }
+  .birthday-plan .birthday-fund-values { grid-template-columns: 1fr; }
+  .birthday-fund-values > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .birthday-fund-values dt { margin: 0; }
+  .birthday-funds, .birthday-request, .birthday-plan, .birthday-order, .birthday-notification { padding: 16px; }
+}

@@ -1,0 +1,13 @@
+{
+  "passed": [
+    "real-server-session-and-green-read",
+    "yellow-transfer-and-idempotent-receipt",
+    "red-transfer-denied-with-ordinary-token",
+    "independent-simulated-proof-and-red-execution",
+    "used-proof-cannot-be-verified-again",
+    "yellow-subscription-query",
+    "persistent-lock-green-read-and-cancellation"
+  ],
+  "status": "passed",
+  "database": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\server-smoke-4733120bc90f40a89b218be22599f2a4\\server.sqlite3"
+}

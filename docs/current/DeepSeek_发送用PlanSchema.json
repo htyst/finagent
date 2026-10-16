@@ -1,0 +1,544 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "steps": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tool": {
+            "enum": [
+              "list_accounts",
+              "list_transactions",
+              "summarize_spending",
+              "list_recipients",
+              "list_cards",
+              "prepare_transfer",
+              "prepare_card_action",
+              "get_task_status"
+            ],
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "amount_yuan": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "餐饮",
+                      "购物",
+                      "交通",
+                      "未分类",
+                      "全部"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "account": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "card": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "action": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "freeze",
+                      "unfreeze"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "time": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "offset",
+                          "period",
+                          "recurring"
+                        ],
+                        "type": "string"
+                      },
+                      "unit": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "day",
+                              "month"
+                            ],
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "n": {
+                        "anyOf": [
+                          {
+                            "maximum": 365,
+                            "minimum": -365,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "period": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "this_month",
+                              "last_month",
+                              "today",
+                              "yesterday"
+                            ],
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "freq": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "monthly"
+                            ],
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "day": {
+                        "anyOf": [
+                          {
+                            "maximum": 31,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "unit",
+                      "n",
+                      "period",
+                      "freq",
+                      "day"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "q": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "required": [
+              "source",
+              "target",
+              "amount_yuan",
+              "category",
+              "account",
+              "card",
+              "action",
+              "time",
+              "q",
+              "task_id"
+            ]
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "step_ref": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "enum": [
+                      "net_minor"
+                    ],
+                    "type": "string"
+                  },
+                  "op": {
+                    "enum": [
+                      "gt",
+                      "lt"
+                    ],
+                    "type": "string"
+                  },
+                  "value": {
+                    "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "step_ref",
+                  "field",
+                  "op",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "offset",
+                      "period",
+                      "recurring"
+                    ],
+                    "type": "string"
+                  },
+                  "unit": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "day",
+                          "month"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "n": {
+                    "anyOf": [
+                      {
+                        "maximum": 365,
+                        "minimum": -365,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "period": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "this_month",
+                          "last_month",
+                          "today",
+                          "yesterday"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "freq": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "monthly"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "day": {
+                    "anyOf": [
+                      {
+                        "maximum": 31,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "unit",
+                  "n",
+                  "period",
+                  "freq",
+                  "day"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on_failure": {
+            "enum": [
+              "stop",
+              "continue_independent_readonly"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tool",
+          "params",
+          "depends_on",
+          "condition",
+          "recurrence",
+          "on_failure"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "recurrence": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "offset",
+                "period",
+                "recurring"
+              ],
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "day",
+                    "month"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "n": {
+              "anyOf": [
+                {
+                  "maximum": 365,
+                  "minimum": -365,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "period": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "this_month",
+                    "last_month",
+                    "today",
+                    "yesterday"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "freq": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "monthly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "day": {
+              "anyOf": [
+                {
+                  "maximum": 31,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "unit",
+            "n",
+            "period",
+            "freq",
+            "day"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "emotion": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "neutral",
+            "urgent",
+            "frustrated",
+            "distressed"
+          ],
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "state",
+        "confidence",
+        "evidence"
+      ]
+    },
+    "clarification": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "steps",
+    "recurrence",
+    "emotion",
+    "clarification"
+  ]
+}

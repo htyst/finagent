@@ -1,0 +1,25 @@
+{
+  "checked_at_utc": "2026-10-15T10:44:42.800226+00:00",
+  "source_files_scanned": 170,
+  "source_key_matches": 0,
+  "env_excluded_from_source_package": true,
+  "external_model_probe": "sandbox-network-failed; elevated-probe-not-approved",
+  "external_model_calls_in_this_check": 0,
+  "mode": "live",
+  "model_status": {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "configured": true,
+    "configuration_error": null
+  },
+  "demo_date": "2026-09-24",
+  "local_http": {
+    "/": 200,
+    "/api/health": 200,
+    "/api/demo/info": 200,
+    "/src/main.tsx": 200,
+    "/src/App.tsx": 200,
+    "/src/AgentPanel.tsx": 200,
+    "/src/api.ts": 200
+  }
+}

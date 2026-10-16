@@ -1,0 +1,200 @@
+{
+  "mode": "real_deepseek",
+  "dataset": "unified-dialogue-v1-20261015",
+  "review_status": "implementation_author_reviewed_independent_human_adjudication_pending",
+  "denominator": 5,
+  "passed": 2,
+  "http_attempts": 17,
+  "api_budget": 48,
+  "usage_records": 17,
+  "tokens": {
+    "prompt_tokens": 165551,
+    "completion_tokens": 15982,
+    "total_tokens": 181533
+  },
+  "cost": null,
+  "cost_note": "No billing record; not estimated",
+  "results": [
+    {
+      "id": "U01",
+      "category": "完整单轮",
+      "passed": true,
+      "seconds": 4.748,
+      "model_attempts": 1,
+      "turns": [
+        {
+          "text": "从活期账户转100元到储蓄账户",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "status": true,
+            "amount": true,
+            "target": true
+          }
+        }
+      ],
+      "ledger_errors": []
+    },
+    {
+      "id": "U02",
+      "category": "缺字段追问",
+      "passed": false,
+      "seconds": 7.704,
+      "model_attempts": 2,
+      "turns": [
+        {
+          "text": "帮我给李文转一笔钱",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "status": true,
+            "no_proposal": true
+          }
+        },
+        {
+          "text": "从活期账户付，金额60元",
+          "passed": false,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "status": false,
+            "amount": false,
+            "target": false
+          }
+        }
+      ],
+      "ledger_errors": []
+    },
+    {
+      "id": "U03",
+      "category": "同名消歧与否定",
+      "passed": false,
+      "seconds": 18.164,
+      "model_attempts": 5,
+      "turns": [
+        {
+          "text": "从活期账户转100元给张三",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "status": true,
+            "no_proposal": true
+          }
+        },
+        {
+          "text": "选尾号3821",
+          "passed": false,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": false,
+            "target": false
+          }
+        },
+        {
+          "text": "不是这个张三，重新让我选",
+          "passed": false,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "no_proposal": true,
+            "old_invalidated": false
+          }
+        },
+        {
+          "text": "换成尾号9156",
+          "passed": false,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": false,
+            "target": false
+          }
+        }
+      ],
+      "ledger_errors": []
+    },
+    {
+      "id": "U04",
+      "category": "连续改参",
+      "passed": false,
+      "seconds": 14.51,
+      "model_attempts": 4,
+      "turns": [
+        {
+          "text": "从活期账户转100元到储蓄账户",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true
+          }
+        },
+        {
+          "text": "改成800",
+          "passed": false,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": false,
+            "old_invalidated": false
+          }
+        },
+        {
+          "text": "不对，还是60元",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true,
+            "old_invalidated": true
+          }
+        }
+      ],
+      "ledger_errors": []
+    },
+    {
+      "id": "U05",
+      "category": "暂停插问后返回",
+      "passed": true,
+      "seconds": 19.353,
+      "model_attempts": 5,
+      "turns": [
+        {
+          "text": "从活期账户转100元到储蓄账户",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true
+          }
+        },
+        {
+          "text": "先别转，查一下余额",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "no_proposal": true,
+            "old_invalidated": true,
+            "tool": true
+          }
+        },
+        {
+          "text": "原来那笔改成80元，再准备一下",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true,
+            "target": true
+          }
+        }
+      ],
+      "ledger_errors": []
+    }
+  ]
+}

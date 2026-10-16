@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-15",
+  "backend_pytest": {
+    "passed": 60,
+    "failed": 0,
+    "subtests_passed": 4,
+    "seconds": 63.36,
+    "warnings": 2,
+    "junit": "backend-regression.xml",
+    "note": "JUnit tests=64 includes four subtests. CLI main-test count is 60."
+  },
+  "backend_initial_business_run": {"passed": 50, "failed": 4, "junit": "backend-first-business-run.xml"},
+  "frontend_api": {"passed": 14, "failed": 0, "duration_ms": 62.7993},
+  "typescript": {"command": "node node_modules/typescript/bin/tsc -b", "exit_code": 0, "scope": "full semantic typecheck"},
+  "backend_real_http": {"scenarios_passed": 7, "report": "backend-server-smoke.json"},
+  "pip_check": {"exit_code": 0, "output": "No broken requirements found."},
+  "frontend_build": {
+    "status": "blocked",
+    "command": "node node_modules/vite/bin/vite.js build",
+    "error": "plugin externalize-deps: spawn EPERM in Windows path resolution",
+    "outside_sandbox_request": "rejected by user",
+    "denied_action_retried": false
+  },
+  "backend_outside_sandbox_request": "rejected by user; tests subsequently ran inside the original sandbox with ordinary workspace temp directories",
+  "browser": {"status": "not_run", "script_syntax": "passed", "prepared_scenarios": 4},
+  "not_validated": ["production frontend build", "browser E2E", "Docker", "real Live model", "competition acceptance of simulated MFA"],
+  "release_status": "candidate-not-integration-accepted"
+}

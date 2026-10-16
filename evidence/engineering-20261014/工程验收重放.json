@@ -1,0 +1,208 @@
+{
+  "任务三与任务四与任务六": {
+    "正常计划": {
+      "status": "awaiting_confirmation",
+      "proposal_id": "2f46f099080e4c6f8bedddaf35345980",
+      "reply": "已准备固定操作单。请核对下方摘要并点击“确认执行”；聊天回复“确认”不会执行。",
+      "steps": [
+        {
+          "tool": "list_accounts",
+          "status": "succeeded",
+          "depends_on": []
+        },
+        {
+          "tool": "prepare_transfer",
+          "status": "awaiting_confirmation",
+          "depends_on": [
+            1
+          ]
+        }
+      ]
+    },
+    "条件拒绝": {
+      "status": "gathering_info",
+      "proposal_id": null,
+      "reply": "计划经过两轮定向修复仍未通过校验，请补充或重新说明账户、金额、条件与任务顺序。",
+      "steps": []
+    },
+    "修复轮数": 2,
+    "模型替身调用次数": 3,
+    "真实模型调用次数": 0
+  },
+  "任务八": {
+    "approved": true,
+    "would_block": [
+      "R4"
+    ],
+    "record_id": "619d044640bc41808cc0ef858399c40f",
+    "database": "D:\\finagent\\var\\neuro-validation\\replays\\traces.sqlite3"
+  },
+  "任务一": {
+    "四轮补充修订重放": [
+      {
+        "input": "从活期账户转100元",
+        "output": {
+          "status": "gathering_info",
+          "proposal_id": null,
+          "reply": "请补充收款目标。",
+          "steps": []
+        }
+      },
+      {
+        "input": "到储蓄账户",
+        "output": {
+          "status": "awaiting_confirmation",
+          "proposal_id": "37543b90004841afaa564ec48538f5f5",
+          "reply": "已准备固定操作单。请核对下方摘要并点击“确认执行”；聊天回复“确认”不会执行。",
+          "steps": [
+            {
+              "tool": "prepare_transfer",
+              "status": "succeeded",
+              "depends_on": []
+            }
+          ]
+        }
+      },
+      {
+        "input": "如果本月餐饮超过500元才转",
+        "output": {
+          "status": "awaiting_confirmation",
+          "proposal_id": "2ba4ca796a0d4940b9be75a37a3d44fa",
+          "reply": "条件当前成立；请核对固定区间和操作单。确认时会在事务内重算消费。",
+          "steps": [
+            {
+              "tool": "summarize_spending",
+              "status": "succeeded",
+              "depends_on": []
+            },
+            {
+              "tool": "prepare_transfer",
+              "status": "awaiting_confirmation",
+              "depends_on": [
+                1
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "input": "转账金额改成200元",
+        "output": {
+          "status": "awaiting_confirmation",
+          "proposal_id": "7a1b7610d8e54be4b81e759ddf2c1c64",
+          "reply": "条件当前成立；请核对固定区间和操作单。确认时会在事务内重算消费。",
+          "steps": [
+            {
+              "tool": "summarize_spending",
+              "status": "succeeded",
+              "depends_on": []
+            },
+            {
+              "tool": "prepare_transfer",
+              "status": "awaiting_confirmation",
+              "depends_on": [
+                1
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "最终条件": {
+      "account_id": null,
+      "category": "餐饮",
+      "end": "2026-09-24",
+      "start": "2026-09-01",
+      "threshold_minor": 50000,
+      "type": "spending_gt"
+    }
+  },
+  "任务二": {
+    "advance_before": {
+      "start_date": "2026-09-01",
+      "end_exclusive_date": "2026-09-25",
+      "start_utc": "2026-08-31T16:00:00+00:00",
+      "end_utc": "2026-09-24T16:00:00+00:00",
+      "timezone": "Asia/Shanghai"
+    },
+    "before_totals": {
+      "purchase_minor": 125000,
+      "refund_minor": 5000,
+      "net_minor": 120000,
+      "purchase_count": 2,
+      "refund_count": 1,
+      "is_complete": true
+    },
+    "advance_after": {
+      "start_date": "2026-10-01",
+      "end_exclusive_date": "2026-10-27",
+      "start_utc": "2026-09-30T16:00:00+00:00",
+      "end_utc": "2026-10-26T16:00:00+00:00",
+      "timezone": "Asia/Shanghai"
+    },
+    "after_totals": {
+      "purchase_minor": 0,
+      "refund_minor": 0,
+      "net_minor": 0,
+      "purchase_count": 0,
+      "refund_count": 0,
+      "is_complete": false
+    },
+    "clock_now": "2026-10-25T16:05:01+00:00",
+    "操作单过期": {
+      "elapsed_seconds": 301,
+      "status": "expired"
+    }
+  },
+  "任务五": {
+    "登记状态": "pending_confirmation",
+    "确认状态": "active",
+    "第一次触发": {
+      "now": "2026-09-30T16:00:00+00:00",
+      "notifications": [
+        {
+          "id": "0eb7616b8d25489fb142519e2e84a579",
+          "order_id": "d12c0924fa994a44ab7e5451e4a69e1b",
+          "period": "2026-10",
+          "status": "awaiting_confirmation",
+          "proposal_id": "1b5ab2cd2fbc4af5aea834fed8bf9c7f",
+          "message": "2026-10定期转账操作单已生成，请页面确认。"
+        }
+      ]
+    },
+    "页面确认回执": {
+      "proposal_id": "1b5ab2cd2fbc4af5aea834fed8bf9c7f",
+      "task_id": "556da102fb2e41dbb9e3ed7d5b18518e",
+      "order_id": "fa7ddbc15f2f413186ee8b2acbf7341e",
+      "kind": "transfer",
+      "status": "executed",
+      "message": "模拟转账成功",
+      "business_id": "1b5ab2cd2fbc4af5aea834fed8bf9c7f",
+      "transaction_ids": [
+        "fe5a3a3a73a24ddcb664929e3fc31140"
+      ],
+      "amount_minor": 30000,
+      "currency": "CNY",
+      "source_account_id": "a1c",
+      "source_balance_minor": 970000,
+      "target_account_id": null,
+      "target_balance_minor": null,
+      "recipient_id": "r1",
+      "committed_at_utc": "2026-09-30T16:00:00.000000+00:00"
+    },
+    "第二次余额不足": {
+      "now": "2026-10-31T16:00:00+00:00",
+      "notifications": [
+        {
+          "id": "865922776c204e0f802919f0cd7e2272",
+          "order_id": "d12c0924fa994a44ab7e5451e4a69e1b",
+          "period": "2026-11",
+          "status": "skipped",
+          "proposal_id": null,
+          "message": "2026-11已跳过：账户余额不足，请减少金额或选择其他账户。（INSUFFICIENT_FUNDS）。"
+        }
+      ]
+    },
+    "确认前自动扣款": false
+  }
+}

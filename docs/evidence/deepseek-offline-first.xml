@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="24" time="18.689" timestamp="2026-10-15T18:33:50.563071+08:00" hostname="石头"><testcase classname="tests.test_deepseek" name="test_standard_and_beta_tools_validate_locally" time="0.043" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[401-MODEL_AUTH_FAILED]" time="0.007" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[402-MODEL_BALANCE_INSUFFICIENT]" time="0.009" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[404-MODEL_REQUEST_INVALID]" time="0.008" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[422-MODEL_REQUEST_INVALID]" time="0.007" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[429-MODEL_RATE_LIMITED]" time="0.009" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[503-MODEL_UNAVAILABLE]" time="0.010" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://api.deepseek.com.evil.example]" time="0.002" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[http://api.deepseek.com]" time="0.002" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://someone:password@api.deepseek.com]" time="0.003" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://api.deepseek.com?key=private]" time="0.002" /><testcase classname="tests.test_deepseek" name="test_blank_defaults_alias_and_safe_config_repr" time="0.001" /><testcase classname="tests.test_deepseek" name="test_malformed_or_injected_model_output_does_not_reach_tools" time="0.013" /><testcase classname="tests.test_deepseek" name="test_key_pasted_into_chat_is_scrubbed_before_storage_and_model" time="1.770" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u4e4b\u524d\u4e70\u7684\u4ea7\u54c1\u8fd8\u6709\u54ea\u4e9b\u5728\u624b\u91cc-args0-read_wealth]" time="1.543"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0B827CB0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/1528d93fbe604cfa92d60f4a4c9efbf3/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BD45910&gt;
+text = '我之前买的产品还有哪些在手里', args = {'intent': 'wealth_status'}
+expected = 'read_wealth'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6d4b\u6d4b\u6211\u7684\u6295\u8d44\u98ce\u9669\u627f\u53d7\u80fd\u529b-args1-None]" time="1.550"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA330E0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/5b906c8df375400bafe3dbd45fd6cb9f/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BD47330&gt;
+text = '测测我的投资风险承受能力', args = {'intent': 'wealth_assessment'}, expected = None
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u540d\u4e0b\u7684\u94f6\u884c\u5361\u90fd\u662f\u4ec0\u4e48\u60c5\u51b5-args2-read_card_management]" time="1.537"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0B827770&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/47b0b5f50b0b443ca5beadf5feb457f0/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BF86850&gt;
+text = '我名下的银行卡都是什么情况', args = {'intent': 'card_management_status'}
+expected = 'read_card_management'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u5c3e\u53f71234\u8fd9\u5f20\u5361\u5148\u522b\u8ba9\u5b83\u5728\u7f51\u4e0a\u82b1\u94b1-args3-prepare_card_management]" time="1.573"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA327B0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/d65adfb2e4b84a9bbba6023f15781621/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BCDFED0&gt;
+text = '尾号1234这张卡先别让它在网上花钱'
+args = {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}
+expected = 'prepare_card_management'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u5c3e\u53f71234\u8fd9\u5f20\u5361\u91cd\u65b0\u5141\u8bb8\u5728\u7f51\u4e0a\u82b1\u94b1-args4-prepare_card_management]" time="1.590"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA31BE0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/d14f64a7de1e472d8f0b775d930a9a7f/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BA12570&gt;
+text = '尾号1234这张卡重新允许在网上花钱'
+args = {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}
+expected = 'prepare_card_management'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u4e0a\u6b21\u7ed9\u5bb6\u91cc\u4eba\u5e86\u751f\u7684\u4e8b\u60c5\u600e\u4e48\u6837\u4e86-args5-None]" time="1.523"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA32270&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/04cdacaf1d1b4aaea596a66620cb0f44/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0C161AD0&gt;
+text = '上次给家里人庆生的事情怎么样了', args = {'intent': 'birthday_status'}, expected = None
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u90a3\u4e9b\u6bcf\u4e2a\u6708\u56fa\u5b9a\u6263\u7684\u94b1\u73b0\u5728\u4ec0\u4e48\u60c5\u51b5-args6-None]" time="1.485"><failure message="AttributeError: 'Card' object has no attribute 'online_enabled'">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA327B0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/5117bd95a9b94361aa48dfa8a8fa16f9/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0C1E5AD0&gt;
+text = '我那些每个月固定扣的钱现在什么情况', args = {'intent': 'subscription_status'}
+expected = None
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+            assert expected in [r['tool_name'] for r in result['steps']], result
+        assert balances == [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+&gt;       assert db.get(Card, 'c1a').online_enabled is True
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'Card' object has no attribute 'online_enabled'
+
+finagent\backend\tests\test_deepseek.py:147: AttributeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u8fc7\u51e0\u5929\u518d\u7ed9\u4ed6\u6253\u7b14\u94b1-args7-validate_requirement]" time="1.495"><failure message="assert 0 == 1&#10; +  where 0 = len([])">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA31160&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/545d116225de43d8bd2ecd752956dfc0/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0B9E4910&gt;
+text = '过几天再给他打笔钱', args = {'intent': 'schedule_transfer'}
+expected = 'validate_requirement'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+&gt;       assert len(calls) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+finagent\backend\tests\test_deepseek.py:142: AssertionError</failure></testcase><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u8fd9\u987f\u996d\u7684\u94b1\u5e2e\u6211\u5411\u670b\u53cb\u4eec\u5206\u644a\u4e00\u4e0b-args8-validate_requirement]" time="1.538"><failure message="AssertionError: {'schedule': None, 'collection': None, 'semantic_validation': {'issues': [{'code': 'missing_field', 'field': 'payer', ...ore_utc': None, 'requires_confirmation': True}, 'extraction_issues': [], ...}, 'ok': False}, 'wealth_order': None, ...}&#10;assert 'validate_requirement' in []">bank = (&lt;sqlalchemy.orm.session.Session object at 0x000002AB0BA302F0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/a8296e4b9c494fb1aadd20dee177a30d/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000002AB0BDF2F90&gt;
+text = '这顿饭的钱帮我向朋友们分摊一下', args = {'intent': 'aa_collection'}
+expected = 'validate_requirement'
+
+    @pytest.mark.parametrize('text,args,expected', [
+        ('我之前买的产品还有哪些在手里', {'intent': 'wealth_status'}, 'read_wealth'),
+        ('测测我的投资风险承受能力', {'intent': 'wealth_assessment'}, None),
+        ('我名下的银行卡都是什么情况', {'intent': 'card_management_status'}, 'read_card_management'),
+        ('尾号1234这张卡先别让它在网上花钱', {'intent': 'card_management', 'action': 'online_block', 'card': '1234'}, 'prepare_card_management'),
+        ('尾号1234这张卡重新允许在网上花钱', {'intent': 'card_management', 'action': 'online_unblock', 'card': '1234'}, 'prepare_card_management'),
+        ('上次给家里人庆生的事情怎么样了', {'intent': 'birthday_status'}, None),
+        ('我那些每个月固定扣的钱现在什么情况', {'intent': 'subscription_status'}, None),
+        ('过几天再给他打笔钱', {'intent': 'schedule_transfer'}, 'validate_requirement'),
+        ('这顿饭的钱帮我向朋友们分摊一下', {'intent': 'aa_collection'}, 'validate_requirement'),
+    ])
+    def test_semantic_fallback_reaches_business_once_without_network_under_write_lock(bank, monkeypatch, text, args, expected):
+        db, _ = bank
+        calls = []
+        def interpret(payload):
+            assert not db.info.get('atomic_write'), 'model must not hold the SQLite write lock'
+            calls.append(payload)
+            assert len(calls) == 1, 'specialized flow must reuse the validated decision'
+            return language.Understanding(**args)
+        monkeypatch.setattr(language, 'interpret', interpret)
+        balances = [(r.id, r.balance_minor) for r in db.scalars(select(Account))]
+        result = service.create(db, db.get(DemoSession, 's1'), 'live', text)
+        assert len(calls) == 1
+        assert sum(r['role'] == 'user' and r['content'] == text for r in result['messages']) == 1
+        if expected:
+&gt;           assert expected in [r['tool_name'] for r in result['steps']], result
+E           AssertionError: {'schedule': None, 'collection': None, 'semantic_validation': {'issues': [{'code': 'missing_field', 'field': 'payer', ...ore_utc': None, 'requires_confirmation': True}, 'extraction_issues': [], ...}, 'ok': False}, 'wealth_order': None, ...}
+E           assert 'validate_requirement' in []
+
+finagent\backend\tests\test_deepseek.py:145: AssertionError</failure></testcase><testcase classname="tests.test_deepseek" name="test_probe_requires_session_csrf_and_returns_no_key" time="1.475" /></testsuite></testsuites>

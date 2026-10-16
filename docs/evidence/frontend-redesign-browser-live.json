@@ -1,0 +1,39 @@
+{
+  "run": {
+    "run": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-bd2d87342c2d4a54aaaa055f653fc02c",
+    "status": "passed",
+    "suites": [
+      {
+        "suite": "dialogue-browser.mjs",
+        "exit_code": 0,
+        "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-bd2d87342c2d4a54aaaa055f653fc02c\\dialogue-browser\\browser.log"
+      }
+    ]
+  },
+  "result": {
+    "mode": "actual_Edge_and_DeepSeek",
+    "passed": [
+      "Live同名消歧",
+      "Live改参新单",
+      "Live暂停后插问",
+      "Live黄色确认及响应丢失恢复",
+      "Live原回执只读查询",
+      "Live账单省略追问",
+      "Live卡片指代改参和黄色确认",
+      "Live刷新恢复"
+    ],
+    "errors": [],
+    "metrics": {
+      "mode": "real_deepseek_browser",
+      "api_budget": 30,
+      "http_attempts": 18,
+      "usage_records": 18,
+      "tokens": {
+        "prompt_tokens": 220076,
+        "completion_tokens": 5831,
+        "total_tokens": 225907
+      }
+    }
+  },
+  "scope": "Actual Edge and DeepSeek, before final display-only safety summary and CSS compression; final safety behavior rechecked in Mock browsers."
+}

@@ -1,0 +1,92 @@
+{
+  "run": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-dda4a6c2b1874ce79376fddf907e567a",
+  "status": "passed",
+  "suites": [
+    {
+      "suite": "p0-browser.mjs",
+      "exit_code": 0,
+      "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-dda4a6c2b1874ce79376fddf907e567a\\p0-browser\\browser.log"
+    },
+    {
+      "suite": "p1-browser.mjs",
+      "exit_code": 0,
+      "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-dda4a6c2b1874ce79376fddf907e567a\\p1-browser\\browser.log"
+    },
+    {
+      "suite": "redesign-browser.mjs",
+      "exit_code": 0,
+      "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-dda4a6c2b1874ce79376fddf907e567a\\redesign-browser\\browser.log"
+    }
+  ],
+  "scenario_results": {
+    "p0-browser": {
+      "browser": "Edge",
+      "scenarios": 4,
+      "passed": true,
+      "note": "session/read, yellow subscription query, yellow transfer, red simulator popup and confirmed balances"
+    },
+    "p1-browser": {
+      "passed": [
+        "transfer-ambiguity",
+        "transfer-reload",
+        "transfer-phone-success",
+        "transfer-lost-response-recovered",
+        "transfer-r3-success",
+        "transfer-r_phone_demo-success",
+        "transfer-new-account-success",
+        "transfer-limit-rejected",
+        "wealth-missing-slots",
+        "wealth-risk-rejected",
+        "wealth-reload",
+        "wealth-red-success",
+        "card-missing-info",
+        "card-user-submission",
+        "card-user-cannot-approve",
+        "card-reload",
+        "card-wrong-approval-rejected-in-ui",
+        "card-independent-approval-and-issuance"
+      ],
+      "denominator": 18,
+      "status": "passed",
+      "mode": "mock",
+      "real_model": false
+    }
+  },
+  "final_ui_run": {
+    "run": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-8ec4dcd170474931b7925bdb65e13e48",
+    "status": "passed",
+    "suites": [
+      {
+        "suite": "redesign-browser.mjs",
+        "exit_code": 0,
+        "log": "D:\\Desktop\\FinAgent-最新项目-20261014-7e16cd7\\finagent\\var\\TEST-ONLY\\p1-browser-8ec4dcd170474931b7925bdb65e13e48\\redesign-browser\\browser.log"
+      }
+    ]
+  },
+  "final_ui_results": {
+    "passed": [
+      "anonymous-no-auto-session-or-yellow-query",
+      "real-empty-home-no-fictional-history",
+      "quick-example-fills-only",
+      "IME-does-not-send",
+      "server-audit-is-reachable",
+      "navigation-keeps-task-draft-no-POST",
+      "edit-invalidates-old-proposal",
+      "yellow-cancel-focus-trap-no-write",
+      "lost-response-recovers-original-receipt-once",
+      "reload-restores-original-receipt",
+      "read-failure-only-retries-read",
+      "manual-form-draft-survives-navigation",
+      "red-cancel-keeps-unexecuted",
+      "all-existing-business-entries-reachable",
+      "yellow-subscription-query-preserved",
+      "responsive-workspace-and-task-drawer",
+      "user-switch-clears-task-and-drafts",
+      "late-chat-response-cannot-cross-users"
+    ],
+    "errors": [],
+    "status": "passed",
+    "mode": "mock",
+    "real_model": false
+  }
+}

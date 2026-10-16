@@ -1,0 +1,172 @@
+{
+  "trace_id": "c7b0d5b991e947ba9fe20748b047cb2a",
+  "input": "如果工资到账，才从活期转100元到储蓄账户",
+  "understanding": {
+    "intent": null,
+    "params": {},
+    "emotion": {
+      "state": "neutral",
+      "confidence": 1.0,
+      "evidence": ""
+    }
+  },
+  "emotion_flag": false,
+  "plan": {
+    "steps": [],
+    "source": "fallback",
+    "descriptions": {}
+  },
+  "verification": {
+    "approved": false,
+    "rules_passed": [],
+    "violations": [
+      {
+        "rule_id": "R1",
+        "field": "condition",
+        "observed": null,
+        "expected": "完整结构化条件",
+        "hint": "条件未能完整解析，不能生成无条件操作单，请重新说明条件。"
+      },
+      {
+        "expected": "完整条件",
+        "field": "condition",
+        "hint": "不得丢掉用户条件。",
+        "observed": null,
+        "rule_id": "R1"
+      },
+      {
+        "expected": 2,
+        "field": "repair_rounds",
+        "hint": "两轮修复仍失败，请用户澄清；不得继续调用模型。",
+        "observed": 2,
+        "rule_id": "P_REPAIR_LIMIT"
+      }
+    ],
+    "would_block": [],
+    "rule_descriptions": {
+      "R1": "条件完整性",
+      "R2": "余额充足",
+      "R3": "资源快照一致",
+      "R4": "周期指令只登记长期计划"
+    },
+    "records": [
+      {
+        "approved": false,
+        "certificate": null,
+        "violations": [
+          {
+            "rule_id": "R1",
+            "field": "condition",
+            "observed": null,
+            "expected": "完整结构化条件",
+            "hint": "条件未能完整解析，不能生成无条件操作单，请重新说明条件。"
+          }
+        ],
+        "would_block": []
+      }
+    ]
+  },
+  "repair_rounds": 2,
+  "repair_history": [
+    {
+      "previous_plan": {
+        "steps": [
+          {
+            "id": "read",
+            "tool": "list_accounts"
+          },
+          {
+            "depends_on": [
+              "read"
+            ],
+            "id": "write",
+            "params": {
+              "amount_yuan": "100",
+              "source": "活期账户",
+              "target": "储蓄账户"
+            },
+            "tool": "prepare_transfer"
+          }
+        ]
+      },
+      "violations": [
+        {
+          "expected": "完整条件",
+          "field": "condition",
+          "hint": "不得丢掉用户条件。",
+          "observed": null,
+          "rule_id": "R1"
+        }
+      ]
+    },
+    {
+      "previous_plan": {
+        "steps": [
+          {
+            "id": "read",
+            "tool": "list_accounts"
+          },
+          {
+            "depends_on": [
+              "read"
+            ],
+            "id": "write",
+            "params": {
+              "amount_yuan": "100",
+              "source": "活期账户",
+              "target": "储蓄账户"
+            },
+            "tool": "prepare_transfer"
+          }
+        ]
+      },
+      "violations": [
+        {
+          "expected": "完整条件",
+          "field": "condition",
+          "hint": "不得丢掉用户条件。",
+          "observed": null,
+          "rule_id": "R1"
+        }
+      ]
+    },
+    {
+      "previous_plan": {
+        "steps": [
+          {
+            "id": "read",
+            "tool": "list_accounts"
+          },
+          {
+            "depends_on": [
+              "read"
+            ],
+            "id": "write",
+            "params": {
+              "amount_yuan": "100",
+              "source": "活期账户",
+              "target": "储蓄账户"
+            },
+            "tool": "prepare_transfer"
+          }
+        ]
+      },
+      "violations": [
+        {
+          "expected": "完整条件",
+          "field": "condition",
+          "hint": "不得丢掉用户条件。",
+          "observed": null,
+          "rule_id": "R1"
+        }
+      ]
+    }
+  ],
+  "outcome": "gathering_info",
+  "clock_now": "2026-09-23T16:00:00+00:00",
+  "latency_ms": {
+    "parse": 0.659,
+    "verify": 0,
+    "total": 19.951
+  }
+}

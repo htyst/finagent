@@ -1,0 +1,46 @@
+﻿[
+    {
+        "errors":  0,
+        "file":  "auth-code.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "build-launcher.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "dev.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "ensure-venv.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "launcher-run.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "operator-key.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "reset-demo.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "resolve-node.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "setup-node.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "setup.ps1"
+    },
+    {
+        "errors":  0,
+        "file":  "test-p0.ps1"
+    }
+]

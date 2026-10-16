@@ -1,0 +1,33 @@
+{
+  "completed_date": "2026-10-16",
+  "typecheck": "passed",
+  "build": "passed",
+  "syntax_check": {
+    "files": 30,
+    "passed": true
+  },
+  "api_regression": {
+    "passed": 14,
+    "failed": 0
+  },
+  "vite_modules": 46,
+  "assets": {
+    "css_kB": 39.98,
+    "css_gzip_kB": 8.22,
+    "js_kB": 370.35,
+    "js_gzip_kB": 108.3
+  },
+  "backend_source_comparison": {
+    "python_files": 102,
+    "changed": []
+  },
+  "backend_regression": {
+    "passed": 173,
+    "subtests": 4,
+    "warnings": 2,
+    "seconds": 450.09
+  },
+  "new_dependencies": false,
+  "daily_demo_reset": false,
+  "real_env_contents_read_or_copied": false
+}

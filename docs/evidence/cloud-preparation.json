@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "status": "prepared-not-published",
+  "cloud_and_existing_http_tests": {
+    "passed": 12,
+    "warnings": 2
+  },
+  "credential_pattern_scan": {
+    "check": "git-index-pattern-scan",
+    "files": 402,
+    "errors": [],
+    "limits": "Pattern scan only, not a proof that arbitrary secrets are absent."
+  },
+  "local_listening_ports": {
+    "8000": false,
+    "5173": false
+  },
+  "docker_installed": false,
+  "docker_build_tested_locally": false,
+  "github_actions_run": false,
+  "render_account_created": false,
+  "paid_service_created": false,
+  "remote_repository": null,
+  "live_model_calls": 0,
+  "secret_env_read": false,
+  "notes": [
+    "Default cloud template is Mock and visitor-password protected.",
+    "Docker build, Linux permissions and actual cloud deployment are pending GitHub CI and platform setup.",
+    "The global daily quota counts accepted chat/probe HTTP requests, not tokens or charges."
+  ]
+}

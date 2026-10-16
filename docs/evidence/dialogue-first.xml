@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="34" time="43.117" timestamp="2026-10-15T21:29:19.263135+08:00" hostname="石头"><testcase classname="tests.test_deepseek" name="test_standard_and_beta_tools_validate_locally" time="0.083" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[401-MODEL_AUTH_FAILED]" time="0.015" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[402-MODEL_BALANCE_INSUFFICIENT]" time="0.018" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[404-MODEL_REQUEST_INVALID]" time="0.012" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[422-MODEL_REQUEST_INVALID]" time="0.010" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[429-MODEL_RATE_LIMITED]" time="0.012" /><testcase classname="tests.test_deepseek" name="test_provider_failure_is_actionable_and_does_not_echo_secrets[503-MODEL_UNAVAILABLE]" time="0.011" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://api.deepseek.com.evil.example]" time="0.002" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[http://api.deepseek.com]" time="0.001" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://someone:password@api.deepseek.com]" time="0.001" /><testcase classname="tests.test_deepseek" name="test_configuration_cannot_send_key_to_another_host[https://api.deepseek.com?key=private]" time="0.001" /><testcase classname="tests.test_deepseek" name="test_blank_defaults_alias_and_safe_config_repr" time="0.002" /><testcase classname="tests.test_deepseek" name="test_malformed_or_injected_model_output_does_not_reach_tools" time="0.011" /><testcase classname="tests.test_deepseek" name="test_key_pasted_into_chat_is_scrubbed_before_storage_and_model" time="1.693" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u4e4b\u524d\u4e70\u7684\u4ea7\u54c1\u8fd8\u6709\u54ea\u4e9b\u5728\u624b\u91cc-args0-read_wealth]" time="1.728" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6d4b\u6d4b\u6211\u7684\u6295\u8d44\u98ce\u9669\u627f\u53d7\u80fd\u529b-args1-None]" time="1.519" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u540d\u4e0b\u7684\u94f6\u884c\u5361\u90fd\u662f\u4ec0\u4e48\u60c5\u51b5-args2-read_card_management]" time="1.601" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u5c3e\u53f71234\u8fd9\u5f20\u5361\u5148\u522b\u8ba9\u5b83\u5728\u7f51\u4e0a\u82b1\u94b1-args3-prepare_card_management]" time="1.543" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u5c3e\u53f71234\u8fd9\u5f20\u5361\u91cd\u65b0\u5141\u8bb8\u5728\u7f51\u4e0a\u82b1\u94b1-args4-prepare_card_management]" time="1.678" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u4e0a\u6b21\u7ed9\u5bb6\u91cc\u4eba\u5e86\u751f\u7684\u4e8b\u60c5\u600e\u4e48\u6837\u4e86-args5-None]" time="1.520" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u6211\u90a3\u4e9b\u6bcf\u4e2a\u6708\u56fa\u5b9a\u6263\u7684\u94b1\u73b0\u5728\u4ec0\u4e48\u60c5\u51b5-args6-None]" time="1.505" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u4ee5\u540e\u67d0\u4e2a\u65f6\u95f4\u5e2e\u6211\u6c47\u4e00\u7b14\u94b1-args7-None]" time="1.612" /><testcase classname="tests.test_deepseek" name="test_semantic_fallback_reaches_business_once_without_network_under_write_lock[\u8fd9\u987f\u996d\u7684\u94b1\u5e2e\u6211\u5411\u670b\u53cb\u4eec\u5206\u644a\u4e00\u4e0b-args8-None]" time="1.583" /><testcase classname="tests.test_deepseek" name="test_probe_requires_session_csrf_and_returns_no_key" time="1.515" /><testcase classname="tests.test_deepseek" name="test_live_http_dialogue_uses_verified_facts_and_preserves_confirmation_and_mfa" time="2.864"><failure message="RuntimeError: coroutine raised StopIteration">http = &lt;httpx.Client object at 0x000001FA269C4C90&gt;
+url = 'https://api.deepseek.com/chat/completions'
+kwargs = {'headers': {'Authorization': 'Bearer sk-test-only-never-a-real-credential', 'Content-Type': 'application/json'}, 'jso... false, "properties": {}, "title": "Empty", "type": "object"}}]}}'}], ...}, 'timeout': 30.0, 'follow_redirects': False}
+
+    def model_response(http, url, **kwargs):
+        body = kwargs['json']
+        assert body['tool_choice']['function']['name'] == 'understand_request'
+        assert body['thinking'] == {'type': 'disabled'}
+        calls.append(True)
+&gt;       return httpx.Response(200, json=tool_reply(next(decisions)))
+                                                   ^^^^^^^^^^^^^^^
+E       StopIteration
+
+finagent\backend\tests\test_deepseek.py:206: StopIteration
+
+The above exception was the direct cause of the following exception:
+
+bank = (&lt;sqlalchemy.orm.session.Session object at 0x000001FA259C1010&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///D...var/TEST-ONLY/pytest/cdb97252f9b04cdc94f8a718f4361a8e/TEST-ONLY/test.sqlite3), autoflush=True, expire_on_commit=False))
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x000001FA259517F0&gt;
+
+    def test_live_http_dialogue_uses_verified_facts_and_preserves_confirmation_and_mfa(bank, monkeypatch):
+        _, factory = bank
+        monkeypatch.setenv('FINAGENT_MODE', 'live')
+        def database():
+            with factory() as db:
+                yield db
+        decisions = iter([{'intent': 'accounts'},
+            {'intent': 'transfer', 'source': '活期账户', 'target': '储蓄账户', 'amount_yuan': '100'},
+            {'intent': 'transfer', 'source': '活期账户', 'target': '储蓄账户', 'amount_yuan': '2000'}])
+        calls = []
+        def model_response(http, url, **kwargs):
+            body = kwargs['json']
+            assert body['tool_choice']['function']['name'] == 'understand_request'
+            assert body['thinking'] == {'type': 'disabled'}
+            calls.append(True)
+            return httpx.Response(200, json=tool_reply(next(decisions)))
+        monkeypatch.setattr(model_client, 'measured_post', model_response)
+        app.dependency_overrides[get_db] = database
+        try:
+            with TestClient(app) as client:
+                client.post('/api/demo/session', json={'user_id': 'u1'})
+                csrf = client.get('/api/demo/csrf').json()['data']['csrf_token']
+                protected = {'Origin': 'http://testserver', 'X-FinAgent-CSRF': csrf}
+                before = client.get('/api/accounts').json()['data']
+                query = client.post('/api/tasks', headers=protected, json={'message': '我名下现在有多少钱'})
+                assert query.status_code == 200
+                result = query.json()['data']
+                assert result['mode'] == 'live' and result['status'] == 'completed'
+                assert result['steps'][0]['result'] == before
+                small = client.post('/api/tasks', headers=protected, json={'message': '从活期账户转100元到储蓄账户'}).json()['data']
+                assert small['status'] == 'awaiting_confirmation'
+                assert small['proposal']['summary']['amount_minor'] == 10000
+                assert client.get('/api/accounts').json()['data'] == before
+                pid = small['proposal']['id']
+                assert client.get(f'/api/security/operations/proposal/{pid}').json()['data']['level'] == 'yellow'
+                reply = client.post(f"/api/tasks/{small['id']}/messages", headers=protected, json={'message': '确认'})
+                assert reply.status_code == 200 and reply.json()['data']['proposal']['status'] == 'pending_confirmation'
+                token = client.post(f'/api/proposals/{pid}/confirmation-token', headers=protected).json()['data']['confirmation_token']
+                confirmed = client.post(f'/api/proposals/{pid}/confirm', headers=protected, json={'confirmation_token': token})
+                assert confirmed.status_code == 200
+&gt;               large = client.post('/api/tasks', headers=protected, json={'message': '从活期账户转2000元到储蓄账户'}).json()['data']
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+finagent\backend\tests\test_deepseek.py:231: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+finagent\.venv\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+finagent\.venv\Lib\site-packages\starlette\testclient.py:463: in request
+    return super().request(
+finagent\.venv\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+finagent\.venv\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+finagent\.venv\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\starlette\testclient.py:360: in handle_request
+    raise exc
+finagent\.venv\Lib\site-packages\starlette\testclient.py:357: in handle_request
+    portal.call(self.app, scope, receive, send)
+finagent\.venv\Lib\site-packages\anyio\from_thread.py:340: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\Miniconda\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+D:\Miniconda\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+finagent\.venv\Lib\site-packages\anyio\from_thread.py:265: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+finagent\.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+finagent\.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+finagent\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+finagent\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\routing.py:676: in __call__
+    await self.middleware_stack(scope, receive, send)
+finagent\.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+finagent\.venv\Lib\site-packages\fastapi\routing.py:1281: in handle
+    await super().handle(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\routing.py:282: in handle
+    await self.app(scope, receive, send)
+finagent\.venv\Lib\site-packages\fastapi\routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+finagent\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+finagent\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+finagent\.venv\Lib\site-packages\fastapi\routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\fastapi\routing.py:706: in app
+    raw_response = await run_endpoint_function(
+finagent\.venv\Lib\site-packages\fastapi\routing.py:354: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\starlette\concurrency.py:34: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+finagent\.venv\Lib\site-packages\anyio\to_thread.py:65: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = &lt;class 'anyio._backends._asyncio.AsyncIOBackend'&gt;
+func = functools.partial(&lt;function create_task_route at 0x000001FA257CA520&gt;, session=&lt;app.data.models.DemoSession object at 0...oad=AgentMessagePayload(message='从活期账户转2000元到储蓄账户'), request=&lt;starlette.requests.Request object at 0x000001FA2658C3C0&gt;)
+args = (), abandon_on_cancel = False, limiter = None
+
+    @classmethod
+    async def run_sync_in_worker_thread(  # type: ignore[return]
+        cls,
+        func: Callable[[Unpack[PosArgsT]], T_Retval],
+        args: tuple[Unpack[PosArgsT]],
+        abandon_on_cancel: bool = False,
+        limiter: BaseCapacityLimiter | None = None,
+    ) -&gt; T_Retval:
+        await cls.checkpoint()
+    
+        # If this is the first run in this event loop thread, set up the necessary
+        # variables
+        try:
+            idle_workers = _threadpool_idle_workers.get()
+            workers = _threadpool_workers.get()
+        except LookupError:
+            idle_workers = deque()
+            workers = set()
+            _threadpool_idle_workers.set(idle_workers)
+            _threadpool_workers.set(workers)
+    
+        async with limiter or cls.current_default_thread_limiter():
+            with CancelScope(shield=not abandon_on_cancel) as scope:
+                future = asyncio.Future[T_Retval]()
+                root_task = find_root_task()
+                if not idle_workers:
+                    worker = WorkerThread(root_task, workers, idle_workers)
+                    worker.start()
+                    workers.add(worker)
+                    root_task.add_done_callback(worker.stop, context=Context())
+                else:
+                    worker = idle_workers.pop()
+    
+                    # Prune any other workers that have been idle for MAX_IDLE_TIME
+                    # seconds or longer
+                    now = cls.current_time()
+                    while idle_workers:
+                        if (
+                            now - idle_workers[0].idle_since
+                            &lt; WorkerThread.MAX_IDLE_TIME
+                        ):
+                            break
+    
+                        expired_worker = idle_workers.popleft()
+                        expired_worker.root_task.remove_done_callback(
+                            expired_worker.stop
+                        )
+                        expired_worker.stop()
+    
+                context = copy_context()
+                context.run(set_current_async_library, None)
+                if abandon_on_cancel or scope._parent_scope is None:
+                    worker_scope = scope
+                else:
+                    worker_scope = scope._parent_scope
+    
+                worker.queue.put_nowait((context, func, args, future, worker_scope))
+&gt;               return await future
+                       ^^^^^^^^^^^^
+E               RuntimeError: coroutine raised StopIteration
+
+finagent\.venv\Lib\site-packages\anyio\_backends\_asyncio.py:2706: RuntimeError</failure></testcase><testcase classname="tests.test_deepseek" name="test_model_auth_failure_is_not_repaired_as_a_business_plan" time="0.062" /><testcase classname="tests.test_p1_recovery" name="test_worker_restart_in_two_real_processes_executes_once" time="4.859" /><testcase classname="tests.test_p1_recovery" name="test_write_success_then_read_failure_handoff_and_restart_only_retries_read" time="2.365" /><testcase classname="tests.test_p1_recovery" name="test_late_live_reply_after_cancel_cannot_prepare" time="1.582" /><testcase classname="tests.test_p1_recovery" name="test_transfer_edit_balance_interrupt_and_cancel_preserve_no_execution" time="2.844" /><testcase classname="tests.test_p1_recovery" name="test_disabled_recipient_and_invalid_new_account_are_rejected" time="1.425" /><testcase classname="tests.test_p1_recovery" name="test_saved_remark_short_form_is_not_transfer_memo" time="1.814" /><testcase classname="tests.test_p1_recovery" name="test_settled_wealth_does_not_complete_new_card_request_on_same_task" time="1.941" /><testcase classname="tests.test_p1_recovery" name="test_analysis_omitted_followups_and_annual_extreme_keep_date_scope" time="2.648" /></testsuite></testsuites>

@@ -1,0 +1,181 @@
+{
+  "trace_id": "170b3987219843e9bd85aab4cd1c948c",
+  "input": "查一下余额，然后从活期转100元到储蓄账户",
+  "understanding": {
+    "intent": "neuro_plan",
+    "params": {},
+    "emotion": {
+      "confidence": 1.0,
+      "evidence": "",
+      "state": "neutral"
+    }
+  },
+  "emotion_flag": false,
+  "plan": {
+    "steps": [
+      {
+        "condition": null,
+        "depends_on": [],
+        "id": "read",
+        "on_failure": "stop",
+        "params": {
+          "account": null,
+          "action": null,
+          "amount_yuan": null,
+          "card": null,
+          "category": null,
+          "q": null,
+          "source": null,
+          "target": null,
+          "task_id": null,
+          "time": null
+        },
+        "recurrence": null,
+        "tool": "list_accounts"
+      },
+      {
+        "condition": null,
+        "depends_on": [
+          "read"
+        ],
+        "id": "write",
+        "on_failure": "stop",
+        "params": {
+          "account": null,
+          "action": null,
+          "amount_yuan": "100",
+          "card": null,
+          "category": null,
+          "q": null,
+          "source": "活期账户",
+          "target": "储蓄账户",
+          "task_id": null,
+          "time": null
+        },
+        "recurrence": null,
+        "tool": "prepare_transfer"
+      }
+    ],
+    "source": "model",
+    "descriptions": {
+      "list_accounts": "列出当前演示用户的账户。",
+      "prepare_transfer": "只准备固定模拟转账操作单，不扣款，不确认。"
+    }
+  },
+  "verification": {
+    "approved": true,
+    "rules_passed": [
+      "R1",
+      "R2",
+      "R3",
+      "R4"
+    ],
+    "violations": [],
+    "would_block": [],
+    "rule_descriptions": {
+      "R1": "条件完整性",
+      "R2": "余额充足",
+      "R3": "资源快照一致",
+      "R4": "周期指令只登记长期计划"
+    },
+    "records": [
+      {
+        "approved": true,
+        "certificate": {
+          "ruleset_version": "finagent-ns-1.0",
+          "rules_passed": [
+            "R1",
+            "R2",
+            "R3",
+            "R4"
+          ],
+          "clock_now": "2026-09-23T16:00:00+00:00",
+          "action_digest": "27f5ad920274305cf2425925861c4646d0869ad65b880e14fcf9cd1747234aad",
+          "rule_modes": {
+            "R1": "enforce",
+            "R2": "enforce",
+            "R3": "enforce",
+            "R4": "observe"
+          }
+        },
+        "violations": [],
+        "would_block": []
+      },
+      {
+        "approved": true,
+        "certificate": {
+          "ruleset_version": "finagent-ns-1.0",
+          "rules_passed": [
+            "R1",
+            "R2",
+            "R3",
+            "R4"
+          ],
+          "clock_now": "2026-09-23T16:00:00+00:00",
+          "action_digest": "a0c0f72602505297b92ad3f9ba3d56125c7ba5300247ddf73f4645c8f53309dc",
+          "rule_modes": {
+            "R1": "enforce",
+            "R2": "enforce",
+            "R3": "enforce",
+            "R4": "observe"
+          }
+        },
+        "violations": [],
+        "would_block": []
+      },
+      {
+        "approved": true,
+        "certificate": {
+          "ruleset_version": "finagent-ns-1.0",
+          "rules_passed": [
+            "R1",
+            "R2",
+            "R3",
+            "R4"
+          ],
+          "clock_now": "2026-09-23T16:00:00+00:00",
+          "action_digest": "1174c07bc233b1f71660a6e25331357a7dc8e613a89e0bf54bd04939de319e6d",
+          "rule_modes": {
+            "R1": "enforce",
+            "R2": "enforce",
+            "R3": "enforce",
+            "R4": "observe"
+          }
+        },
+        "violations": [],
+        "would_block": []
+      },
+      {
+        "approved": true,
+        "certificate": {
+          "ruleset_version": "finagent-ns-1.0",
+          "rules_passed": [
+            "R1",
+            "R2",
+            "R3",
+            "R4"
+          ],
+          "clock_now": "2026-09-23T16:00:00+00:00",
+          "action_digest": "1174c07bc233b1f71660a6e25331357a7dc8e613a89e0bf54bd04939de319e6d",
+          "rule_modes": {
+            "R1": "enforce",
+            "R2": "enforce",
+            "R3": "enforce",
+            "R4": "observe"
+          }
+        },
+        "violations": [],
+        "would_block": []
+      }
+    ]
+  },
+  "repair_rounds": 0,
+  "repair_history": [],
+  "outcome": "awaiting_confirmation",
+  "clock_now": "2026-09-23T16:00:00+00:00",
+  "latency_ms": {
+    "parse": 1.554,
+    "verify": 2.795,
+    "total": 59.752
+  }
+}

@@ -1,0 +1,179 @@
+[
+  {
+    "id": "G02",
+    "description": "API.md 的常见错误码清单里有 PROPOSAL_CANCELLED，但后端代码中不存在该 code（取消返回的是操作单状态 cancelled 与 INVALID_PROPOSAL_STATE）",
+    "why_it_matters": "文档与实现漂移会让测试计划写到不存在的断言上，或掩盖“已取消单再确认”应答的语义",
+    "suggested_test": "确定契约后二选一：要么在 confirm_proposal 对已取消单返回 PROPOSAL_CANCELLED 并加测试，要么修正 API.md 并加测试断言已取消单确认返回 409 INVALID_PROPOSAL_STATE",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_cancelled_proposal_confirm_returns_invalid_proposal_state / test_api_md_lists_error_code_no_backend_module_emits",
+      "note": "钉住真实行为：取消后再确认是 409 INVALID_PROPOSAL_STATE；并用漂移钉断言 API.md 列出的码确无实现产生"
+    }
+  },
+  {
+    "id": "G03",
+    "description": "INSUFFICIENT_FUNDS 在 ledger/operations 中共出现 4 处，但没有任何 pytest 断言该错误码（含准备与确认两个阶段）",
+    "why_it_matters": "余额不足是核心业务拒绝路径；缺少断言意味着“超额也不扣款”只被间接掩盖",
+    "suggested_test": "test_m2/test_m3 增加用例：把 a1c 余额调到低于转账额（或直接准备 5000 元后手工扣减余额），准备应 400 INSUFFICIENT_FUNDS，确认应 409 INSUFFICIENT_FUNDS，且余额、TransferOrder 均不变",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_prepare_rejects_insufficient_funds_without_writes / test_confirm_rejects_insufficient_funds_without_business_writes",
+      "note": "准备 400、确认 400（并非原清单假设的 409），两阶段都断言无写入；确认阶段的 400 是既有的状态码不一致，见文档漂移 2"
+    }
+  },
+  {
+    "id": "G04",
+    "description": "SESSION_EXPIRED 只由 dataset_version 变化或重置触发（test_m1/test_m3）；8 小时会话有效期（main.py timedelta(hours=8) 与 require_demo_session 的 expires_at_utc 比较）从未被推进到过期点",
+    "why_it_matters": "真实过期分支若写错比较方向或时区，用户会一直保持登录或过早被登出，两者都没有测试发现",
+    "suggested_test": "在 test_m1.py 增加用例：直接改写 DemoSession.expires_at_utc 为过去时间，断言 /api/accounts 401 SESSION_EXPIRED；再断言 operations._session 对同一会话抛 401",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_expired_demo_session_blocks_reads_and_writes",
+      "note": "把 expires_at_utc 改到过去，读与写都 401 SESSION_EXPIRED；移回未来即恢复，证明唯一原因是时钟比较"
+    }
+  },
+  {
+    "id": "G07",
+    "description": "HTTP 层的 PROPOSAL_EXPIRED 分支（POST /confirmation-token 与 POST /confirm 在过期后返回 409）未被覆盖：test_m3::test_cancel_expire_and_parameter_change 是直接调用领域函数 issue_confirmation_token(now=after_expiry) 断言 code",
+    "why_it_matters": "路由依赖 require_write_protection 与 session 依赖，若路由层把 DomainError 吞掉或映射错状态码，页面会拿到非可读错误",
+    "suggested_test": "通过 TestClient 准备操作单后，用 m6-fixture 的方式或直接改库把 expires_at_utc 置为过去，再 POST /confirmation-token 与 /confirm，断言 409 + PROPOSAL_EXPIRED + 操作单详情 status=expired",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_http_layer_reports_proposal_expired_after_token_window",
+      "note": "经 TestClient 走路由，两个入口都 409 PROPOSAL_EXPIRED 且操作单转 expired"
+    }
+  },
+  {
+    "id": "G08",
+    "description": "前端 useTaskSync/App/api.ts 的轮询间隔与终态停止、失效读取丢弃、写不自动重发、15s/150s 超时、session-lost 事件过滤等只由 Playwright 脚本（m2-regression.mjs、m6-smoke.mjs）覆盖，项目没有 JS 单元测试框架（package.json 无 vitest/jest，只有 node:test 用于 m2-regression）",
+    "why_it_matters": "M6 的核心价值（同步与恢复）难以在无 Edge、无端口的环境中验证，回归成本高且无法在纯 CI 里跑",
+    "suggested_test": "为 useTaskSync/api.ts 抽出可注入的 api 与 document/timer 抽象，用 node:test 或 vitest 写单元测试：终态不再 setTimeout、写请求期间不轮询、sequence 丢弃过期响应、SESSION_CHANGED 才派发 session-lost",
+    "priority": "P0",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G10",
+    "description": "每日转账额度的上海日切边界没有测试：daily_transfer_outflow 用 local_midnight_utc(business_date) 与 +1 天做左闭右开，但测试只用固定 business_at=12:00，未覆盖 00:00 前后与跨日累计",
+    "why_it_matters": "日额度算错会让用户在同一天超额或在第二天被错误限制，且 ledger_errors 不会发现",
+    "suggested_test": "在同一上海日 00:00:00 与 23:59:59 各转一次并断言合计受 1000000 分约束；再对次日 00:00:00 的转账断言额度已重置",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_daily_transfer_cap_uses_shanghai_midnight_window",
+      "note": "上海日切左闭右开；恰好等于上限允许（money.py 用 >）；准备不写业务流水"
+    }
+  },
+  {
+    "id": "G15",
+    "description": "test_review.py::test_upgrade_cli_preserves_old_database_and_is_repeatable 会在 (ROOT/'var') 下创建 tempfile 临时目录并跑 subprocess 迁移，这与 API.md/TEST_MATRIX 中“测试只用临时路径”的表述不一致；在只读或沙箱受限环境中该用例会失败",
+    "why_it_matters": "它是唯一覆盖“降级后再升级两次仍保留数据”的用例，环境受限时该保证会静默丢失",
+    "suggested_test": "把夹具改写为使用 tmp_path（并 monkeypatch ROOT 或将 alembic 路径作为参数传入），保持同一断言并确认不写项目 var/",
+    "priority": "P0",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_upgrade_regression_uses_project_var_temp_dir",
+      "note": "以 AST 读取方式钉住该约束并说明成因（cli.project_database 只接受项目 var/ 下的路径）。这是“记录约束”，未修复"
+    }
+  },
+  {
+    "id": "G17",
+    "description": "前端金额解析与上限拒绝只在 UI 层（OperationPanel.minorFromYuan，0.01–5000 元、最多两位小数）实现，没有自动化测试；后端对应规则有 pytest",
+    "why_it_matters": "前端是用户输入的第一道闸门，规则漂移会让用户在提交后才发现错误或直接绕过提示",
+    "suggested_test": "把 minorFromYuan 抽到独立模块，用 node:test 覆盖 '100.00'→10000、'0'/'0.00'/'-1'/'1.234'/'5001.00'→抛错、'5000.00'→500000 的边界",
+    "priority": "P0",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G01",
+    "description": "GET /api/health 与 GET /api/demo/session 没有任何 pytest 用例；health 只被浏览器脚本与 check.ps1/浏览器脚本的就绪轮询使用，demo/session 只被前端 App.tsx 刷新恢复使用",
+    "why_it_matters": "两个接口是页面启动与刷新恢复的前置条件；若 phase 字段或 cookie 恢复逻辑回归，pytest 不会发现",
+    "suggested_test": "在 test_m1.py 增加 test_health_and_session_restore：GET /api/health 断言 phase 与 service；选用户后 GET /api/demo/session 返回同一用户；未选用户时返回 401 SESSION_EXPIRED",
+    "priority": "P1",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_health_and_demo_session_restore",
+      "note": "健康检查与演示会话恢复的最小覆盖"
+    }
+  },
+  {
+    "id": "G05",
+    "description": "RETRYABLE_CONFLICT（confirm_proposal 捕获 sqlite OperationalError 的转换分支）无任何 pytest；test_m5.py 只证明核验期间写锁已持有（独立连接 BEGIN IMMEDIATE 抛 OperationalError），未验证 HTTP/领域层如何向用户呈现忙冲突",
+    "why_it_matters": "并发下用户可能收到未翻译的 500 而非可重试提示，直接影响“不重复扣款且可恢复”的承诺",
+    "suggested_test": "用 patch 让 atomic_write 内的提交抛 OperationalError（或另开连接长事务持锁并设置 busy_timeout>0），断言 confirm 返回 409 RETRYABLE_CONFLICT、操作单仍 pending_confirmation、无业务结果",
+    "priority": "P1",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G06",
+    "description": "INVALID_ACCOUNT_STATE、INVALID_RECIPIENT_STATE、INVALID_TASK_STATE、INVALID_PROPOSAL_STATE、INVALID_TOOL、TOOL_BUDGET_EXCEEDED、INVALID_CONDITION、INVALID_PLAN 中，只有 INVALID_PLAN 与部分 INVALID_CONDITION 被间接覆盖：tests 目录中检索不到 INVALID_ACCOUNT_STATE / INVALID_RECIPIENT_STATE / INVALID_TASK_STATE / TOOL_BUDGET_EXCEEDED 的断言",
+    "why_it_matters": "禁用账户 a3s、停用收款人 r5、终态任务复用、12 步预算耗尽都是文档承诺的拒绝路径，现只有部分靠状态码 409/400 间接体现",
+    "suggested_test": "分别构造：a3s 转账 → INVALID_ACCOUNT_STATE；向 r5 转账 → INVALID_RECIPIENT_STATE；对已完成任务发 /messages → 409 INVALID_TASK_STATE；循环制造 12 步后第 13 步 → 409 TOOL_BUDGET_EXCEEDED",
+    "priority": "P1",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G11",
+    "description": "两个分页/过滤边界无 pytest：evidence_offset>0 的证据翻页（现有用例只用 evidence_limit）；以及 category 传未知类别字符串（如“教育”）时 /api/transactions 与 /api/spending 的行为",
+    "why_it_matters": "前端 TransactionEvidence 会按 offset 翻页，未知类别来自自由文本输入；两者出错会显示空列表或错误聚合",
+    "suggested_test": "断言 evidence_offset=1&evidence_limit=1 时 evidence.total=3 但 items 为第 2 条且 signed_minor 不与首条重复；断言 category=未知类别 返回 total=0、net_minor=0 而不是 400/500",
+    "priority": "P1",
+    "closed": true,
+    "closure": {
+      "test": "test_gap_findings.py::test_spending_evidence_offset_pages_do_not_overlap",
+      "note": "evidence_offset>0 分页不重叠且并集等于不分页结果；未知类别返回空集而非回退全部"
+    }
+  },
+  {
+    "id": "G12",
+    "description": "FINAGENT_ALLOWED_ORIGIN 的允许来源分支只在浏览器脚本里隐含（脚本设置该变量后由 UI 发起 POST）；pytest 只覆盖 expected origin 与 Referer 回退，未覆盖“配置的来源被接受”与“未配置时被拒”的对照",
+    "why_it_matters": "这是 CSRF 白名单的唯一可配置项；配置解析错误会导致本地页面无法写入或过宽放行",
+    "suggested_test": "用 monkeypatch.setenv('FINAGENT_ALLOWED_ORIGIN','http://127.0.0.1:5173')，用带该 Origin 的请求断言 200；再删除该变量断言同一请求 403 CSRF_REJECTED",
+    "priority": "P1",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G14",
+    "description": "会话 cookie 属性没有测试：main.py 设置 httponly=True、samesite='lax'、secure=False、path='/'、8 小时有效期，但断言只检查账号/卡片的 401 行为",
+    "why_it_matters": "安全属性回归（例如误开 secure 或去掉 httponly）不会被发现",
+    "suggested_test": "在 test_m1.py 断言 POST /api/demo/session 的 Set-Cookie 含 finagent_demo_session、HttpOnly、SameSite=Lax，并断言 expires_at 距当前约 8 小时",
+    "priority": "P1",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G09",
+    "description": "真实模型（live）行为没有自动化准确率断言：所有 pytest 的 live 路径都用 httpx.MockTransport 或 patch interpret，只有 evaluate.ps1、model-smoke.ps1、conversation-smoke.py、browser-*-live 需要人工触发并使用密钥；DEVELOPMENT_STATUS/TEST_MATRIX 也注明本轮未调用真实模型",
+    "why_it_matters": "自然语言理解准确率是本项目的主要风险，mock 全绿不能证明真实模型可用",
+    "suggested_test": "把 evaluate.ps1 -Mode live -Split dev -Suite key 纳入版本化验收流程（记录报告 JSON 与 PROMPT_SHA256），并在 test 层面增加“provider 未配置密钥时必须返回 MODEL_UNAVAILABLE 而不是静默 mock”的断言",
+    "priority": "P2",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G13",
+    "description": "全部 UI 流程依赖本机 Edge（FINAGENT_BROWSER_PATH 或固定 msedge 路径）与 8000/5173 端口空闲，且 check.ps1 只在 -Stage M6/All 才运行浏览器脚本",
+    "why_it_matters": "在无 Edge、端口被占或 CI 环境中 M3–M6 的页面路径完全不被验证，容易出现“后端全绿但页面不可用”",
+    "suggested_test": "为浏览器脚本提供可跳过并输出明确 SKIP 的开关，并在测试计划中把 UI 场景标记为“需环境”，同时用 m2-regression.mjs 这类 route 拦截测试补齐无浏览器依赖的页面逻辑覆盖",
+    "priority": "P2",
+    "closed": false,
+    "closure": null
+  },
+  {
+    "id": "G16",
+    "description": "POST /api/tasks/{task_id}/reject-operation 对非跨场景 intent 的 409 INVALID_TASK_STATE 分支（main.py 中的 task.intent not in INTENTS 判断）无任何测试",
+    "why_it_matters": "该路由直接读取 task.intent 并调用 crossflow.cancel_task；对单场景任务误用时若无测试，可能静默取消错误对象",
+    "suggested_test": "用 mock 模式发起“这个月餐饮消费多少”得到单场景任务，再 POST /reject-operation，断言 409 INVALID_TASK_STATE 且任务状态与步骤不变",
+    "priority": "P2",
+    "closed": false,
+    "closure": null
+  }
+]

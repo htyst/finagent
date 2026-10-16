@@ -1,0 +1,14 @@
+{
+  "verified_date": "2026-10-16",
+  "frontend_status": 200,
+  "backend_status": 200,
+  "health": {
+    "service": "finagent",
+    "phase": "P0",
+    "test_only": false
+  },
+  "mode": "live",
+  "model_configured": true,
+  "financial_mutations": 0,
+  "daily_database_reset": false
+}

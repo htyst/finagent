@@ -1,0 +1,39 @@
+{
+  "mode": "mock",
+  "database": "TEST-ONLY",
+  "original_suite": {
+    "browser": "Edge",
+    "scenarios": 4,
+    "passed": true,
+    "note": "session/read, yellow subscription query, yellow transfer, red simulator popup and confirmed balances"
+  },
+  "p1_suite": {
+    "passed": [
+      "transfer-ambiguity",
+      "transfer-reload",
+      "transfer-phone-success",
+      "transfer-lost-response-recovered",
+      "transfer-r3-success",
+      "transfer-r_phone_demo-success",
+      "transfer-new-account-success",
+      "transfer-limit-rejected",
+      "wealth-missing-slots",
+      "wealth-risk-rejected",
+      "wealth-reload",
+      "wealth-red-success",
+      "card-missing-info",
+      "card-user-submission",
+      "card-user-cannot-approve",
+      "card-reload",
+      "card-wrong-approval-rejected-in-ui",
+      "card-independent-approval-and-issuance"
+    ],
+    "denominator": 18,
+    "status": "passed",
+    "mode": "mock",
+    "real_model": false
+  },
+  "real_model": false,
+  "screenshot": "p1-three-scenes.png",
+  "failure_history": "P1-失败与修复记录.md"
+}

@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.git
+.venv*
+.deps
+var
+frontend/node_modules
+frontend/dist
+**/__pycache__
+**/*.pyc
+**/*.sqlite*
+**/*.key
+*.exe

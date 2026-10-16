@@ -1,0 +1,37 @@
+# Mock demonstration only: the application network has no external egress.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1
+    tmpfs: [/tmp:size=32m,noexec,nosuid]
+    volumes: [bank-data:/app/var]
+    environment:
+      FINAGENT_MODE: mock
+      FINAGENT_ALLOWED_ORIGIN: http://127.0.0.1:8080
+    networks: [isolated]
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.5
+    tmpfs: [/tmp:size=16m,noexec,nosuid]
+    ports: ['127.0.0.1:8080:8080']
+    depends_on: [backend]
+    networks: [isolated]
+volumes:
+  bank-data:
+networks:
+  isolated:
+    internal: true

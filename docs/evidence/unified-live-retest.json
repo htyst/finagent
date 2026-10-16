@@ -1,0 +1,59 @@
+{
+  "mode": "real_deepseek",
+  "dataset": "unified-dialogue-v1-20261015",
+  "review_status": "implementation_author_reviewed_independent_human_adjudication_pending",
+  "denominator": 1,
+  "passed": 1,
+  "http_attempts": 4,
+  "api_budget": 10,
+  "usage_records": 4,
+  "tokens": {
+    "prompt_tokens": 40196,
+    "completion_tokens": 1106,
+    "total_tokens": 41302
+  },
+  "cost": null,
+  "cost_note": "No billing record; not estimated",
+  "results": [
+    {
+      "id": "U05",
+      "category": "暂停插问后返回",
+      "passed": true,
+      "seconds": 9.358,
+      "model_attempts": 4,
+      "turns": [
+        {
+          "text": "从活期账户转100元到储蓄账户",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true
+          }
+        },
+        {
+          "text": "先别转，查一下余额",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "no_proposal": true,
+            "old_invalidated": true,
+            "tool": true
+          }
+        },
+        {
+          "text": "原来那笔改成80元，再准备一下",
+          "passed": true,
+          "checks": {
+            "reply_returned": true,
+            "no_unauthorized_execution": true,
+            "amount": true,
+            "target": true
+          }
+        }
+      ],
+      "ledger_errors": []
+    }
+  ]
+}

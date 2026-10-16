@@ -1,0 +1,12 @@
+{
+  "R4": {
+    "count": 1,
+    "cases": [
+      {
+        "record_id": "619d044640bc41808cc0ef858399c40f",
+        "phase": "acceptance_observe_R4",
+        "field": "recurrence"
+      }
+    ]
+  }
+}

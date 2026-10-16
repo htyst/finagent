@@ -1,0 +1,150 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "pattern": "^[A-Z][0-9]{2}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "user": {
+      "enum": [
+        "u1",
+        "u2",
+        "u3"
+      ],
+      "title": "User",
+      "type": "string"
+    },
+    "scenario": {
+      "enum": [
+        "billing",
+        "transfer",
+        "card",
+        "crossflow",
+        "boundary"
+      ],
+      "title": "Scenario",
+      "type": "string"
+    },
+    "initial_state": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Initial State",
+      "type": "object"
+    },
+    "button_events": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Button Events",
+      "type": "array"
+    },
+    "expected_business_results": {
+      "const": 0,
+      "title": "Expected Business Results",
+      "type": "integer"
+    },
+    "forbidden": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden",
+      "type": "array"
+    },
+    "messages": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Messages",
+      "type": "array"
+    },
+    "expected_status": {
+      "title": "Expected Status",
+      "type": "string"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tool"
+    },
+    "contains": {
+      "title": "Contains",
+      "type": "string"
+    },
+    "amount_minor": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Amount Minor"
+    },
+    "target_mask": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Mask"
+    },
+    "intent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Intent"
+    },
+    "step_statuses": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Step Statuses"
+    }
+  },
+  "required": [
+    "id",
+    "user",
+    "scenario",
+    "initial_state",
+    "button_events",
+    "expected_business_results",
+    "forbidden",
+    "messages",
+    "expected_status",
+    "tool",
+    "contains"
+  ],
+  "title": "EvaluationCase",
+  "type": "object"
+}

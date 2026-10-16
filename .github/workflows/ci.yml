@@ -1,0 +1,59 @@
+name: Source and deployment checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    env:
+      FINAGENT_MODE: mock
+      PYTHONPATH: backend
+      FINAGENT_SCHEDULER_ENABLED: "0"
+      FINAGENT_SUBSCRIPTIONS_ENABLED: "0"
+      FINAGENT_BIRTHDAYS_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python scripts/scan-git.py
+      - run: python -m pip install -r backend/requirements.lock
+      - run: python -m pip install --no-deps -e backend
+      - run: python -m pytest backend/tests -q -p no:cacheprovider
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm test && npm run build
+      - run: docker build -f Dockerfile.cloud -t finagent-cloud-ci .
+      - name: Cloud image health, access protection and persisted volume
+        shell: bash
+        run: |
+          docker volume create finagent-ci-data
+          docker run -d --name finagent-ci -p 127.0.0.1:18080:8000 \
+            -v finagent-ci-data:/app/var \
+            -e FINAGENT_ACCESS_PASSWORD=TEST-ONLY-cloud-ci-password \
+            -e FINAGENT_ALLOWED_ORIGIN=https://test.invalid \
+            -e FINAGENT_MODE=mock finagent-cloud-ci
+          trap 'docker logs finagent-ci; docker rm -f finagent-ci; docker volume rm finagent-ci-data' EXIT
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:18080/api/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/api/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/)" = 401
+          curl -fsS -u guest:TEST-ONLY-cloud-ci-password http://127.0.0.1:18080/ | head -c 200
+          docker exec finagent-ci python -c "from pathlib import Path; Path('/app/var/ci-persistence.txt').write_text('TEST-ONLY')"
+          docker restart finagent-ci
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:18080/api/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/api/health
+          docker exec finagent-ci python -c "from pathlib import Path; assert Path('/app/var/ci-persistence.txt').read_text() == 'TEST-ONLY'"

@@ -1,0 +1,415 @@
+{
+  "$defs": {
+    "Condition": {
+      "additionalProperties": false,
+      "properties": {
+        "step_ref": {
+          "title": "Step Ref",
+          "type": "string"
+        },
+        "field": {
+          "const": "net_minor",
+          "title": "Field",
+          "type": "string"
+        },
+        "op": {
+          "enum": [
+            "gt",
+            "lt"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_ref",
+        "field",
+        "op",
+        "value"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "Emotion": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "default": "neutral",
+          "enum": [
+            "neutral",
+            "urgent",
+            "frustrated",
+            "distressed"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "title": "Emotion",
+      "type": "object"
+    },
+    "Params": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "amount_yuan": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Yuan"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "enum": [
+                "餐饮",
+                "购物",
+                "交通",
+                "未分类",
+                "全部"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "card": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Card"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "enum": [
+                "freeze",
+                "unfreeze"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeExpression"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "q": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Q"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        }
+      },
+      "title": "Params",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "tool": {
+          "enum": [
+            "list_accounts",
+            "list_transactions",
+            "summarize_spending",
+            "list_recipients",
+            "list_cards",
+            "prepare_transfer",
+            "prepare_card_action",
+            "get_task_status"
+          ],
+          "title": "Tool",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/Params"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeExpression"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "on_failure": {
+          "default": "stop",
+          "enum": [
+            "stop",
+            "continue_independent_readonly"
+          ],
+          "title": "On Failure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tool"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "TimeExpression": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "offset",
+            "period",
+            "recurring"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "enum": [
+                "day",
+                "month"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": -365,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "enum": [
+                "this_month",
+                "last_month",
+                "today",
+                "yesterday"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period"
+        },
+        "freq": {
+          "anyOf": [
+            {
+              "const": "monthly",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freq"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "maximum": 31,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "TimeExpression",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 12,
+      "title": "Steps",
+      "type": "array"
+    },
+    "recurrence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TimeExpression"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "emotion": {
+      "$ref": "#/$defs/Emotion"
+    },
+    "clarification": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Clarification"
+    }
+  },
+  "title": "Plan",
+  "type": "object"
+}

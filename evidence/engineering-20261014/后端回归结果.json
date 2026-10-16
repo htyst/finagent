@@ -1,0 +1,1450 @@
+{
+  "stamp": "20261014-215634",
+  "generated_at": "2026-10-14T21:57:25",
+  "tier": "standard",
+  "scope": "Backend",
+  "project_root": "D:\\finagent",
+  "summary": {
+    "tests_total": 193,
+    "tests_passed": 193,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "steps_total": 2,
+    "steps_failed": 0,
+    "seconds": 51.2,
+    "model_calls": 0
+  },
+  "steps": [
+    {
+      "id": "S1",
+      "name": "演示库事实探查（只读，产出人工核对基准）",
+      "status": "passed",
+      "seconds": 0.3,
+      "log": "demo-facts.log",
+      "detail": "} | }"
+    },
+    {
+      "id": "S2",
+      "name": "后端全部测试（证据写入 junit-backend.xml；用例数见报告与 junit）",
+      "status": "passed",
+      "seconds": 50.9,
+      "log": "pytest-all.log",
+      "detail": "193 passed, 5 warnings in 45.25s | 0"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "林晓 · 活期账户（尾号 4082）",
+      "value": "10,000.00 元",
+      "expect": "与 DEMO.md 一致",
+      "ok": true
+    },
+    {
+      "label": "林晓 · 储蓄账户（尾号 6105）",
+      "value": "20,000.00 元",
+      "expect": "与 DEMO.md 一致",
+      "ok": true
+    },
+    {
+      "label": "账本恒等式 余额 = 期初 + 贷记 − 借记",
+      "value": "6/6 个账户差额为 0",
+      "expect": "全部为 0",
+      "ok": true
+    },
+    {
+      "label": "本月餐饮净消费（1000 + 250 − 50）",
+      "value": "1,200.00 元",
+      "expect": "1200.00 元",
+      "ok": true
+    },
+    {
+      "label": "上月同期餐饮净消费（900 − 100）",
+      "value": "800.00 元",
+      "expect": "800.00 元",
+      "ok": true
+    },
+    {
+      "label": "环比增长",
+      "value": "+50.0%",
+      "expect": "+50.0%",
+      "ok": true
+    },
+    {
+      "label": "本月交通净消费",
+      "value": "24.00 元",
+      "expect": "购物 99.00 / 交通 24.00 / 未分类 32.00（待入账不计）",
+      "ok": true
+    },
+    {
+      "label": "本月未分类净消费",
+      "value": "32.00 元",
+      "expect": "购物 99.00 / 交通 24.00 / 未分类 32.00（待入账不计）",
+      "ok": true
+    },
+    {
+      "label": "本月购物净消费",
+      "value": "99.00 元",
+      "expect": "购物 99.00 / 交通 24.00 / 未分类 32.00（待入账不计）",
+      "ok": true
+    },
+    {
+      "label": "昨晚消费候选（前一日 18:00–当日 06:00 北京）",
+      "value": "1 笔",
+      "expect": "1 笔 · 88.00 元 · 购物 · 尾号 1234",
+      "ok": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "test_transfer_variants[\\u4ece\\u6d3b\\u671f\\u8d26\\u6237\\u8f6c100\\u5143\\u5230\\u50a8\\u84c4\\u8d26\\u6237]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.349,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transfer_variants[\\u4ece\\u6d3b\\u671f\\u8f6c\\u7ed9\\u50a8\\u84c4\\u8d26\\u6237100\\u5143]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.275,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transfer_variants[\\u4ece\\u6d3b\\u671f\\u8d26\\u6237\\u8f6c\\u5165100\\u5143\\u5230\\u50a8\\u84c4\\u8d26\\u6237]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.264,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transfer_variants[\\u4ece\\u6d3b\\u671f\\u8d26\\u6237\\u8f6c\\u5230\\u50a8\\u84c4\\u8d26\\u6237100\\u5143]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.244,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_amount_variants[\\u4e00\\u767e\\u5143]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.306,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_amount_variants[\\u4e00\\u767e\\u5757\\u94b1]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.274,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_amount_variants[100\\u5757]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.335,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_amount_variants[100\\u5706]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.299,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unsupported_conditions_cannot_drop[\\u82e5]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.231,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unsupported_conditions_cannot_drop[\\u5982\\u679c]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.212,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unsupported_conditions_cannot_drop[\\u81f3\\u5c11]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.217,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unsupported_conditions_cannot_drop[\\u4e0d\\u8d85\\u8fc7]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.254,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_extreme_queries_clarify[\\u6700\\u5927]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.239,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_extreme_queries_clarify[\\u6700\\u5c0f]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.255,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_extreme_queries_clarify[\\u6700\\u591a]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.272,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_extreme_queries_clarify[\\u6700\\u8d35]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.241,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multitask_dependency_variants[\\u7136\\u540e]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.261,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multitask_dependency_variants[\\u518d]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.228,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multitask_dependency_variants[\\u63a5\\u7740]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.357,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multitask_dependency_variants[\\u5e76\\u4e14]",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.231,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_metric_counts_failures_and_announced_fallback_correctly",
+      "classname": "tests.synonym_matrix.test_matrix",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reported_examples_do_not_query_ledger",
+      "classname": "tests.test_conversation",
+      "time": 0.218,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_follow_up_preserves_history_dates_and_category",
+      "classname": "tests.test_conversation",
+      "time": 0.306,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_live_reply_and_budget_followup_keep_dialogue_without_tools",
+      "classname": "tests.test_conversation",
+      "time": 0.332,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_live_transfer_ambiguity_revision_read_and_cancel",
+      "classname": "tests.test_conversation",
+      "time": 0.525,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_no_other_user_references_or_history",
+      "classname": "tests.test_conversation",
+      "time": 0.357,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_failure_keeps_pending_and_never_falls_back",
+      "classname": "tests.test_conversation",
+      "time": 0.324,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_adapter_rejects_extra_privileges_and_uses_minimal_payload",
+      "classname": "tests.test_conversation",
+      "time": 0.294,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_conditional_write_cannot_become_unconditional",
+      "classname": "tests.test_conversation",
+      "time": 0.272,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_budget_arithmetic_and_follow_up",
+      "classname": "tests.test_conversation",
+      "time": 0.447,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_balance_question_does_not_lose_unfinished_transfer",
+      "classname": "tests.test_conversation",
+      "time": 0.34,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_completed_receipt_is_carried_as_fact_not_write_slots",
+      "classname": "tests.test_conversation",
+      "time": 0.347,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_health_and_demo_session_restore",
+      "classname": "tests.test_gap_findings",
+      "time": 0.191,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_expired_demo_session_blocks_reads_and_writes",
+      "classname": "tests.test_gap_findings",
+      "time": 0.236,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancelled_proposal_confirm_returns_invalid_proposal_state",
+      "classname": "tests.test_gap_findings",
+      "time": 0.211,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_api_md_lists_error_code_no_backend_module_emits",
+      "classname": "tests.test_gap_findings",
+      "time": 0.006,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_prepare_rejects_insufficient_funds_without_writes",
+      "classname": "tests.test_gap_findings",
+      "time": 0.138,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_confirm_rejects_insufficient_funds_without_business_writes",
+      "classname": "tests.test_gap_findings",
+      "time": 0.168,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_layer_reports_proposal_expired_after_token_window",
+      "classname": "tests.test_gap_findings",
+      "time": 0.235,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_daily_transfer_cap_uses_shanghai_midnight_window",
+      "classname": "tests.test_gap_findings",
+      "time": 0.163,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_spending_evidence_offset_pages_do_not_overlap",
+      "classname": "tests.test_gap_findings",
+      "time": 0.16,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_upgrade_regression_uses_project_var_temp_dir",
+      "classname": "tests.test_gap_findings",
+      "time": 0.01,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_is_reproducible_and_balanced",
+      "classname": "tests.test_m1",
+      "time": 0.144,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_session_owner_scopes_accounts_cards_and_paginated_transactions",
+      "classname": "tests.test_m1",
+      "time": 0.215,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reset_invalidates_session_and_date_filter",
+      "classname": "tests.test_m1",
+      "time": 0.233,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_early_demo_date_contains_no_future_posted_business",
+      "classname": "tests.test_m1",
+      "time": 0.231,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_uncategorized_transaction_filter_matches_display_and_spending",
+      "classname": "tests.test_m1",
+      "time": 0.207,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_money_and_two_clocks",
+      "classname": "tests.test_m2",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_ledger_refund_pair_limits_and_ownership",
+      "classname": "tests.test_m2",
+      "time": 0.157,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_pending_void_frozen_card_and_external_transfer",
+      "classname": "tests.test_m2",
+      "time": 0.314,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_spending_hand_calculated_refunds_and_evidence_pagination",
+      "classname": "tests.test_m2",
+      "time": 0.137,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_spending_zero_incomplete_uncategorized_and_boundaries",
+      "classname": "tests.test_m2",
+      "time": 0.167,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_negative_baseline_and_refund_period",
+      "classname": "tests.test_m2",
+      "time": 0.124,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_daily_limit_and_internal_pair_integrity",
+      "classname": "tests.test_m2",
+      "time": 0.13,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_current_negative_net_and_half_up_percentage",
+      "classname": "tests.test_m2",
+      "time": 0.198,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_full_month_and_custom_comparison_ranges",
+      "classname": "tests.test_m2",
+      "time": 0.194,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_ledger_detects_cross_user_card_and_credit_overflow",
+      "classname": "tests.test_m2",
+      "time": 0.209,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date0]",
+      "classname": "tests.test_m2",
+      "time": 0.192,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date1]",
+      "classname": "tests.test_m2",
+      "time": 0.204,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date2]",
+      "classname": "tests.test_m2",
+      "time": 0.252,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date3]",
+      "classname": "tests.test_m2",
+      "time": 0.208,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date4]",
+      "classname": "tests.test_m2",
+      "time": 0.207,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date5]",
+      "classname": "tests.test_m2",
+      "time": 0.191,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date6]",
+      "classname": "tests.test_m2",
+      "time": 0.193,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_seed_dates_and_visible_ledger[demo_date7]",
+      "classname": "tests.test_m2",
+      "time": 0.211,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transaction_categories_match_spending",
+      "classname": "tests.test_m2",
+      "time": 0.153,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_internal_transfer_is_atomic_and_idempotent",
+      "classname": "tests.test_m3",
+      "time": 0.296,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_external_transfer_only_debits_source_and_limits",
+      "classname": "tests.test_m3",
+      "time": 0.2,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_card_freeze_unfreeze_and_new_purchase_restriction",
+      "classname": "tests.test_m3",
+      "time": 0.175,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_csrf_forgery_extra_fields_and_cross_user_visibility",
+      "classname": "tests.test_m3",
+      "time": 0.178,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancel_expire_and_parameter_change",
+      "classname": "tests.test_m3",
+      "time": 0.191,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_resource_version_change_invalidates_old_proposal",
+      "classname": "tests.test_m3",
+      "time": 0.399,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_session_switch_and_reset_invalidate_proposals",
+      "classname": "tests.test_m3",
+      "time": 0.284,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_precommit_failure_rolls_back_then_retries_and_recovers",
+      "classname": "tests.test_m3",
+      "time": 0.283,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_concurrent_same_proposal_and_cancel_confirm_race",
+      "classname": "tests.test_m3",
+      "time": 0.248,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_competing_proposals_cannot_overdraw",
+      "classname": "tests.test_m3",
+      "time": 0.189,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_spending_uses_real_totals_and_evidence",
+      "classname": "tests.test_m4",
+      "time": 0.137,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transfer_ambiguity_chat_confirm_and_receipt",
+      "classname": "tests.test_m4",
+      "time": 0.21,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_card_status_freeze_and_change_invalidates",
+      "classname": "tests.test_m4",
+      "time": 0.234,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transfer_revision_and_cancel",
+      "classname": "tests.test_m4",
+      "time": 0.202,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_csrf_isolation_injection_and_schema",
+      "classname": "tests.test_m4",
+      "time": 0.157,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_live_adapter_validates_model_parameters_without_network",
+      "classname": "tests.test_m4",
+      "time": 0.01,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_live_timeout_is_bounded_without_mock_fallback",
+      "classname": "tests.test_m4",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_pending_question_keeps_original_proposal",
+      "classname": "tests.test_m4",
+      "time": 0.165,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_merchant_injection_is_only_data",
+      "classname": "tests.test_m4",
+      "time": 0.158,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_ambiguous_transaction_and_invalid_date_ask_or_explain",
+      "classname": "tests.test_m4",
+      "time": 0.166,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_migrations_record_revision_and_preserve_existing_data",
+      "classname": "tests.test_m4",
+      "time": 0.111,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_conditional_transfer_success_and_durable_recovery",
+      "classname": "tests.test_m5",
+      "time": 0.227,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_new_refund_invalidates_condition_before_version_check",
+      "classname": "tests.test_m5",
+      "time": 0.206,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_card_story_success_and_selected_evidence",
+      "classname": "tests.test_m5",
+      "time": 0.444,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reject_only_operation_vs_cancel_whole_task[True]",
+      "classname": "tests.test_m5",
+      "time": 0.2,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reject_only_operation_vs_cancel_whole_task[False]",
+      "classname": "tests.test_m5",
+      "time": 0.201,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_false_and_incomplete_conditions_never_prepare",
+      "classname": "tests.test_m5",
+      "time": 0.203,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_confirm_rechecks_coverage_and_resource_versions[coverage-DATA_INCOMPLETE]",
+      "classname": "tests.test_m5",
+      "time": 0.2,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_confirm_rechecks_coverage_and_resource_versions[small_refund-STALE_RESOURCE]",
+      "classname": "tests.test_m5",
+      "time": 0.2,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multiple_transactions_require_explicit_selection",
+      "classname": "tests.test_m5",
+      "time": 0.241,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_failure_to_freeze_does_not_hide_balance_result",
+      "classname": "tests.test_m5",
+      "time": 0.22,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_committed_write_survives_failed_read_and_restart",
+      "classname": "tests.test_m5",
+      "time": 0.272,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_change_replaces_old_proposal",
+      "classname": "tests.test_m5",
+      "time": 0.248,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_check_and_commit_exclude_competing_writer",
+      "classname": "tests.test_m5",
+      "time": 0.203,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_plan_limits_and_reference_validation",
+      "classname": "tests.test_m5",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transaction_binding_changed_before_confirmation",
+      "classname": "tests.test_m5",
+      "time": 0.208,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_task_cancel_and_confirmation_are_serialized[confirm]",
+      "classname": "tests.test_m5",
+      "time": 0.23,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_task_cancel_and_confirmation_are_serialized[cancel]",
+      "classname": "tests.test_m5",
+      "time": 0.23,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_crash_after_preparation_recovers_atomic_link_without_model",
+      "classname": "tests.test_m5",
+      "time": 0.445,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_terminal_single_task_cannot_be_repurposed_as_crossflow",
+      "classname": "tests.test_m5",
+      "time": 0.171,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_evaluation_partition_and_schema",
+      "classname": "tests.test_m5",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_stale_tab_user_header_blocks_reads_and_confirmation",
+      "classname": "tests.test_m6",
+      "time": 0.178,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_retry_metrics_are_scoped_and_do_not_capture_secrets",
+      "classname": "tests.test_m7",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transport_failure_retained_without_exception_message",
+      "classname": "tests.test_m7",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_r1_and_observe",
+      "classname": "tests.test_neuro",
+      "time": 0.099,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_read_write_certificate_trace",
+      "classname": "tests.test_neuro",
+      "time": 0.192,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_bad_plan_repair_budget",
+      "classname": "tests.test_neuro",
+      "time": 0.112,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_f01_trace_and_no_unconditional_proposal",
+      "classname": "tests.test_neuro",
+      "time": 0.202,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_structured_condition_preserved_and_rechecked",
+      "classname": "tests.test_neuro",
+      "time": 0.239,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_clock_rolls_query_and_expires_proposals",
+      "classname": "tests.test_neuro",
+      "time": 0.178,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_standing_full_flow_idempotency_and_insufficient_funds",
+      "classname": "tests.test_neuro",
+      "time": 0.299,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_standing_missing_day_confirmation_and_month_end",
+      "classname": "tests.test_neuro",
+      "time": 0.196,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_standing_pause_cancel_requires_page_confirmation",
+      "classname": "tests.test_neuro",
+      "time": 0.218,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_multiwrite_preserved_and_confirmed_sequentially",
+      "classname": "tests.test_neuro",
+      "time": 0.258,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_schema_dag_and_absolute_dates_rejected",
+      "classname": "tests.test_neuro",
+      "time": 0.088,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_urgent_emotion_and_owner_trace_isolation",
+      "classname": "tests.test_neuro",
+      "time": 0.158,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_snapshot_rule_still_blocks_execution",
+      "classname": "tests.test_neuro",
+      "time": 0.182,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_cannot_use_condition_threshold_as_transfer_amount",
+      "classname": "tests.test_neuro",
+      "time": 0.139,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_mock_condition_with_spending_words_does_not_turn_into_query",
+      "classname": "tests.test_neuro",
+      "time": 0.128,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_live_missing_source_then_followup_keeps_slots",
+      "classname": "tests.test_neuro",
+      "time": 0.179,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_month_end_real_scheduler_occurrence",
+      "classname": "tests.test_neuro",
+      "time": 0.19,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_recurring_chat_management_does_not_cancel_from_chat",
+      "classname": "tests.test_neuro",
+      "time": 0.322,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_plan_provider_outage_announces_single_scenario_fallback",
+      "classname": "tests.test_neuro",
+      "time": 0.563,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_period_cannot_silently_change_to_default",
+      "classname": "tests.test_neuro",
+      "time": 0.198,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_calendar_jump_discovers_due_month_instead_of_dropping_it",
+      "classname": "tests.test_neuro",
+      "time": 0.232,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_scheduler_survives_expired_user_session_and_claim_uses_normal_page_flow",
+      "classname": "tests.test_neuro",
+      "time": 0.333,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_invalid_or_ambiguous_amount_never_becomes_positive_different_amount[-100\\u5143]",
+      "classname": "tests.test_neuro",
+      "time": 0.168,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_invalid_or_ambiguous_amount_never_becomes_positive_different_amount[1.234\\u5143]",
+      "classname": "tests.test_neuro",
+      "time": 0.137,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_invalid_or_ambiguous_amount_never_becomes_positive_different_amount[\\u8d1f\\u4e00\\u767e\\u5143]",
+      "classname": "tests.test_neuro",
+      "time": 0.132,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_invalid_or_ambiguous_amount_never_becomes_positive_different_amount[\\u4e00\\u767e\\u4e8c\\u5143]",
+      "classname": "tests.test_neuro",
+      "time": 0.128,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_plan_get_task_status_uses_existing_owned_registry_tool",
+      "classname": "tests.test_neuro",
+      "time": 0.2,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_recurrence_on_read_step_is_schema_semantic_error",
+      "classname": "tests.test_neuro",
+      "time": 0.087,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_compound_money_is_clarified_instead_of_truncated[100\\u51435\\u89d2]",
+      "classname": "tests.test_neuro",
+      "time": 0.128,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_compound_money_is_clarified_instead_of_truncated[\\u4e24\\u5757\\u4e94]",
+      "classname": "tests.test_neuro",
+      "time": 0.126,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[400-MODEL_BAD_REQUEST]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[401-MODEL_AUTH_ERROR]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.004,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[402-MODEL_QUOTA_ERROR]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[403-MODEL_AUTH_ERROR]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.004,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[429-MODEL_RATE_LIMIT]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.004,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_errors_are_not_repairable_plan_errors[503-MODEL_UNAVAILABLE]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_wire_schema_subset_keeps_local_rules_and_property_names",
+      "classname": "tests.test_plan_provider",
+      "time": 0.004,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_forced_tool_request_and_success",
+      "classname": "tests.test_plan_provider",
+      "time": 0.004,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_http_error_diagnostics_are_redacted",
+      "classname": "tests.test_plan_provider",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_malformed_success_response_still_enters_plan_repair",
+      "classname": "tests.test_plan_provider",
+      "time": 0.005,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_official_strict_endpoint[https://api.deepseek.com]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_official_strict_endpoint[https://api.deepseek.com/v1]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_official_strict_endpoint[https://api.deepseek.com/beta]",
+      "classname": "tests.test_plan_provider",
+      "time": 0.0,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_trace_records_http_error_without_repair_or_blame",
+      "classname": "tests.test_plan_provider",
+      "time": 0.141,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_empty_clarification_asset_is_valid_but_empty_execution_is_not",
+      "classname": "tests.test_plan_provider",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_missing_information_is_model_question_not_repair_failure",
+      "classname": "tests.test_plan_provider",
+      "time": 0.143,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_date_overflow_returns_actionable_error[/api/transactions?end=9999-12-31]",
+      "classname": "tests.test_review",
+      "time": 0.104,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_date_overflow_returns_actionable_error[/api/transactions?start=0001-01-01]",
+      "classname": "tests.test_review",
+      "time": 0.159,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_date_overflow_returns_actionable_error[/api/spending?start=0001-01-01&end=0001-01-02&comparison_mode=none]",
+      "classname": "tests.test_review",
+      "time": 0.105,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_request_validation_uses_contract_without_echoing_values",
+      "classname": "tests.test_review",
+      "time": 0.103,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_upgrade_cli_preserves_old_database_and_is_repeatable",
+      "classname": "tests.test_review",
+      "time": 4.317,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_reversal_and_read_interruption[\\u6539\\u6210\\u4f4e\\u4e8e500\\u5143\\u624d\\u8f6c-mock]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.251,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_reversal_and_read_interruption[\\u6539\\u6210\\u4f4e\\u4e8e500\\u5143\\u624d\\u8f6c-live]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.239,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_reversal_and_read_interruption[\\u4f4e\\u4e8e500\\u5143\\u624d\\u8f6c\\uff0c\\u53ef\\u4ee5\\u5417\\uff1f-mock]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.243,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_condition_reversal_and_read_interruption[\\u4f4e\\u4e8e500\\u5143\\u624d\\u8f6c\\uff0c\\u53ef\\u4ee5\\u5417\\uff1f-live]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.23,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unknown_revision_disables_old_proposal_and_requires_restatement[\\u6539\\u6210\\u4e0d\\u8d85\\u8fc7500\\u5143\\u624d\\u8f6c]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.275,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unknown_revision_disables_old_proposal_and_requires_restatement[\\u6539\\u6210\\u53bb\\u5e74\\u9910\\u996e\\u8d85\\u8fc7500\\u5143\\u624d\\u8f6c]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.244,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unknown_revision_disables_old_proposal_and_requires_restatement[\\u6536\\u6b3e\\u8d26\\u6237\\u6539\\u6210\\u4e0d\\u5b58\\u5728\\u7684\\u8d26\\u6237]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.245,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_unknown_revision_disables_old_proposal_and_requires_restatement[\\u6539\\u6210\\u4f59\\u989d\\u8d85\\u8fc7500\\u5143\\u624d\\u8f6c]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.252,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_existing_transfer_accepts_condition_and_revokes_old_token[\\u5982\\u679c\\u672c\\u6708\\u9910\\u996e\\u8d85\\u8fc7500\\u5143\\uff0c\\u5c31\\u4ece\\u6d3b\\u671f\\u8f6c100\\u5143\\u5230\\u50a8\\u84c4\\u8d26\\u6237-mock]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.22,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_existing_transfer_accepts_condition_and_revokes_old_token[\\u5982\\u679c\\u672c\\u6708\\u9910\\u996e\\u8d85\\u8fc7500\\u5143\\uff0c\\u5c31\\u4ece\\u6d3b\\u671f\\u8f6c100\\u5143\\u5230\\u50a8\\u84c4\\u8d26\\u6237-live]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.243,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_existing_transfer_accepts_condition_and_revokes_old_token[\\u52a0\\u4e2a\\u6761\\u4ef6\\uff1a\\u672c\\u6708\\u9910\\u996e\\u8d85\\u8fc7500\\u5143-mock]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.619,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_existing_transfer_accepts_condition_and_revokes_old_token[\\u52a0\\u4e2a\\u6761\\u4ef6\\uff1a\\u672c\\u6708\\u9910\\u996e\\u8d85\\u8fc7500\\u5143-live]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.222,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancel_while_model_waits_discards_late_success_and_error[False-False]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.256,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancel_while_model_waits_discards_late_success_and_error[False-True]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.183,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancel_while_model_waits_discards_late_success_and_error[True-False]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.295,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_cancel_while_model_waits_discards_late_success_and_error[True-True]",
+      "classname": "tests.test_review_fixes",
+      "time": 0.282,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_newer_message_wins_over_late_model_response",
+      "classname": "tests.test_review_fixes",
+      "time": 0.245,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_transaction_evidence_keeps_query_filters",
+      "classname": "tests.test_review_fixes",
+      "time": 0.188,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_less_than_is_rechecked_at_confirmation",
+      "classname": "tests.test_review_fixes",
+      "time": 0.229,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_three_required_acceptance_cases[\\u6bcf\\u6708\\u8f6c300\\u7ed9\\u5f20\\u4e09-True]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.206,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_three_required_acceptance_cases[\\u6bcf\\u670815\\u53f7\\u8f6c300\\u7ed9\\u5f20\\u4e09-False]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.18,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_three_required_acceptance_cases[\\u8f6c300\\u7ed9\\u5f20\\u4e09-False]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.149,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_cannot_invent_monthly_or_date[None]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.154,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_cannot_invent_monthly_or_date[1]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.175,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_cannot_invent_monthly_or_date[15]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.163,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_model_default_is_reset_and_backend_asks",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.154,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_accept_default_requires_backend_question",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.174,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reject_default_then_supply_date[\\u4e0d\\u884c]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.213,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reject_default_then_supply_date[\\u4e0d\\u89811\\u53f7]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.201,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_reject_default_then_supply_date[\\u4e0d\\u90091\\u53f7]",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.202,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_switch_to_single_clears_monthly",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.175,
+      "status": "passed",
+      "message": ""
+    },
+    {
+      "name": "test_assistant_cannot_create_monthly_intent_or_default",
+      "classname": "tests.test_temporal_policy",
+      "time": 0.001,
+      "status": "passed",
+      "message": ""
+    }
+  ]
+}

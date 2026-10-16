@@ -1,0 +1,11 @@
+{
+  "_comment": "本轮（2026-10-01）由新增的 backend/tests/test_gap_findings.py 关闭的缺口。gen_inventory_doc.py 会消费本文件，把对应缺口标记为已关闭并展示用例名，避免文档与代码漂移。",
+  "G01": { "test": "test_gap_findings.py::test_health_and_demo_session_restore", "note": "健康检查与演示会话恢复的最小覆盖" },
+  "G02": { "test": "test_gap_findings.py::test_cancelled_proposal_confirm_returns_invalid_proposal_state / test_api_md_lists_error_code_no_backend_module_emits", "note": "钉住真实行为：取消后再确认是 409 INVALID_PROPOSAL_STATE；并用漂移钉断言 API.md 列出的码确无实现产生" },
+  "G03": { "test": "test_gap_findings.py::test_prepare_rejects_insufficient_funds_without_writes / test_confirm_rejects_insufficient_funds_without_business_writes", "note": "准备 400、确认 400（并非原清单假设的 409），两阶段都断言无写入；确认阶段的 400 是既有的状态码不一致，见文档漂移 2" },
+  "G04": { "test": "test_gap_findings.py::test_expired_demo_session_blocks_reads_and_writes", "note": "把 expires_at_utc 改到过去，读与写都 401 SESSION_EXPIRED；移回未来即恢复，证明唯一原因是时钟比较" },
+  "G07": { "test": "test_gap_findings.py::test_http_layer_reports_proposal_expired_after_token_window", "note": "经 TestClient 走路由，两个入口都 409 PROPOSAL_EXPIRED 且操作单转 expired" },
+  "G10": { "test": "test_gap_findings.py::test_daily_transfer_cap_uses_shanghai_midnight_window", "note": "上海日切左闭右开；恰好等于上限允许（money.py 用 >）；准备不写业务流水" },
+  "G11": { "test": "test_gap_findings.py::test_spending_evidence_offset_pages_do_not_overlap", "note": "evidence_offset>0 分页不重叠且并集等于不分页结果；未知类别返回空集而非回退全部" },
+  "G15": { "test": "test_gap_findings.py::test_upgrade_regression_uses_project_var_temp_dir", "note": "以 AST 读取方式钉住该约束并说明成因（cli.project_database 只接受项目 var/ 下的路径）。这是“记录约束”，未修复" }
+}
