@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-16",
+  "repository": "https://github.com/htyst/finagent",
+  "source_commit": "0db3acbe0ffa0b59b5195458507ec79419d88365",
+  "source_tree": "ec3c53251d8c722ec30116e0e19dfb3abcd951c0",
+  "source_files": 403,
+  "all_remote_blob_hashes_match_local": true,
+  "remote_tree_truncated": false,
+  "secrets_runtime_database_dependencies_excluded": true,
+  "local_history_synchronized": true,
+  "first_ci": {
+    "url": "https://github.com/htyst/finagent/actions/runs/38853430963",
+    "platform": "Ubuntu 24.04 / Python 3.13",
+    "conclusion": "failure",
+    "backend": {"passed": 293, "failed": 33, "errors": 48, "subtests_passed": 4, "warnings": 2, "seconds": 73.38},
+    "frontend_and_cloud": "skipped after backend failure; independent jobs added for subsequent checks"
+  },
+  "pending": ["backend full-suite failures need investigation and repair", "independent frontend and cloud checks", "Render account and cost approval", "actual cloud deployment and live-provider acceptance"],
+  "paid_service_created": false,
+  "website_published": false
+}
