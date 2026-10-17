@@ -25,6 +25,9 @@ def summary(name, result):
     text = (result.get("title", "消费统计") + f"：{range_label(current['period'])}（北京时间），本人所选账户，已入账消费减退款；收入和本人转账排除。\n"
             f"{known}消费 {totals['purchase_minor']/100:,.2f} 元，退款 {totals['refund_minor']/100:,.2f} 元，{known}净消费 {totals['net_minor']/100:,.2f} 元。\n")
     text += "\n".join(f"• {row['category']}：消费 {row['purchase_minor']/100:,.2f}，退款 {row['refund_minor']/100:,.2f}，净消费 {row['net_minor']/100:,.2f} 元。" for row in current["categories"])
+    sources=current.get('coverage',{}).get('included_sources',[])
+    text+='\n统计来源：'+('现金账本及信用卡费用账本' if 'credit_card_ledger' in sources and 'cash_ledger' in sources else '信用卡费用账本' if 'credit_card_ledger' in sources else '所选现金账户账本')+'。信用卡还款、本金调拨不重复计消费。'
+    if result.get('excluded_sources'):text+='未包含来源：'+ '、'.join(result['excluded_sources'])+'。'
     if current["categories"]:
         top = max(current["categories"], key=lambda row: row["net_minor"])
         text += f"\n主要支出：{top['category']}净消费 {top['net_minor']/100:,.2f} 元；逐笔依据见下方报告。"
@@ -35,7 +38,8 @@ def summary(name, result):
             text += "\n已完整覆盖月份：" + "、".join(result["complete_months"])
             text += "；缺失或不完整月份：" + "、".join(result["missing_months"]) + "。缺失月份不是零消费，无法确定全年净消费。"
         else:
-            text += f"\n全年净消费 {totals['net_minor']/100:,.2f} 元，12个月数据完整。"
+            text += f"\n全年净消费 {totals['net_minor']/100:,.2f} 元，所选连续一年数据完整。"
+        if result.get('partial_boundary_months'):text+='\n首尾非整月片段：'+'、'.join(result['partial_boundary_months'])+'；这些片段不参与整月排名。'
         highest = result["highest_months"]
         if highest:
             scope = "全年" if result["ranking_scope"] == "full_year" else "已完整覆盖月份中"

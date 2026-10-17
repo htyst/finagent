@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { api } from './api';
+import FinancialReadReport from './FinancialReadReport';
 
 type Category = { category: string; purchase_minor: number; refund_minor: number; net_minor: number };
 type Totals = { purchase_minor: number; refund_minor: number; net_minor: number; is_complete: boolean };
 type Period = { start_date: string; end_exclusive_date: string };
 type EvidenceRow = { transaction_id: string; merchant: string | null; amount_minor: number; signed_minor: number; category: string; type: string; posted_at_utc: string; original_transaction_id: string | null };
 type Evidence = { items: EvidenceRow[]; total: number; limit: number; offset: number };
-type Spending = { report_kind?: string; title?: string; current: { period: Period; totals: Totals; categories: Category[]; evidence: Evidence }; account_ids: string[]; category: string | null;
+type Spending = { card_id?: string | null; merchant?: string | null; included_sources?: string[]; report_kind?: string; title?: string; current: { coverage?:{scope?:string}; period: Period; totals: Totals; categories: Category[]; evidence: Evidence }; account_ids: string[]; category: string | null;
   comparison: { period: Period; totals: Totals; delta_minor: number | null; percent_change: string | null } | null;
-  months?: Array<{ month: string; totals: Totals | null; categories: Category[]; observed_totals: Totals }>;
+  partial_boundary_months?: string[]; ranking_note?: string; months?: Array<{ period?: Period; full_calendar_month?: boolean; month: string; totals: Totals | null; categories: Category[]; observed_totals: Totals }>;
   complete_months?: string[]; missing_months?: string[]; ranking_scope?: string; highest_months?: Array<{ month: string; net_minor: number }> };
 type Anomalies = { report_kind: 'anomalies'; period: Period; scanned_count: number; candidate_count: number; unflagged_count: number; coverage: { status: string };
   rules: { large_amount: { median_minor: number; threshold_minor: number; enabled: boolean }; near_duplicate: { window_seconds: number } };
@@ -19,7 +20,7 @@ const range = (p: Period) => `${p.start_date} 至 ${end(p)}`;
 const days = (p: Period) => Math.round((Date.parse(p.end_exclusive_date) - Date.parse(p.start_date)) / 86400000);
 const stamp = (value: string) => new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
 
-function SpendingReport({ result }: { result: Spending }) {
+function SpendingReport({ result, filters }: { result: Spending; filters: Record<string,unknown> }) {
   const [evidence, setEvidence] = useState(result.current.evidence);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +29,10 @@ function SpendingReport({ result }: { result: Spending }) {
     setBusy(true); setError('');
     const params = new URLSearchParams({ start: current.period.start_date, end: end(current.period), comparison_mode: 'none', evidence_limit: String(evidence.limit), evidence_offset: String(offset) });
     if (result.category) params.set('category', result.category);
-    if (result.account_ids.length === 1) params.set('account_id', result.account_ids[0]);
+    if (result.card_id) params.set('card_id', result.card_id);
+    if (result.merchant) params.set('merchant', result.merchant);
+    if (typeof filters.account_id === 'string' && filters.account_id) params.set('account_id', filters.account_id);
+    else if (current.coverage?.scope === 'selected_deposit_account' && result.account_ids.length === 1) params.set('account_id', result.account_ids[0]);
     try { const value = await api<Spending>(`/api/spending?${params}`); setEvidence(value.current.evidence); }
     catch (err) { setError(err instanceof Error ? err.message : '明细读取失败'); }
     finally { setBusy(false); }
@@ -36,31 +40,33 @@ function SpendingReport({ result }: { result: Spending }) {
   return <article className="analytics-report" aria-label={result.title ?? '消费统计报告'}>
     <div className="analytics-overview">
       <h3>{result.title ?? (result.comparison ? '净消费区间比较' : '消费统计与明细')}</h3>
-      <p>{range(current.period)}（北京时间） · {result.category ?? '全部类别'} · 本人所选账户 {result.account_ids.join('、')}</p>
-      <p className="operation-note">仅统计已入账消费与退款；净消费＝消费－退款；收入和本人转账排除。类别、月份与总额使用相同口径。</p>
+      <p>{range(current.period)}（北京时间） · {result.category ?? '全部类别'} · 账户 {result.account_ids.join('、')}{result.card_id && ` · 卡片 ${result.card_id}`}{result.merchant && ` · 商户 ${result.merchant}`}</p>
+      <p className="operation-note">{result.included_sources?.includes('credit_card_ledger') ? result.included_sources.includes('cash_ledger') ? '包含现金账户和信用卡已入账消费与退款；' : '仅统计所选信用卡已入账消费与退款；' : '仅统计所选现金账户已入账消费与退款；'}净消费＝消费－退款；收入和本人转账排除。类别、月份与总额使用相同口径。</p>
       <p><strong>{current.totals.is_complete ? '净消费' : '已知净消费'} {money(current.totals.net_minor)}</strong> · 消费 {money(current.totals.purchase_minor)} · 退款 {money(current.totals.refund_minor)}</p>
       {!current.totals.is_complete && <p className="coverage-warning">数据不完整，已知金额不能当作完整期间总额；缺失数据不是零消费。</p>}
       <div className="analytics-table-wrap"><table><thead><tr><th>类别</th><th>消费</th><th>退款</th><th>净消费</th></tr></thead><tbody>{current.categories.map(c => <tr key={c.category}><th>{c.category}</th><td>{money(c.purchase_minor)}</td><td>{money(c.refund_minor)}</td><td>{money(c.net_minor)}</td></tr>)}</tbody></table></div>
       {current.categories.length > 0 && <p>主要支出：{[...current.categories].sort((a, b) => b.net_minor - a.net_minor)[0].category}，净消费 {money(Math.max(...current.categories.map(c => c.net_minor)))}</p>}
-      {result.months && <><p>已完整覆盖月份：{result.complete_months?.join('、') || '暂无'}</p>
+      {result.months && <>{!!result.partial_boundary_months?.length && <p className="operation-note">首尾部分月份：{result.partial_boundary_months.join('、')}。{result.ranking_note??'仅按数据完整的整日历月排名。'}</p>}<p>已完整覆盖月份：{result.complete_months?.join('、') || '暂无'}</p>
         {!!result.missing_months?.length && <p className="coverage-warning">缺失或不完整月份：{result.missing_months.join('、')}。无法确定全年净消费；下方仅按已完整覆盖月份排名。</p>}
         <p>{result.ranking_scope === 'full_year' ? '全年' : '已完整覆盖月份中'}净消费最高（所有并列）：{result.highest_months?.map(m => `${m.month} ${money(m.net_minor)}`).join('；') || '暂无可排名月份'}</p></>}
       {result.comparison && <div className="analytics-comparison"><h4>与基准区间比较</h4><p>当前：{range(current.period)}，{days(current.period)} 天，{money(current.totals.net_minor)}；基准：{range(result.comparison.period)}，{days(result.comparison.period)} 天，{money(result.comparison.totals.net_minor)}。</p>
         {days(current.period) !== days(result.comparison.period) && <p>两个区间不等长；这里比较累计净消费，不作为上期同期或消费速度结论。</p>}
         <p>{result.comparison.delta_minor === null ? '数据不完整，无法给出完整变化金额或比例。' : `净消费变化 ${money(result.comparison.delta_minor)}${result.comparison.percent_change === null ? '（基准非正数，比例不适用）' : `（${result.comparison.percent_change}%）`}`}</p></div>}
     </div>
-    {result.months && <div className="analytics-months"><h4>逐月消费、退款与类别净消费</h4><div className="analytics-table-wrap"><table><thead><tr><th>月份</th><th>消费</th><th>退款</th><th>净消费</th>{current.categories.map(c => <th key={c.category}>{c.category}净消费</th>)}<th>覆盖</th></tr></thead><tbody>{result.months.map(m => <tr key={m.month}><th>{m.month}</th><td>{m.totals ? money(m.totals.purchase_minor) : '未知'}</td><td>{m.totals ? money(m.totals.refund_minor) : '未知'}</td><td>{m.totals ? money(m.totals.net_minor) : `未知（已知 ${money(m.observed_totals.net_minor)}）`}</td>{current.categories.map(c => <td key={c.category}>{m.totals ? money(m.categories.find(row => row.category === c.category)?.net_minor ?? 0) : '未知'}</td>)}<td>{m.totals ? '完整' : '缺数据'}</td></tr>)}</tbody></table></div></div>}
+    {result.months && <div className="analytics-months"><h4>逐月消费、退款与类别净消费</h4><div className="analytics-table-wrap"><table><thead><tr><th>月份</th><th>消费</th><th>退款</th><th>净消费</th>{current.categories.map(c => <th key={c.category}>{c.category}净消费</th>)}<th>覆盖</th></tr></thead><tbody>{result.months.map(m => <tr key={m.month}><th>{m.month}{m.full_calendar_month === false && m.period && <small>{range(m.period)} · 部分月份</small>}</th><td>{m.totals ? money(m.totals.purchase_minor) : '未知'}</td><td>{m.totals ? money(m.totals.refund_minor) : '未知'}</td><td>{m.totals ? money(m.totals.net_minor) : `未知（已知 ${money(m.observed_totals.net_minor)}）`}</td>{current.categories.map(c => <td key={c.category}>{m.totals ? money(m.categories.find(row => row.category === c.category)?.net_minor ?? 0) : '未知'}</td>)}<td>{m.totals ? m.full_calendar_month === false ? '区间完整，非整月' : '完整' : '缺数据'}</td></tr>)}</tbody></table></div></div>}
     <details className="analytics-evidence" open={result.report_kind !== 'annual'}><summary>本次统计的逐笔依据（共 {evidence.total} 条）</summary>
       <div className="analytics-table-wrap"><table><thead><tr><th>日期（北京时间）与交易编号</th><th>商户 / 类别</th><th>类型 / 关联原消费</th><th>净消费贡献</th></tr></thead><tbody>{evidence.items.map(row => <tr key={row.transaction_id}><td>{stamp(row.posted_at_utc)}<small>{row.transaction_id}</small></td><td>{row.merchant ?? '商户未提供'}<small>{row.category}</small></td><td>{row.type === 'refund' ? '退款' : '消费'}{row.original_transaction_id && <small>{row.original_transaction_id}</small>}</td><td>{money(row.signed_minor)}</td></tr>)}</tbody></table></div>
-      {!evidence.items.length && <p>本范围暂无已知消费或退款明细。</p>}{error && <p role="alert">{error}</p>}
+      {!evidence.items.length && <p>{evidence.total ? '明细尚未加载。' : '本范围暂无已知消费或退款明细。'}</p>}{!evidence.items.length && evidence.total>0 && <button disabled={busy} onClick={()=>void load(0)}>加载逐笔依据</button>}{error && <p role="alert">{error}</p>}
       {evidence.total > evidence.limit && <div className="pager"><button disabled={busy || evidence.offset === 0} onClick={() => void load(Math.max(0, evidence.offset - evidence.limit))}>上一页依据</button><span>{Math.floor(evidence.offset / evidence.limit) + 1} / {Math.ceil(evidence.total / evidence.limit)}</span><button disabled={busy || evidence.offset + evidence.limit >= evidence.total} onClick={() => void load(evidence.offset + evidence.limit)}>下一页依据</button></div>}
     </details>
   </article>;
 }
 
-export default function AnalyticsReport({ value }: { value: unknown }) {
+export default function AnalyticsReport({ value, filters = {} }: { value: unknown; filters?: Record<string,unknown> }) {
   if (!value || typeof value !== 'object') return null;
-  if ('current' in value) return <SpendingReport result={value as Spending} />;
+  if ('confirmed' in value && value.confirmed) return <AnalyticsReport value={value.confirmed} filters={filters}/>;
+  if ('analysis_kind' in value || 'table' in value || 'contracts' in value) return <FinancialReadReport initial={value as Record<string,unknown>} filters={filters} />;
+  if ('current' in value) return <SpendingReport key={JSON.stringify([value,filters])} result={value as Spending} filters={filters} />;
   if (!('report_kind' in value) || value.report_kind !== 'anomalies') return null;
   const result = value as Anomalies;
   return <article className="analytics-report analytics-anomalies" aria-label="异常交易核实报告">

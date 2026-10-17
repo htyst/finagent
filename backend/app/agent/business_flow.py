@@ -347,14 +347,14 @@ def dispatch(db, session, task, text, *, decision_hint=None):
                                         timezone_name=validation.normalized.time_zone,agent_task_id=task.id)
                 record=result['schedule'];context['schedule_id']=record['id']
                 _step(db,task,'prepare_schedule',grounded,result,'awaiting_confirmation',record['id'])
-                reply='已准备预约，请核对日期、时区、金额和对象，点击“确认预约”。授权时不扣款，到点由后台检查后执行一次。'
+                reply='已准备预约，请核对日期、时区、金额和对象，点击“核对并继续”。授权时不扣款，到点由后台检查后执行一次。'
             else:
                 from app.domain.collections import prepare_collection
                 record=prepare_collection(db,session_id=session.id,**grounded,total_minor=validation.normalized.total_minor,
                                           request_key=f'{task.id}-{task.plan_version}',agent_task_id=task.id)
                 context['collection_id']=record['id']
                 _step(db,task,'prepare_collection',grounded,{'collection':record},'awaiting_confirmation',record['id'])
-                reply='已准备AA收款，请核对成员、每人份额和到账账户，点击“确认发起收款”。发起人自己的份额不收取；成员付款后才记到账。'
+                reply='已准备AA收款，请核对成员、每人份额和到账账户，点击“核对并继续”。发起人自己的份额不收取；成员付款后才记到账。'
             task.context_json=_dump(context)
             _say(db,task,reply,'awaiting_confirmation')
         except DomainError as failure:

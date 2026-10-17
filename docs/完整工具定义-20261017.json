@@ -1,0 +1,4990 @@
+{
+  "catalog": {
+    "tool_count": 62,
+    "groups": {
+      "智能转账": [
+        "list_accounts",
+        "list_recipients",
+        "prepare_transfer",
+        "prepare_schedule",
+        "prepare_scheduled_transfer",
+        "prepare_collection",
+        "prepare_aa_collection",
+        "list_schedules",
+        "list_collections"
+      ],
+      "账单分析": [
+        "list_transactions",
+        "summarize_spending",
+        "analyze_finances",
+        "generate_statement",
+        "inspect_anomalies",
+        "read_financial_profile",
+        "read_financial_history",
+        "financial_planning_basis"
+      ],
+      "理财操作": [
+        "read_wealth",
+        "read_wealth_products",
+        "read_risk_assessment",
+        "read_investment_performance",
+        "request_risk_assessment",
+        "compare_wealth_products",
+        "prepare_wealth_buy",
+        "prepare_wealth_redeem"
+      ],
+      "卡片管理": [
+        "prepare_card_replacement",
+        "prepare_credit_limit_change",
+        "read_credit_cards",
+        "list_cards",
+        "read_card_management",
+        "prepare_card_loss",
+        "prepare_card_unloss",
+        "prepare_card_freeze",
+        "prepare_card_unfreeze",
+        "prepare_virtual_card_application",
+        "prepare_card_limit_change",
+        "prepare_online_payment_block",
+        "prepare_online_payment_unblock",
+        "prepare_card_action",
+        "prepare_card_management"
+      ],
+      "订阅代扣": [
+        "prepare_merchant_contract_cancel",
+        "read_subscriptions",
+        "identify_subscriptions",
+        "prepare_cancel_bank_mandate",
+        "prepare_subscription_revoke",
+        "prepare_renewal_reminder",
+        "prepare_subscription_reminder"
+      ],
+      "生日联动": [
+        "read_birthdays",
+        "read_birthday_offers",
+        "prepare_birthday_create",
+        "prepare_birthday_change",
+        "prepare_birthday_cancel",
+        "prepare_birthday_cancel_item",
+        "prepare_birthday_retry"
+      ],
+      "通用支持": [
+        "read_service_requests",
+        "read_tool_catalog",
+        "search_knowledge",
+        "read_agent_status",
+        "plan_budget",
+        "calculate",
+        "respond",
+        "manage_task"
+      ]
+    },
+    "permissions": {
+      "green": "本人普通查询和分析自动执行；不等于可以读取他人或受保护订阅",
+      "yellow": "订阅查询、提醒、代扣解除、虚拟卡申请、小额转账等须本人页面确认",
+      "red": "挂失、解挂、补卡、授信调额申请、解冻、恢复线上支付、提高交易限额、理财申购以及日累计超1000元转账须独立模拟短信验证及确认",
+      "execution": "所有prepare只准备固定单；确认凭据和执行端点不向LLM开放"
+    },
+    "boundaries": [
+      "本系统为本地合成数据银行，交易、商户及认证均为模拟",
+      "解除银行代扣不取消商户会员合同，不退款；可单独取消本地模拟商户下期续订，保留权益、不退款，不代表真实平台已取消",
+      "解挂须独立强验证和固定单确认；仅解除挂失，冻结与支付限制保留；模拟借记卡补发须强验证，原卡永久失效；密码修改暂未实现",
+      "单笔交易限额与信用卡授信额度分开；调额须本人强验证提交及独立模拟审批",
+      "导入欠款、基金等仍为只读快照；授信可在本地审批后单独调整，不开放信用卡消费或基金交易",
+      "生日安排复用当前专用流程；通用关系人、资金预留与通用DAG调度留待后续扩展"
+    ]
+  },
+  "tools": [
+    {
+      "name": "analyze_finances",
+      "description": "全量服务端计算按商户汇总、每日支出、最大N笔或收入/现金流。不要从列表前几条自行求总和；支持现金与信用卡消费。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "expense_by_merchant",
+              "cashflow",
+              "largest_expenses",
+              "daily_expenses"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "top_n": {
+            "default": 10,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Analysis",
+        "type": "object"
+      }
+    },
+    {
+      "name": "financial_planning_basis",
+      "description": "本人财务规划底稿：可用活期排除定期、冻结和预留；最近1至12个完整月的全量消费/收入/净现金流与分类习惯。提供facts.key用于工作流计算，不读取受保护订阅合同。默认3个月，不把不完整月算进平均。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "lookback_months": {
+            "default": 3,
+            "maximum": 12,
+            "minimum": 1,
+            "title": "Lookback Months",
+            "type": "integer"
+          }
+        },
+        "title": "PlanningBasis",
+        "type": "object"
+      }
+    },
+    {
+      "name": "generate_statement",
+      "description": "只读生成月度或年度账单，包括覆盖情况、分类、逐月汇总和并列排名。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "comparison_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "none",
+                  "previous_corresponding",
+                  "previous_full_month",
+                  "custom"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comparison Mode"
+          },
+          "compare_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compare Start"
+          },
+          "compare_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compare End"
+          },
+          "evidence_limit": {
+            "default": 20,
+            "title": "Evidence Limit",
+            "type": "integer"
+          },
+          "evidence_offset": {
+            "default": 0,
+            "title": "Evidence Offset",
+            "type": "integer"
+          },
+          "report_kind": {
+            "enum": [
+              "monthly",
+              "annual"
+            ],
+            "title": "Report Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_kind"
+        ],
+        "title": "Statement",
+        "type": "object"
+      }
+    },
+    {
+      "name": "identify_subscriptions",
+      "description": "识别本人疑似订阅，须先完成黄色查询确认。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "inspect_anomalies",
+      "description": "依据透明规则筛查异常交易线索；不认定盗刷，不修改卡片。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          }
+        },
+        "title": "Anomalies",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_accounts",
+      "description": "列出当前演示用户的账户。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_cards",
+      "description": "列出当前用户的卡片和状态。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_collections",
+      "description": "读取本人AA收款状态，不发起或代他人付款。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_recipients",
+      "description": "列出当前用户的预置收款人，保留同名对象。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "q": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Q"
+          }
+        },
+        "title": "Recipients",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_schedules",
+      "description": "读取本人预约转账状态，不授权或执行。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_transactions",
+      "description": "查询当前用户的模拟流水。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Type"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "debit",
+                  "credit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Direction"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "posted",
+                  "pending",
+                  "void"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "sort": {
+            "default": "date_desc",
+            "enum": [
+              "date_desc",
+              "date_asc",
+              "amount_desc",
+              "amount_asc"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "title": "Transactions",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_agent_status",
+      "description": "只读当前会话的指定任务、草稿与持久操作单回执，不新建交易。task_id空时当前任务。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task Id"
+          }
+        },
+        "title": "AgentStatus",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_birthday_offers",
+      "description": "查询可信的本地模拟鲜花和蛋糕供应商及固定报价，供生日安排使用；不预留资金、不下单、不获取私人关系人资料。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_birthdays",
+      "description": "读取本人的模拟生日安排。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_card_management",
+      "description": "读取本人的卡片限制和办理记录。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_credit_cards",
+      "description": "查询本人导入信用卡的总额度、档案欠款、可用额度、已出账/未出账和最近账单及还款日。card可填本人卡尾号、名称或id，不填查询全部本人信用卡；缺失返回未知，标明快照日期，不代表实时可刷额度，不办理调额或还款。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "CreditCards",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_financial_history",
+      "description": "分页查询本人信用卡账单、负债事件、13个月末资产快照、基金估值、保单等；支持日期与卡筛选。订阅相关表仍需黄色确认。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "table": {
+            "enum": [
+              "credit_card_statements",
+              "liability_events",
+              "monthly_financial_snapshots",
+              "monthly_summary",
+              "investment_valuations",
+              "deposits",
+              "liabilities",
+              "insurance_policies",
+              "auto_debit_mandates",
+              "subscription_billing_events"
+            ],
+            "title": "Table",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "liability_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Liability Id"
+          },
+          "subscription_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "table"
+        ],
+        "title": "History",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_financial_profile",
+      "description": "只读本人完整金融档案：实时银行存款、导入定期/基金/信用卡/贷款/保险及净资产。非银行余额明确标导入快照，不含订阅（订阅查询需独立黄色确认）。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_investment_performance",
+      "description": "查询本人持仓市值与导入档案中的成本、浮动盈亏和估值日期。快照收益不是实时收益，缺少原生交易成本核算时返回未知，不按产品展示收益率编造实际收益。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_risk_assessment",
+      "description": "只读本人当前风险评估、有效性和问卷规则；没有有效评估要如实说明，模型不能代答问卷。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_service_requests",
+      "description": "读取本人补卡、信用卡调额申请和会员续订取消的固定单与审批回执。kind可选replace_card/credit_limit/cancel_contract。指定会员记录需订阅查询确认；默认未获授权时不返回会员记录。只查状态，不代替本人确认或独立审批。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "replace_card",
+                  "credit_limit",
+                  "cancel_contract"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kind"
+          }
+        },
+        "title": "ServiceRecords",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_subscriptions",
+      "description": "读取本人完整订阅合同、试用/涨价/失败、全年实付及自动续费折月汇总，并分页查扣费证据；须先黄色查询确认。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "subscription_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "paid",
+                  "failed",
+                  "blocked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "contract_limit": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Contract Limit",
+            "type": "integer"
+          },
+          "contract_offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Contract Offset",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          }
+        },
+        "title": "SubscriptionRead",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_tool_catalog",
+      "description": "查询本系统实际可调用的工具、六类赛题场景、权限等级和业务边界；能力问题优先使用，不猜支持范围。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_wealth",
+      "description": "读取本人模拟产品、风险评估和持仓。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Empty",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_wealth_products",
+      "description": "查询模拟理财产品的风险、起购金额、费用、锁定期及收益说明；可指定product_id，不代表推荐或申购。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "product_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Product Id"
+          }
+        },
+        "title": "WealthProducts",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_knowledge",
+      "description": "检索版本化本地模拟项目知识，不能代替实时银行接口。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 3,
+            "maximum": 4,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "Knowledge",
+        "type": "object"
+      }
+    },
+    {
+      "name": "summarize_spending",
+      "description": "精确统计当前用户的消费、退款和证据。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card Id"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "comparison_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "none",
+                  "previous_corresponding",
+                  "previous_full_month",
+                  "custom"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comparison Mode"
+          },
+          "compare_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compare Start"
+          },
+          "compare_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Compare End"
+          },
+          "evidence_limit": {
+            "default": 20,
+            "title": "Evidence Limit",
+            "type": "integer"
+          },
+          "evidence_offset": {
+            "default": 0,
+            "title": "Evidence Offset",
+            "type": "integer"
+          }
+        },
+        "title": "Spending",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_replacement",
+      "description": "补发已经挂失的本人模拟借记卡。card为用户明确的尾号或名称，只准备红色强验证固定单；确认后本地补发，原卡永久失效，限制保留、账户资金不变，不迁移代扣。不是信用卡补发或真实实体卡配送。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareCardReplacement",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_credit_limit_change",
+      "description": "申请本人信用卡授信额度调整，card为用户明确的卡尾号，amount_yuan为申请新总额度而非增量。红色强验证后只提交申请，须独立审批；模型不能审批或保证获批。与单笔交易限额不同。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          }
+        },
+        "title": "PrepareCreditLimitChange",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_merchant_contract_cancel",
+      "description": "取消用户明确指定的本地模拟商户会员合同下期续订，merchant为商户原词或用户明确合同编号。先本人订阅查询确认，再单独固定单确认；保留原权益截止日期、不退款、不撤销银行代扣，不冒充真实商户API。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          }
+        },
+        "title": "PrepareMerchantContractCancel",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_transfer",
+      "description": "准备转账固定单。source为用户说出的付款账户名称或尾号，target为收款对象原词；字段未知可省略，程序会显示补资料表单。不能指定工具生成的授权、确认或执行。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target"
+          },
+          "target_bank": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Bank"
+          },
+          "target_account": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Account"
+          },
+          "target_note": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Note"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          }
+        },
+        "title": "PrepareTransfer",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_action",
+      "description": "准备冻结/解冻固定单，action仅freeze/unfreeze。不要把挂失或线上限制当成冻结。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "freeze",
+                  "unfreeze"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Action"
+          }
+        },
+        "title": "PrepareCardAction",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_schedule",
+      "description": "准备一次预约转账。日期时间保留用户原话schedule_text，不猜缺失钟点；条件、周期和时区不能省略。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target"
+          },
+          "target_note": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Note"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "schedule_text": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule Text"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Zone"
+          }
+        },
+        "title": "PrepareSchedule",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_collection",
+      "description": "准备本人垫付的AA收款，保留全部参与人、分摊方式和到账账户；不是本人给成员转账。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          },
+          "ParticipantShare": {
+            "additionalProperties": false,
+            "properties": {
+              "participant": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Participant",
+                "type": "string"
+              },
+              "amount_yuan": {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "title": "Amount Yuan",
+                "type": "string"
+              }
+            },
+            "required": [
+              "participant",
+              "amount_yuan"
+            ],
+            "title": "ParticipantShare",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "people": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "People"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Participants"
+          },
+          "payer": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer"
+          },
+          "collection_account": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Collection Account"
+          },
+          "share_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "equal",
+                  "explicit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Share Mode"
+          },
+          "shares_yuan": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/ParticipantShare"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shares Yuan"
+          }
+        },
+        "title": "PrepareCollection",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_wealth_buy",
+      "description": "准备模拟产品申购。只在用户明确要求申购时调用；理财建议、预算咨询和产品比较不调用。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Product"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "horizon_days": {
+            "anyOf": [
+              {
+                "maximum": 3650,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Horizon Days"
+          }
+        },
+        "title": "PrepareWealthBuy",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_wealth_redeem",
+      "description": "准备模拟持仓赎回，须用户明确要求；导入持仓仅是只读快照。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Product"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Units"
+          }
+        },
+        "title": "PrepareWealthRedeem",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_management",
+      "description": "准备虚拟卡申请、限额调整、线上限制或挂失。未知字段不猜，由固定表单继续核对。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "apply",
+                  "limit",
+                  "online_block",
+                  "online_unblock",
+                  "loss",
+                  "unloss"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Action"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "applicant": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Applicant"
+          }
+        },
+        "title": "PrepareCardManagement",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_subscription_reminder",
+      "description": "准备指定订阅的续费提醒；缺少查询权限会先要求用户确认查询，然后继续准备，仍不代表授权办理。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "days_before": {
+            "anyOf": [
+              {
+                "maximum": 31,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days Before"
+          },
+          "hour": {
+            "anyOf": [
+              {
+                "maximum": 23,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hour"
+          },
+          "minute": {
+            "anyOf": [
+              {
+                "maximum": 59,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minute"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Zone"
+          }
+        },
+        "title": "PrepareSubscriptionReminder",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_subscription_revoke",
+      "description": "准备解除指定银行代扣，不能声称取消商户会员合同。用户仅询问订阅、节省建议或取消方法时不调用。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          }
+        },
+        "title": "PrepareSubscriptionRevoke",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_birthday_create",
+      "description": "准备生日预算和商品安排，未知生日、地址、预算、账户不猜。先展示固定单，授权后才预留和办理。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "birthday_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Date"
+          },
+          "birthday_recipient": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Recipient"
+          },
+          "birthday_address": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Address"
+          },
+          "budget_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Budget Yuan"
+          },
+          "birthday_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "flowers",
+                    "cake"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Items"
+          }
+        },
+        "title": "PrepareBirthdayCreate",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_birthday_change",
+      "description": "准备修改当前生日安排，明确保留和删除的商品，不能丢失用户条件。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "birthday_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Date"
+          },
+          "birthday_recipient": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Recipient"
+          },
+          "birthday_address": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Address"
+          },
+          "budget_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Budget Yuan"
+          },
+          "birthday_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "flowers",
+                    "cake"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Items"
+          }
+        },
+        "title": "PrepareBirthdayChange",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_birthday_cancel",
+      "description": "准备取消整个生日安排。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          }
+        },
+        "title": "PrepareBirthdayCancel",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_birthday_cancel_item",
+      "description": "准备取消尚未完成的生日商品部分，保留的商品不能当成取消对象。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "birthday_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "flowers",
+                    "cake"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Items"
+          }
+        },
+        "title": "PrepareBirthdayCancelItem",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_birthday_retry",
+      "description": "准备重试失败且未付的生日商品，不能重付已成功部分。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "birthday_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "flowers",
+                    "cake"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Birthday Items"
+          }
+        },
+        "title": "PrepareBirthdayRetry",
+        "type": "object"
+      }
+    },
+    {
+      "name": "compare_wealth_products",
+      "description": "按用户明确预算和用款期限读取并比较模拟产品。缺少有效风险评估时工具展示问卷，由用户填写；不申购。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "horizon_days": {
+            "anyOf": [
+              {
+                "maximum": 3650,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Horizon Days"
+          }
+        },
+        "title": "CompareWealthProducts",
+        "type": "object"
+      }
+    },
+    {
+      "name": "request_risk_assessment",
+      "description": "用户明确要求风险评估时显示真实问卷，由用户手动填写，模型不得代答。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          }
+        },
+        "title": "RequestRiskAssessment",
+        "type": "object"
+      }
+    },
+    {
+      "name": "plan_budget",
+      "description": "按用户给出的总预算、人数和天数计算示意预算拆分；不是实际旅行报价，不办理付款。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "people": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "People"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 365,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days"
+          }
+        },
+        "title": "PlanBudget",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_unloss",
+      "description": "解除本人指定卡片的挂失，必须明确解挂意图。仅准备红色强验证固定单，手动确认后才解挂；不解冻、不恢复线上支付、不提高限额，不补卡。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareCardUnloss",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_loss",
+      "description": "挂失银行卡：用户明确说挂失、银行卡丢了时调用，未知卡片可留空并询问尾号。准备红色强验证固定单，用户手动确认后才挂失；不能用冻结代替挂失，导入只读信用卡不支持办理。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareCardLoss",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_virtual_card_application",
+      "description": "申请本人虚拟借记卡，source关联账户、applicant本人姓名或本人；准备黄色确认单，提交申请后仍等待独立审批，不能声称已发卡。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "applicant": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Applicant"
+          }
+        },
+        "title": "PrepareVirtualCardApplication",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_limit_change",
+      "description": "调整本人卡片单笔交易限额，amount_yuan为新限额，不是旧值；提高限额需要强验证。这不是信用卡授信额度申请。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          }
+        },
+        "title": "PrepareCardLimitChange",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_online_payment_block",
+      "description": "关闭指定卡片的线上支付/网购交易，保留线下状态；准备本人确认单，不等于冻结整张卡。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareOnlinePaymentBlock",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_online_payment_unblock",
+      "description": "恢复指定卡片线上支付，准备红色强验证固定单；仍受整卡冻结、挂失和单笔限额约束。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareOnlinePaymentUnblock",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_freeze",
+      "description": "冻结指定本人卡片，先准备固定单供本人确认；用户只查询或假设丢卡时不调用。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareCardFreeze",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_card_unfreeze",
+      "description": "解冻指定本人卡片，需要强验证。解冻不能解除挂失，也不能恢复银行授信。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Card"
+          }
+        },
+        "title": "PrepareCardUnfreeze",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_cancel_bank_mandate",
+      "description": "解除订阅代扣、停止某商户银行自动扣费：先核对本人订阅查询范围，再展示指定商户的固定解除单供本人确认。只解除银行代扣，不取消商户会员合同、不退款，聊天中的确认不能代替页面授权。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          }
+        },
+        "title": "PrepareCancelBankMandate",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_renewal_reminder",
+      "description": "为指定订阅准备续费提醒，days_before提前天数、hour/minute北京时间钟点；先查询授权，再单独确认提醒，不会自动解除代扣。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Merchant"
+          },
+          "days_before": {
+            "anyOf": [
+              {
+                "maximum": 31,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days Before"
+          },
+          "hour": {
+            "anyOf": [
+              {
+                "maximum": 23,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hour"
+          },
+          "minute": {
+            "anyOf": [
+              {
+                "maximum": 59,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minute"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Zone"
+          }
+        },
+        "title": "PrepareRenewalReminder",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_scheduled_transfer",
+      "description": "准备本人单次定时/预约转账，保留schedule_text日期时间原文，未知时间询问；需要用户固定授权，不支持隐式周期或附加条件。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target"
+          },
+          "target_note": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Note"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "schedule_text": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule Text"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Zone"
+          }
+        },
+        "title": "PrepareScheduledTransfer",
+        "type": "object"
+      }
+    },
+    {
+      "name": "prepare_aa_collection",
+      "description": "准备AA拆分收款，保留参与人、总额、分摊方式与本人收款账户；不代他人付款，确认后发起收款不等于已经收齐。",
+      "parameters": {
+        "$defs": {
+          "OperationContext": {
+            "additionalProperties": false,
+            "properties": {
+              "instruction_quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Instruction Quote"
+              },
+              "behavior": {
+                "default": "new_task",
+                "enum": [
+                  "new_task",
+                  "supplement",
+                  "modify",
+                  "continue"
+                ],
+                "title": "Behavior",
+                "type": "string"
+              },
+              "conditions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Conditions",
+                "type": "array"
+              },
+              "prohibitions": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Prohibitions",
+                "type": "array"
+              },
+              "time_requirements": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Time Requirements",
+                "type": "array"
+              }
+            },
+            "title": "OperationContext",
+            "type": "object"
+          },
+          "ParticipantShare": {
+            "additionalProperties": false,
+            "properties": {
+              "participant": {
+                "maxLength": 80,
+                "minLength": 1,
+                "title": "Participant",
+                "type": "string"
+              },
+              "amount_yuan": {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "title": "Amount Yuan",
+                "type": "string"
+              }
+            },
+            "required": [
+              "participant",
+              "amount_yuan"
+            ],
+            "title": "ParticipantShare",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "operation_context": {
+            "$ref": "#/$defs/OperationContext"
+          },
+          "amount_yuan": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,10}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Amount Yuan"
+          },
+          "people": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "People"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Participants"
+          },
+          "payer": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payer"
+          },
+          "collection_account": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Collection Account"
+          },
+          "share_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "equal",
+                  "explicit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Share Mode"
+          },
+          "shares_yuan": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/ParticipantShare"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shares Yuan"
+          }
+        },
+        "title": "PrepareAaCollection",
+        "type": "object"
+      }
+    },
+    {
+      "name": "calculate",
+      "description": "服务端精确计算。calculation={operation,inputs:[操作数,操作数]}；inputs必须是数组。引用操作数={node:已完成调用的call_id,key:其facts.key}，常量={value:十进制字符串,unit:yuan或number,label:用途,quote:可选用户原文}。结果key固定result。例如reserve的inputs=[{node:s1,key:monthly_expense_mean},{value:3,unit:number,label:预留月数}]。",
+      "parameters": {
+        "$defs": {
+          "Expression": {
+            "additionalProperties": false,
+            "properties": {
+              "operation": {
+                "enum": [
+                  "sum",
+                  "subtract",
+                  "multiply",
+                  "divide",
+                  "min",
+                  "max",
+                  "mean",
+                  "funding_check",
+                  "reserve",
+                  "runway_check",
+                  "savings_projection",
+                  "income_shock"
+                ],
+                "title": "Operation",
+                "type": "string"
+              },
+              "inputs": {
+                "items": {
+                  "$ref": "#/$defs/Operand"
+                },
+                "maxItems": 8,
+                "minItems": 1,
+                "title": "Inputs",
+                "type": "array"
+              }
+            },
+            "required": [
+              "operation",
+              "inputs"
+            ],
+            "title": "Expression",
+            "type": "object"
+          },
+          "Operand": {
+            "additionalProperties": false,
+            "properties": {
+              "node": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Node"
+              },
+              "key": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Key"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "pattern": "^-?[0-9]{1,12}(\\.[0-9]{1,6})?$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Value"
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Unit"
+              },
+              "label": {
+                "anyOf": [
+                  {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Label"
+              },
+              "quote": {
+                "anyOf": [
+                  {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Quote"
+              }
+            },
+            "title": "Operand",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "calculation": {
+            "$ref": "#/$defs/Expression"
+          }
+        },
+        "required": [
+          "title",
+          "calculation"
+        ],
+        "title": "CalculationArgs",
+        "type": "object"
+      }
+    },
+    {
+      "name": "respond",
+      "description": "完成当前回答。text写自然的判断、取舍和追问；准确数字引用本轮facts.id，例如当前可用现金{{f1}}，服务端填入核验值和金额单位。禁止自己写金额或估算数字，不引用旧轮事实。evidence_refs为本轮成功source_ref。缺关键条件needs_input=true。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 2500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 24,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "needs_input": {
+            "default": false,
+            "title": "Needs Input",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Respond",
+        "type": "object"
+      }
+    },
+    {
+      "name": "manage_task",
+      "description": "仅在用户明确要求时暂停、恢复、取消当前未执行任务或请求人工接管。instruction_quote必须是用户原文；聊天确认不能执行付款。",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "continue",
+              "cancel",
+              "handoff"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "instruction_quote": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Instruction Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "instruction_quote"
+        ],
+        "title": "TaskControl",
+        "type": "object"
+      }
+    }
+  ]
+}

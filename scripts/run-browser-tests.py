@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import shutil
 import sys
 import time
 from uuid import uuid4
@@ -25,13 +26,17 @@ def main():
     parser.add_argument('--api-budget',type=int,default=30)
     args=parser.parse_args()
     suites=args.suites.split(',')
-    if not set(suites)<={'p0-browser.mjs','p1-browser.mjs','dialogue-browser.mjs','redesign-browser.mjs'}:parser.error('Unknown suite')
+    if not set(suites)<={'p0-browser.mjs','p1-browser.mjs','dialogue-browser.mjs','redesign-browser.mjs',
+                          'directory-browser.mjs','freeze-browser.mjs','initialize-browser.mjs','sms-popup-browser.mjs','task-sms-browser.mjs'}:parser.error('Unknown suite')
     if args.mode=='live' and suites!=['dialogue-browser.mjs']:parser.error('Live uses only the budgeted dialogue suite')
     if 'dialogue-browser.mjs' in suites and args.mode!='live':parser.error('Dialogue browser suite requires actual Live')
     run = ROOT / 'var/TEST-ONLY' / ('p1-browser-' + uuid4().hex)
     run.mkdir(parents=True)
     node = ROOT / 'var/tools/node-v24.22.0-win-x64/node.exe'
-    if not node.is_file(): raise SystemExit('Project portable Node 24 is required')
+    if not node.is_file():
+        installed = shutil.which('node')
+        if not installed: raise SystemExit('Node.js is required; run setup-node.ps1 or install Node 24')
+        node = Path(installed)
     report = {'run': str(run), 'status': 'running', 'suites': []}
     try:
         for suite in suites:

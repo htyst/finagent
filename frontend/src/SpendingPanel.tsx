@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import SpendingChart from './SpendingChart';
 
+type Card = {id: string; alias: string; card_mask: string; account_id: string | null};
+const categories = ['餐饮','购物','交通','日用采购','文娱','医疗','居住','水电通信','教育','旅行','经营支出','保险保障','订阅续费','生日采购','礼物','未分类'];
 type Account = { id: string; alias: string; account_mask: string };
 type Totals = { purchase_minor: number; refund_minor: number; net_minor: number; purchase_count: number; refund_count: number; is_complete: boolean };
 type Coverage = { status: 'complete' | 'incomplete'; missing_account_ids: string[] };
@@ -9,8 +11,8 @@ type Period = { start_date: string; end_exclusive_date: string };
 type Evidence = { transaction_id: string; type: string; amount_minor: number; signed_minor: number; category: string; merchant: string | null; posted_at_utc: string; original_transaction_id: string | null };
 type PeriodSummary = { period: Period; coverage: Coverage; totals: Totals; categories: Array<Totals & { category: string }>; evidence: { total: number; limit: number; offset: number; items: Evidence[] } };
 type Comparison = { mode: string; period: Period; coverage: Coverage; totals: Totals; delta_minor: number | null; percent_change: string | null; percent_change_reason: string | null };
-type Spending = { account_ids: string[]; category: string | null; current: PeriodSummary; comparison: Comparison | null; rules_version: string; dataset_version: string };
-type SpendingQuery = { start: string; end: string; accountId: string; category: string; mode: string; compareStart: string; compareEnd: string };
+type Spending = { included_sources?: string[]; card_id?: string | null; merchant?: string | null; account_ids: string[]; category: string | null; current: PeriodSummary; comparison: Comparison | null; rules_version: string; dataset_version: string };
+type SpendingQuery = { cardId: string; merchant: string; start: string; end: string; accountId: string; category: string; mode: string; compareStart: string; compareEnd: string };
 
 const money = (minor: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(minor / 100);
 const displayEnd = (exclusive: string) => {
@@ -19,11 +21,12 @@ const displayEnd = (exclusive: string) => {
   return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 };
 
-export default function SpendingPanel({ demoDate, accounts, revision }: { demoDate: string; accounts: Account[]; revision: number }) {
+export default function SpendingPanel({ demoDate, accounts, cards = [], revision }: { demoDate: string; accounts: Account[]; cards?: Card[]; revision: number }) {
   const defaultStart = demoDate.slice(0, 7) + '-01';
   const [start, setStart] = useState(defaultStart);
   const [end, setEnd] = useState(demoDate);
   const [accountId, setAccountId] = useState('');
+  const [cardId,setCardId] = useState(''),[merchant,setMerchant] = useState('');
   const [category, setCategory] = useState('餐饮');
   const [mode, setMode] = useState('previous_corresponding');
   const [compareStart, setCompareStart] = useState('');
@@ -37,12 +40,14 @@ export default function SpendingPanel({ demoDate, accounts, revision }: { demoDa
 
   async function load(offset = 0, options?: SpendingQuery) {
     const version = ++requestVersion.current;
-    const q = options ?? { start, end, accountId, category, mode, compareStart, compareEnd };
+    const q = options ?? { start, end, accountId, cardId, merchant, category, mode, compareStart, compareEnd };
     attemptedQuery.current = q;
     setBusy(true); setError('');
     try {
       const params = new URLSearchParams({ category: q.category, evidence_limit: '5', evidence_offset: String(offset) });
       if (q.accountId) params.set('account_id', q.accountId);
+      if (q.cardId) params.set('card_id', q.cardId);
+      if (q.merchant.trim()) params.set('merchant', q.merchant.trim());
       const defaultRange = q.start === defaultStart && q.end === demoDate;
       if (!defaultRange || q.mode === 'none' || q.mode === 'custom') {
         params.set('start', q.start); params.set('end', q.end);
@@ -61,21 +66,23 @@ export default function SpendingPanel({ demoDate, accounts, revision }: { demoDa
   }
 
   useEffect(() => {
-    if (demoDate && accounts.length) void load(0, { start: defaultStart, end: demoDate, accountId: '', category: '餐饮', mode: 'previous_corresponding', compareStart: '', compareEnd: '' });
+    if (demoDate && accounts.length) void load(0, { start: defaultStart, end: demoDate, accountId: '', cardId: '', merchant: '', category: '餐饮', mode: 'previous_corresponding', compareStart: '', compareEnd: '' });
     return () => { requestVersion.current++; };
   }, [demoDate, accounts.length]);
   useEffect(() => {
     if (revision && appliedQuery) void load(0, appliedQuery);
   }, [revision]);
-  const filtersChanged = result && JSON.stringify(appliedQuery) !== JSON.stringify({ start, end, accountId, category, mode, compareStart, compareEnd });
+  const filtersChanged = result && JSON.stringify(appliedQuery) !== JSON.stringify({ start, end, accountId, cardId, merchant, category, mode, compareStart, compareEnd });
 
   return <section className="section spending-section">
     <div className="section-heading"><div><p className="eyebrow">SPENDING INSIGHT</p><h2>消费统计</h2></div><span>后端按已入账流水计算</span></div>
     <form className="spending-filters" onSubmit={(e) => { e.preventDefault(); void load(); }}>
       <label>开始日期<input type="date" value={start} onChange={(e) => { setStart(e.target.value); setMode('none'); }} required /></label>
       <label>结束日期<input type="date" value={end} onChange={(e) => { setEnd(e.target.value); setMode('none'); }} required /></label>
-      <label>账户<select aria-label="账户" value={accountId} onChange={(e) => setAccountId(e.target.value)}><option value="">全部本人账户</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.alias} {a.account_mask}</option>)}</select></label>
-      <label>类别<select aria-label="类别" value={category} onChange={(e) => setCategory(e.target.value)}><option value="全部">全部类别</option><option value="餐饮">餐饮</option><option value="购物">购物</option><option value="交通">交通</option><option value="未分类">未分类</option></select></label>
+      <label>账户<select aria-label="账户" value={accountId} onChange={(e) => {setAccountId(e.target.value);setCardId('');}}><option value="">全部本人账户</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.alias} {a.account_mask}</option>)}</select></label>
+      <label>银行卡<select aria-label="银行卡" value={cardId} onChange={e=>setCardId(e.target.value)}><option value="">全部银行卡</option>{cards.filter(c=>!accountId||c.account_id===accountId).map(c=><option value={c.id} key={c.id}>{c.alias} · {c.card_mask}</option>)}</select></label>
+      <label>商户<input aria-label="商户" value={merchant} onChange={e=>setMerchant(e.target.value)} placeholder="商户名称关键词" maxLength={100}/></label>
+      <label>类别<select aria-label="类别" value={category} onChange={(e) => setCategory(e.target.value)}><option value="全部">全部类别</option>{categories.map(c=><option value={c} key={c}>{c}</option>)}</select></label>
       <label>比较<select aria-label="比较" value={mode} onChange={(e) => setMode(e.target.value)}><option value="previous_corresponding" disabled={start !== defaultStart || end !== demoDate}>上月同期</option><option value="previous_full_month" disabled={start !== defaultStart || end !== demoDate}>上月整月</option><option value="none">不比较</option><option value="custom">自定义区间</option></select></label>
       {mode === 'custom' && <><label>比较开始<input type="date" value={compareStart} onChange={(e) => setCompareStart(e.target.value)} required /></label><label>比较结束<input type="date" value={compareEnd} onChange={(e) => setCompareEnd(e.target.value)} required /></label></>}
       <button type="submit" disabled={busy}>查询</button>
@@ -86,7 +93,7 @@ export default function SpendingPanel({ demoDate, accounts, revision }: { demoDa
     {busy && !result && <div className="empty compact">正在计算…</div>}
     {result && <>
       <div className="spending-summary">
-        <div><p className="eyebrow">{result.current.coverage.status === 'complete' ? '本期净消费' : '已知小计 · 数据不完整'}</p><strong>{money(result.current.totals.net_minor)}</strong><small>{result.current.period.start_date} 至 {displayEnd(result.current.period.end_exclusive_date)} · {result.account_ids.length} 个账户 · {result.category ?? '全部类别'}</small></div>
+        <div><p className="eyebrow">{result.current.coverage.status === 'complete' ? '本期净消费' : '已知小计 · 数据不完整'}</p><strong>{money(result.current.totals.net_minor)}</strong><small>{result.current.period.start_date} 至 {displayEnd(result.current.period.end_exclusive_date)} · {result.card_id ? `卡片 ${cards.find(c=>c.id===result.card_id)?.alias??result.card_id}` : `${result.account_ids.length} 个现金账户`}{result.included_sources?.includes('credit_card_ledger') && ' · 含信用卡账单'} · {result.category ?? '全部类别'}{result.merchant && ` · 商户 ${result.merchant}`}</small></div>
         <div className="spending-breakdown"><span>消费 <b>{money(result.current.totals.purchase_minor)}</b> · {result.current.totals.purchase_count} 笔</span><span>退款 <b>−{money(result.current.totals.refund_minor)}</b> · {result.current.totals.refund_count} 笔</span></div>
       </div>
       {result.current.coverage.status === 'incomplete' && <p className="coverage-warning">所选区间存在数据覆盖缺口，仅显示已知记录的小计，不代表完整支出。</p>}

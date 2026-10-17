@@ -1,0 +1,8 @@
+﻿"asset_id","owner_id","asset_type","asset_name","estimated_value_minor","currency","ownership_share_pct","valuation_date","linked_liability_id","liquidity","acquired_before_observation","valuation_basis","data_origin"
+"physical-9-owner_occupied_home","u9","owner_occupied_home","家庭住房（合成估值）",95000000,"CNY",100,"2026-09-24",,"not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-17-farm_home","u17","farm_home","家庭住房（合成估值）",65000000,"CNY",100,"2026-09-24",,"not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-19-mortgaged_home","u19","mortgaged_home","家庭住房（合成估值）",150000000,"CNY",100,"2026-09-24","loan19","not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-2-vehicle","u2","vehicle","家庭车辆（合成估值）",12000000,"CNY",100,"2026-09-24",,"not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-6-vehicle","u6","vehicle","家庭车辆（合成估值）",8500000,"CNY",100,"2026-09-24","loan6","not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-10-vehicle","u10","vehicle","家庭车辆（合成估值）",11000000,"CNY",100,"2026-09-24",,"not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"
+"physical-19-vehicle","u19","vehicle","家庭车辆（合成估值）",6500000,"CNY",100,"2026-09-24",,"not_cash",true,"演示用户自报估值；无评估报告、不代表成交价","synthetic"

@@ -8,11 +8,13 @@ from app.data.models import Card,User,AgentTask,AgentStep,AuditEvent,Task
 from app.data.card_models import CardControl,CardRequest,CardPayment
 from app.domain.errors import DomainError
 from app.domain.operations import _session,_now,_stamp,_canonical,_digest
-from app.domain.ledger import owned_account,post_entry,available_balance
+from app.domain.ledger import owned_account,post_entry,available_balance,assert_debit_allowed
 from app.domain.money import MAX_MINOR
-LABELS={'apply':'申请虚拟借记卡','limit':'调整单笔交易限额','online_block':'禁止线上消费','online_unblock':'解除线上消费限制','loss':'卡片挂失'}
-RULES='虚拟借记卡为本地测试产品；本人资料和关联账户须核对，授权提交进入审核，单独模拟审批发卡。单笔限额初始1000元，线上/线下分别控制；整卡冻结和挂失均拒绝消费。挂失不可通过解冻解除，当前不提供解挂或补卡。'
+LABELS={'apply':'申请虚拟借记卡','limit':'调整单笔交易限额','online_block':'禁止线上消费','online_unblock':'解除线上消费限制','loss':'卡片挂失','unloss':'卡片解挂'}
+RULES='虚拟借记卡为本地测试产品；本人资料和关联账户须核对，授权提交进入审核，单独模拟审批发卡。单笔限额初始1000元，线上/线下分别控制；冻结任一关联卡会暂停该账户全部出账，查询、收款、退款和赎回入账仍可办理；全部关联卡解冻后恢复。挂失卡拒绝消费。挂失不可通过解冻解除，解挂须本人强验证和独立确认，仅解除挂失，其他限制保留；当前不提供补卡。'
 def owned_card(db,owner,card_id):
+ from app.domain.financial_profile import guard_card
+ guard_card(db,owner,card_id)
  row=db.scalar(select(Card).where(Card.id==card_id,Card.owner_id==owner))
  if row is None:raise DomainError('RESOURCE_NOT_FOUND','资源不存在',404)
  return row
@@ -69,7 +71,9 @@ def prepare(db,*,session_id,kind,card_id=None,account_id=None,limit_minor=None,a
    if applicant!=user.display_name:raise DomainError('APPLICANT_MISMATCH','请核对当前演示用户本人的申请资料')
   else:
    card=owned_card(db,session.owner_id,card_id);account_id=card.account_id
-   if controls(db,card)['lost']:raise DomainError('CARD_LOST','该卡已挂失；不支持解挂，不能调整原卡限制',409)
+   lost=controls(db,card)['lost']
+   if kind=='unloss' and not lost:raise DomainError('CARD_NOT_LOST','该卡未挂失，无需解挂',409)
+   if kind!='unloss' and lost:raise DomainError('CARD_LOST','该卡已挂失；须先单独解挂，不能调整原卡限制',409)
   account=owned_account(db,session.owner_id,account_id)
   if kind=='limit' and (type(limit_minor) is not int or not 0<limit_minor<=10000000):raise DomainError('INVALID_INPUT','单笔限额须大于0且不超过10万元')
   terms=dict(kind=kind,card_id=card_id,card_alias=card.alias if card else None,card_mask='**'+card.card_last4 if card else None,card_version=card.version if card else None,controls=controls(db,card) if card else None,account_id=account.id,account_alias=account.alias,account_mask='**'+account.account_last4,applicant=applicant,product='虚拟借记卡' if kind=='apply' else None,limit_minor=limit_minor if kind=='limit' else None)
@@ -126,13 +130,16 @@ def confirm(db,*,session_id,request_id,confirmation_token,now=None):
   else:
    card=owned_card(db,session.owner_id,row.card_id)
    if card.version!=terms['card_version'] or controls(db,card)!=terms['controls']:raise DomainError('STALE_RESOURCE','卡片状态或限制已变化，请重新准备',409)
-   if controls(db,card)['lost']:raise DomainError('CARD_LOST','卡片已挂失',409)
+   lost=controls(db,card)['lost']
+   if row.kind=='unloss' and not lost:raise DomainError('CARD_NOT_LOST','卡片已非挂失状态，请重新核对',409)
+   if row.kind!='unloss' and lost:raise DomainError('CARD_LOST','卡片已挂失',409)
    c=db.get(CardControl,card.id)
    if c is None:c=CardControl(card_id=card.id,limit_minor=100000,online_enabled=1,lost=0,version=0);db.add(c)
    if row.kind=='limit':c.limit_minor=terms['limit_minor']
    elif row.kind=='online_block':c.online_enabled=0
    elif row.kind=='online_unblock':c.online_enabled=1
    elif row.kind=='loss':c.lost=1
+   elif row.kind=='unloss':c.lost=0
    c.version+=1;card.version+=1;row.status='executed';row.completed_at_utc=_stamp(instant)
    receipt=dict(message=LABELS[row.kind]+'已办理',status='executed',card_id=card.id,card_mask='**'+card.card_last4,**controls(db,card))
   row.token_hash=None;row.receipt_json=_canonical(dict(request_id=row.id,completed_at_utc=_stamp(instant),**receipt));db.add(AuditEvent(id=uuid4().hex,owner_id=session.owner_id,event='card_'+row.kind+'_confirmed',created_at_utc=_stamp(instant)));db.flush();sync(db,row);return request_view(row,instant)
@@ -164,7 +171,7 @@ def task_state(db,task):
   sync(db,row);return {'card_request':request_view(row)}
  return {'card_request':None}
 def payment_view(row):
- messages={'CARD_LOST':'卡片已挂失，交易被拒绝','INVALID_CARD_STATE':'卡片冻结，交易被拒绝','CARD_LIMIT_EXCEEDED':'超过单笔交易限额，交易被拒绝','ONLINE_DISABLED':'线上消费已禁止，交易被拒绝','INSUFFICIENT_FUNDS':'账户余额不足，交易被拒绝'}
+ messages={'CARD_LOST':'卡片已挂失，交易被拒绝','INVALID_CARD_STATE':'卡片冻结，交易被拒绝','ACCOUNT_FROZEN':'关联账户已冻结，交易被拒绝','CARD_LIMIT_EXCEEDED':'超过单笔交易限额，交易被拒绝','ONLINE_DISABLED':'线上消费已禁止，交易被拒绝','INSUFFICIENT_FUNDS':'账户余额不足，交易被拒绝'}
  return dict(id=row.id,card_id=row.card_id,amount_minor=row.amount_minor,channel=row.channel,status=row.status,error_code=row.error_code,transaction_id=row.transaction_id,balance_minor=row.balance_minor,created_at_utc=row.created_at_utc,message='模拟消费已入账' if row.status=='posted' else messages.get(row.error_code,'交易被拒绝'))
 def payment(db,*,session_id,card_id,amount_minor,channel,idempotency_key,now=None):
  if type(amount_minor) is not int or not 0<amount_minor<=MAX_MINOR or channel not in ('online','offline') or not isinstance(idempotency_key,str) or not 1<=len(idempotency_key)<=100:raise DomainError('INVALID_INPUT','消费金额、渠道或重试编号无效')
@@ -178,6 +185,7 @@ def payment(db,*,session_id,card_id,amount_minor,channel,idempotency_key,now=Non
   error=None
   try:
    check_purchase(db,card,amount_minor,channel)
+   assert_debit_allowed(db,account)
    if available_balance(db,account)<amount_minor:raise DomainError('INSUFFICIENT_FUNDS','账户一般可用余额不足，预留专款不能用于普通消费',409)
   except DomainError as e:error=e.code
   row=CardPayment(id=uuid4().hex,owner_id=session.owner_id,card_id=card.id,idempotency_key=idempotency_key,amount_minor=amount_minor,channel=channel,status='rejected' if error else 'posted',error_code=error,balance_minor=account.balance_minor,created_at_utc=_stamp(instant))

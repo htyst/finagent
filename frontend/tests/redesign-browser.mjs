@@ -46,9 +46,10 @@ try {
   await page.getByRole('button',{name:'核对并继续',exact:true}).click();let dialog=page.getByRole('dialog');await dialog.waitFor();assert.match(await dialog.innerText(),/黄色/);await shot('yellow-security');
   for(let i=0;i<12;i++){await page.keyboard.press('Tab');assert(await dialog.evaluate(el=>el.contains(document.activeElement)));}
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal((await state()).proposal.status,'pending_confirmation');passed.push('yellow-cancel-focus-trap-no-write');
-  await page.route('**/api/proposals/*/confirm',async route=>{await route.fetch();await route.abort('failed');});
+  const proposalConfirm=/\/api\/(?:proposals\/[^/]+|tasks\/[^/]+\/authorizations\/proposal\/[^/]+)\/confirm$/;
+  await page.route(proposalConfirm,async route=>{await route.fetch();await route.abort('failed');});
   await page.getByRole('button',{name:'核对并继续',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'确认条款并执行',exact:true}).click();
-  await page.getByText('模拟转账成功',{exact:true}).first().waitFor();await page.unroute('**/api/proposals/*/confirm');assert.equal((await state()).proposal.status,'executed');assert.equal(posts.filter(p=>/\/proposals\/[^/]+\/confirm$/.test(p)).length,1);passed.push('lost-response-recovers-original-receipt-once');
+  await page.getByText('模拟转账成功',{exact:true}).first().waitFor();await page.unroute(proposalConfirm);assert.equal((await state()).proposal.status,'executed');assert.equal(posts.filter(p=>proposalConfirm.test(p)).length,1);passed.push('lost-response-recovers-original-receipt-once');
   await page.reload();await page.locator('.receipt').waitFor();assert.equal((await state()).proposal.id,t.proposal.id);passed.push('reload-restores-original-receipt');
   const writesBeforeRecovery=posts.filter(p=>p.endsWith('/confirm')).length;
   await page.route('**/api/agent/tasks/current',r=>r.abort('internetdisconnected'));
@@ -63,7 +64,7 @@ try {
   await page.locator('.operation-section details summary').click();assert.equal(await page.getByLabel('金额（元）',{exact:true}).inputValue(),'321.09');passed.push('manual-form-draft-survives-navigation');
   const red=await post('/api/transfers/prepare',{source_account_id:'a1c',target:{type:'own_account',account_id:'a1s'},amount_minor:200000});assert.equal(red.status(),200);
   await page.getByRole('button',{name:'重新查询操作状态',exact:true}).click();await page.getByRole('button',{name:'核对并继续',exact:true}).click();dialog=page.getByRole('dialog');assert.match(await dialog.innerText(),/红色/);await shot('red-security');await dialog.getByRole('button',{name:'取消',exact:true}).click();passed.push('red-cancel-keeps-unexecuted');
-  const routes=[['assets/bills','消费统计'],['assets/cards','模拟卡片管理'],['assets/wealth','模拟理财'],['assets/subscriptions','订阅与银行代扣'],['tasks/birthdays','生日安排'],['tasks/schedules','预约与 AA 收款'],['assets/recipients','收款人备注'],['demo/operator',null]];
+  const routes=[['assets/bills','消费统计'],['assets/cards','模拟卡片管理'],['assets/wealth','模拟理财'],['assets/subscriptions','订阅与银行代扣'],['tasks/birthdays','生日安排'],['tasks/schedules','预约与 AA 收款'],['assets/recipients','收款人管理'],['demo/operator',null]];
   for(const [target,heading] of routes){await nav(target);if(heading)await page.getByRole('heading',{name:heading,exact:true}).waitFor();else await page.getByText('本机模拟坐席队列',{exact:true}).waitFor();await noOverflow();}
   passed.push('all-existing-business-entries-reachable');
   await nav('assets/subscriptions');await page.getByRole('button',{name:'明确确认订阅查询',exact:true}).click();await page.getByText('订阅查询已确认',{exact:true}).waitFor();passed.push('yellow-subscription-query-preserved');

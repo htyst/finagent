@@ -12,7 +12,10 @@ const labels: Record<string, string> = { wealth_buy: '模拟理财申购', wealt
   internal_transfer: '本人转账', external_transfer: '模拟外部转账', posted: '已入账', pending: '待入账', void: '已撤销' };
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value / 100);
 
-export default function TransactionEvidence({ initial, filters }: { initial: TransactionPage; filters: TransactionFilters }) {
+export default function TransactionEvidence(props: {initial: TransactionPage; filters: TransactionFilters}) {
+  return <TransactionEvidencePage key={JSON.stringify(props)} {...props}/>;
+}
+function TransactionEvidencePage({ initial, filters }: { initial: TransactionPage; filters: TransactionFilters }) {
   const [page, setPage] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +24,7 @@ export default function TransactionEvidence({ initial, filters }: { initial: Tra
   async function load(offset: number) {
     setBusy(true); setError('');
     const params = new URLSearchParams({ offset: String(offset), limit: String(page.limit) });
-    for (const name of ['start', 'end', 'category', 'account_id', 'card_id']) {
+    for (const name of ['start', 'end', 'category', 'account_id', 'card_id', 'merchant', 'type', 'direction', 'status', 'sort']) {
       if (filters[name] != null) params.set(name, String(filters[name]));
     }
     try {

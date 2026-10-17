@@ -2,7 +2,8 @@ type Envelope<T> = { status: string; data: T; error_code: string | null; message
 let expectedUser = '';
 let userGeneration = 0;
 export type SecurityOperation = { level: 'yellow' | 'red'; required: string; action: string; amount_minor: number;
-  including_this_minor: number | null; resource_kind: string; resource_id: string; terms: Record<string, unknown> };
+  including_this_minor: number | null; resource_kind: string; resource_id: string; terms: Record<string, unknown>;
+  action_id?:string; authorization_path?:string };
 let securityGate: ((operation: SecurityOperation) => Promise<void>) | null = null;
 export function setSecurityGate(gate: typeof securityGate) { securityGate = gate; }
 export function setExpectedUser(user: string) { expectedUser = user; userGeneration++; }
@@ -13,6 +14,15 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const user = expectedUser;
   const generation = userGeneration;
   if (options?.method === 'POST') {
+    const taskToken=path.match(/^\/api\/tasks\/([^/]+)\/authorizations\/(proposal|wealth|card|subscription|birthday|schedule|collection)\/([^/]+)\/confirmation-token$/);
+    if(taskToken){
+      if(!securityGate)throw new ApiError('安全确认面板未就绪，请稍后重试','SECURITY_UI_UNAVAILABLE',0);
+      const operation=await api<SecurityOperation>(path.replace(/\/confirmation-token$/,''));
+      const expected=typeof options.body==='string'?JSON.parse(options.body).action_id:null;
+      if(!expected||operation.action_id!==expected)throw new ApiError('操作单或任务版本已变化，请核对当前单','STALE_RESOURCE',409);
+      await securityGate(operation);
+      if(generation!==userGeneration)throw new ApiError('用户已变化，请重新确认','SESSION_CHANGED',409);
+    }
     const routes: [RegExp, string][] = [
       [/^\/api\/proposals\/([^/]+)\/confirmation-token$/, 'proposal'],
       [/^\/api\/wealth\/orders\/([^/]+)\/confirmation-token$/, 'wealth'],
@@ -52,5 +62,6 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new ApiError(payload.message || `请求失败 (${res.status})`, payload.error_code ?? 'REQUEST_ERROR', res.status);
   }
+  if (generation !== userGeneration) throw new ApiError('用户已变化，请重新查询当前会话', 'SESSION_CHANGED', 409);
   return payload.data;
 }

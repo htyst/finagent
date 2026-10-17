@@ -27,6 +27,9 @@ def tmp_path():
 
 @pytest.fixture
 def bank(tmp_path, monkeypatch):
+    # Historical behavior contracts retain their legacy semantic substitutes.
+    # Dynamic-engine tests explicitly select the production-default engine.
+    monkeypatch.setenv('FINAGENT_AGENT_ENGINE','legacy')
     import app.config
     monkeypatch.setattr(app.config, 'ROOT', tmp_path)
     engine = make_engine(tmp_path / 'TEST-ONLY' / 'test.sqlite3')

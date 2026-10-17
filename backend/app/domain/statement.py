@@ -14,57 +14,53 @@ from app.domain.spending import summarize_spending
 
 
 def generate_statement(db: Session, *, owner_id: str, report_kind: str, **args) -> dict:
-    start, end = args.get("start"), args.get("end")
-    if not start or not end or report_kind not in {"monthly", "annual"}:
-        raise DomainError("INVALID_INPUT", "报告需要明确起止日期和月度或年度类型")
-    first, last = parse_day(start), parse_day(end)
-    if report_kind == "annual":
-        valid = first.month == first.day == 1 and last == date(first.year, 12, 31)
-    else:
-        valid = first.day == 1 and first.year == last.year and first.month == last.month and last.day == calendar.monthrange(first.year, first.month)[1]
-    if not valid:
-        raise DomainError("INVALID_INPUT", "年度或月度报告必须覆盖完整日历年或月；数据缺失会另行注明")
-    result = summarize_spending(db, owner_id=owner_id, **args)
-    result["report_kind"] = report_kind
-    result["title"] = f"{first.year}年年度账单报告" if report_kind == "annual" else f"{first.year}年{first.month}月月度账单报告"
-    if report_kind == "annual":
-        months = []
-        for month in range(1, 13):
-            month_args = dict(args, start=date(first.year, month, 1).isoformat(),
-                              end=date(first.year, month, calendar.monthrange(first.year, month)[1]).isoformat(),
-                              comparison_mode="none", compare_start=None, compare_end=None, evidence_offset=0)
-            current = summarize_spending(db, owner_id=owner_id, **month_args)["current"]
-            complete = current["totals"]["is_complete"]
-            months.append({"month": f"{first.year}-{month:02d}", "period": current["period"],
-                "coverage": current["coverage"], "status": "complete" if complete else "incomplete",
-                "totals": current["totals"] if complete else None,
-                "observed_totals": current["totals"], "categories": current["categories"],
-                "evidence": current["evidence"]})
-        eligible = [row for row in months if row["totals"] is not None]
-        maximum = max((row["totals"]["net_minor"] for row in eligible), default=None)
-        result.update(months=months, complete_months=[row["month"] for row in eligible],
-            missing_months=[row["month"] for row in months if row["totals"] is None],
-            ranking_scope="full_year" if len(eligible) == 12 else "complete_months_only",
-            highest_months=[{"month": row["month"], "net_minor": maximum} for row in eligible if row["totals"]["net_minor"] == maximum])
+    start,end=args.get('start'),args.get('end')
+    if not start or not end or report_kind not in {'monthly','annual'}:
+        raise DomainError('INVALID_INPUT','报告需要明确起止日期和月度/年度类型')
+    period=selected_range(start,end);first,last=period.start,period.end_exclusive-timedelta(days=1)
+    calendar_year=first.month==first.day==1 and last==date(first.year,12,31)
+    if report_kind=='monthly' and not (first.day==1 and first.year==last.year and first.month==last.month and last.day==calendar.monthrange(last.year,last.month)[1]):
+        raise DomainError('INVALID_INPUT','月报需要完整日历月；数据缺失另行注明')
+    if report_kind=='annual' and not 365<=(period.end_exclusive-first).days<=366:
+        raise DomainError('INVALID_INPUT','年度报告支持完整自然年或连续365/366天；较短区间请查询消费统计')
+    result=summarize_spending(db,owner_id=owner_id,**args)
+    result.update(report_kind=report_kind,report_scope='calendar_year' if calendar_year else 'rolling_year' if report_kind=='annual' else 'calendar_month',
+        title=f'{first.year}年年度账单报告' if calendar_year else f'{first.isoformat()}至{last.isoformat()}连续一年账单报告' if report_kind=='annual' else f'{first.year}年{first.month}月月度账单报告')
+    if report_kind=='annual':
+        months=[];cursor=first.replace(day=1)
+        while cursor<=last:
+            month_last=date(cursor.year,cursor.month,calendar.monthrange(cursor.year,cursor.month)[1])
+            begin,finish=max(cursor,first),min(month_last,last)
+            month_args=dict(args,start=begin.isoformat(),end=finish.isoformat(),comparison_mode='none',compare_start=None,compare_end=None,evidence_limit=1,evidence_offset=0)
+            current=summarize_spending(db,owner_id=owner_id,**month_args)['current']
+            complete=current['totals']['is_complete'];full=begin==cursor and finish==month_last
+            months.append(dict(month=cursor.strftime('%Y-%m'),period=current['period'],coverage=current['coverage'],status='complete' if complete else 'incomplete',
+                full_calendar_month=full,totals=current['totals'] if complete else None,observed_totals=current['totals'],categories=current['categories'],
+                evidence={'total':current['evidence']['total'],'limit':0,'offset':0,'items':[],'detail_query':dict(start=begin.isoformat(),end=finish.isoformat(),category=result['category'],card_id=args.get('card_id'),account_id=args.get('account_id'))}))
+            cursor=date(cursor.year+1,1,1) if cursor.month==12 else date(cursor.year,cursor.month+1,1)
+        eligible=[m for m in months if m['totals'] is not None and m['full_calendar_month']]
+        maximum=max((m['totals']['net_minor'] for m in eligible),default=None)
+        result.update(months=months,complete_months=[m['month'] for m in eligible],missing_months=[m['month'] for m in months if m['totals'] is None],
+            partial_boundary_months=[m['month'] for m in months if not m['full_calendar_month']],
+            ranking_scope='full_year' if calendar_year and len(eligible)==12 else 'complete_months_only',
+            ranking_note='最高月份仅比较数据完整的整日历月；首尾不足整月的区间不参与排名',
+            highest_months=[dict(month=m['month'],net_minor=maximum) for m in eligible if m['totals']['net_minor']==maximum])
     return result
 
 
 def inspect_anomalies(db: Session, *, owner_id: str, start: str | None = None, end: str | None = None,
-                      account_id: str | None = None, category: str | None = None) -> dict:
+                      account_id: str | None = None, category: str | None = None,card_id: str | None = None) -> dict:
     # Reuse ownership/date/coverage validation, but scan all posted purchases,
     # not just the paginated evidence. Refunds and transfers are not candidates.
     summary = summarize_spending(db, owner_id=owner_id, start=start, end=end,
-        account_id=account_id, category=category, comparison_mode="none")
+        account_id=account_id, card_id=card_id,category=category, comparison_mode="none")
     period = summary["current"]["period"]
-    query = select(Transaction).where(Transaction.owner_id == owner_id,
-        Transaction.account_id.in_(summary["account_ids"]), Transaction.status == "posted",
-        Transaction.type == "purchase", Transaction.posted_at_utc >= period["start_utc"],
-        Transaction.posted_at_utc < period["end_utc"])
-    if category == "未分类":
-        query = query.where(Transaction.category.is_(None))
-    elif category and category != "全部":
-        query = query.where(Transaction.category == category)
-    rows = db.scalars(query.order_by(Transaction.posted_at_utc, Transaction.id)).all()
+    from app.domain.financial_queries import fact_query,date_filtered
+    from app.domain.categories import query_category
+    f=fact_query(db,owner_id,[account_id] if account_id else None,card_id,expense_only=True)
+    filters=date_filtered(f,selected_range(period['start_date'],(parse_day(period['end_exclusive_date'])-timedelta(days=1)).isoformat()),query_category(category))
+    filters.append(f.c.type=='purchase')
+    rows=db.execute(select(f).where(*filters).order_by(f.c.posted_at_utc,f.c.id)).all()
     middle = median([row.amount_minor for row in rows]) if rows else 0
     # Robust median, enough observations, absolute floor. A late timestamp is
     # contextual evidence, not by itself a fraud flag.

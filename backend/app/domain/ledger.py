@@ -19,6 +19,8 @@ KINDS = {
     "purchase": {"debit"}, "refund": {"credit"}, "income": {"credit"},
     "internal_transfer": {"debit", "credit"}, "external_transfer": {"debit"},
     "wealth_buy": {"debit"}, "wealth_redeem": {"credit"},
+    "deposit_funding": {"debit", "credit"}, "deposit_redemption": {"debit", "credit"},
+    "investment_purchase": {"debit"}, "debt_repayment": {"debit"}, "credit_card_repayment": {"debit"},
 }
 
 
@@ -29,6 +31,7 @@ def reserved_balance(db: Session, account_id: str) -> int:
 
 
 def available_balance(db: Session, account: Account) -> int:
+    if account_restrictions(db, account)["debit_blocked"]: return 0
     return account.balance_minor - reserved_balance(db, account.id)
 
 
@@ -65,6 +68,27 @@ def owned_account(db: Session, owner_id: str, account_id: str, *, active: bool =
     if active and account.status != "active":
         raise DomainError("INVALID_ACCOUNT_STATE", "账户当前不可用于该操作")
     return account
+
+
+def account_restrictions(db: Session, account: Account) -> dict:
+    """A frozen linked card suspends ALL debits on this account, including old cards.
+
+    Derive the restriction so existing freezes take effect without rewriting data,
+    and unfreezing one of several cards never clears another card's restriction.
+    """
+    frozen = account.status == 'frozen' or db.scalar(select(Card.id).where(
+        Card.owner_id == account.owner_id, Card.account_id == account.id, Card.status == 'frozen').limit(1)) is not None
+    status = 'frozen' if frozen and account.status == 'active' else account.status
+    blocked = status != 'active'
+    return {'status': status, 'debit_blocked': blocked,
+            'restriction_message': ('账户已冻结，暂停转账、消费、理财申购和自动扣款；仍可查询、收款和退款。'
+                if frozen else '账户当前不可出账。' if blocked else None)}
+
+def assert_debit_allowed(db: Session, account: Account) -> None:
+    restriction = account_restrictions(db, account)
+    if restriction['debit_blocked']:
+        raise DomainError('ACCOUNT_FROZEN' if restriction['status'] == 'frozen' else 'INVALID_ACCOUNT_STATE',
+                          restriction['restriction_message'], 409)
 
 
 def daily_transfer_outflow(db: Session, account_id: str, business_date: date) -> int:
@@ -110,6 +134,8 @@ def post_entry(db: Session, *, owner_id: str, account_id: str, kind: str, direct
         raise DomainError("INVALID_INPUT", "业务时间必须包含时区")
     account = owned_account(db, owner_id, account_id, active=kind not in {"refund", "income"})
     if card_id:
+        from app.domain.financial_profile import guard_card
+        if kind == 'purchase': guard_card(db, owner_id, card_id)
         card = db.scalar(select(Card).where(Card.id == card_id, Card.owner_id == owner_id, Card.account_id == account_id))
         if card is None:
             raise DomainError("RESOURCE_NOT_FOUND", "资源不存在", 404)
@@ -120,6 +146,8 @@ def post_entry(db: Session, *, owner_id: str, account_id: str, kind: str, direct
             check_purchase(db,card,amount,channel)
         if kind == "purchase" and status != "void" and card.status != "active":
             raise DomainError("INVALID_CARD_STATE", "卡片已冻结，不能新增模拟消费")
+    if direction == "debit":
+        assert_debit_allowed(db, account)
     if kind == "refund":
         if not original_id:
             raise DomainError("INVALID_REFUND", "退款缺少原消费引用")
@@ -182,6 +210,7 @@ def post_internal_transfer(db: Session, *, owner_id: str, source_id: str, target
     if source_id == target_id:
         raise DomainError("INVALID_INPUT", "转出和转入账户不能相同")
     source = owned_account(db, owner_id, source_id)
+    assert_debit_allowed(db, source)
     owned_account(db, owner_id, target_id)
     day = business_at.astimezone(SHANGHAI).date()
     amount = validate_transfer_amount(amount_minor, daily_transfer_outflow(db, source.id, day))
@@ -203,6 +232,7 @@ def post_external_transfer(db: Session, *, owner_id: str, source_id: str, recipi
     if business_at.tzinfo is None:
         raise DomainError("INVALID_INPUT", "业务时间必须包含时区")
     source = owned_account(db, owner_id, source_id)
+    assert_debit_allowed(db, source)
     recipient = db.scalar(select(Recipient).where(Recipient.id == recipient_id, Recipient.owner_id == owner_id))
     if recipient is None:
         raise DomainError("RESOURCE_NOT_FOUND", "资源不存在", 404)

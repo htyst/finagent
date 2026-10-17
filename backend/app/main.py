@@ -215,8 +215,7 @@ def select_demo_user(payload: SelectUser, response: Response, request: Request, 
     except Exception:
         db.rollback()
         raise
-    response.set_cookie(COOKIE_NAME, session_id, httponly=True, samesite="lax",
-                        secure=os.getenv('FINAGENT_SECURE_COOKIE', '0') == '1', path="/")
+    response.set_cookie(COOKIE_NAME, session_id, httponly=True, samesite="lax", secure=False, path="/")
     return envelope({"user": {"id": user.id, "display_name": user.display_name}, "expires_at": expires_at})
 
 
@@ -227,20 +226,22 @@ def current_demo_user(owner_id: str = Depends(require_owner), db: Session = Depe
 
 @app.get("/api/accounts")
 def accounts(owner_id: str = Depends(require_owner), db: Session = Depends(get_db)):
-    from app.domain.ledger import available_balance, reserved_balance
+    from app.domain.ledger import available_balance, reserved_balance, account_restrictions
     rows = db.scalars(select(Account).where(Account.owner_id == owner_id).order_by(Account.id)).all()
-    return envelope([{"id": row.id, "alias": row.alias, "account_mask": "**" + row.account_last4,
+    data = []
+    for row in rows:
+        restriction = account_restrictions(db, row)
+        data.append({"id": row.id, "alias": row.alias, "account_mask": "**" + row.account_last4,
                       "currency": row.currency, "balance_minor": row.balance_minor,
-                      "available_balance_minor": available_balance(db, row), "reserved_minor": reserved_balance(db, row.id),
-                      "status": row.status, "version": row.version} for row in rows])
+                      "available_balance_minor": 0 if restriction['debit_blocked'] else available_balance(db, row),
+                      "reserved_minor": reserved_balance(db, row.id), **restriction, "version": row.version})
+    return envelope(data)
 
 
 @app.get("/api/cards")
 def cards(owner_id: str = Depends(require_owner), db: Session = Depends(get_db)):
-    from app.domain.card_management import controls
-    rows = db.scalars(select(Card).where(Card.owner_id == owner_id).order_by(Card.id)).all()
-    return envelope([{"id": row.id, "alias": row.alias, "brand": row.brand, "card_mask": "**" + row.card_last4,
-                      "account_id": row.account_id, "status": "lost" if controls(db,row)["lost"] else row.status, "version": row.version, "controls": controls(db,row)} for row in rows])
+    from app.domain.financial_queries import card_directory
+    return envelope(card_directory(db,owner_id))
 
 
 @app.get("/api/recipients")
@@ -252,8 +253,8 @@ def recipients(q: str = "", remark: str | None = None, owner_id: str = Depends(r
     if remark is not None:
         stmt = stmt.where(Recipient.remark == remark.strip())
     rows = db.scalars(stmt.order_by(Recipient.id)).all()
-    return envelope([{"id": row.id, "name": row.name, "remark": row.remark, "account_mask": "**" + row.account_last4,
-                      "phone_mask": mask_phone(row.phone), "status": row.status, "version": row.version} for row in rows])
+    from app.domain.directory import recipient_view
+    return envelope([recipient_view(row) for row in rows])
 
 
 @app.get("/api/recipients/{recipient_id}/credits")
@@ -273,54 +274,41 @@ def recipient_credits(recipient_id: str, owner_id: str = Depends(require_owner),
                                 "posted_at_utc": row.posted_at_utc} for row in rows]})
 
 
+def check_read_query(request: Request):
+    common={'start','end','account_id','card_id','category','merchant'}
+    allowed=common|({'limit','offset','type','direction','status','sort'} if request.url.path=='/api/transactions' else {'comparison_mode','compare_start','compare_end','evidence_limit','evidence_offset'})
+    if set(request.query_params)-allowed:
+        raise DomainError('INVALID_INPUT','请求包含不支持的查询参数；筛选未执行',422)
+
+
 @app.get("/api/transactions")
 def transactions(start: str | None = None, end: str | None = None,
                  account_id: str | None = None, card_id: str | None = None, category: str | None = None,
                  limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
-                 owner_id: str = Depends(require_owner), db: Session = Depends(get_db)):
-    setting = get_setting(db)
-    if account_id and db.scalar(select(Account.id).where(Account.id == account_id, Account.owner_id == owner_id)) is None:
-        fail("RESOURCE_NOT_FOUND", "资源不存在", 404)
-    if card_id and db.scalar(select(Card.id).where(Card.id == card_id, Card.owner_id == owner_id)) is None:
-        fail("RESOURCE_NOT_FOUND", "资源不存在", 404)
-    start_utc = date_utc(start) if start else None
-    end_utc = date_utc(end, end=True) if end else date_utc(setting.demo_date, end=True)
-    if start_utc and start_utc >= end_utc:
-        fail("INVALID_INPUT", "开始日期必须早于结束日期")
-    filters = [Transaction.owner_id == owner_id, Transaction.posted_at_utc < end_utc]
-    if start_utc:
-        filters.append(Transaction.posted_at_utc >= start_utc)
-    if account_id:
-        filters.append(Transaction.account_id == account_id)
-    if card_id:
-        filters.append(Transaction.card_id == card_id)
-    if category == "未分类":
-        filters.append(Transaction.category.is_(None))
-    elif category and category != "全部":
-        filters.append(Transaction.category == category)
-    total = db.scalar(select(func.count()).select_from(Transaction).where(*filters)) or 0
-    rows = db.scalars(select(Transaction).where(*filters).order_by(Transaction.posted_at_utc.desc(), Transaction.id).limit(limit).offset(offset)).all()
-    account_ids = [account_id] if account_id else db.scalars(select(Account.id).where(Account.owner_id == owner_id)).all()
-    coverage = db.scalars(select(DataCoverage).where(DataCoverage.owner_id == owner_id, DataCoverage.account_id.in_(account_ids))).all()
-    return envelope({"items": [
-        {"id": row.id, "account_id": row.account_id, "card_id": row.card_id, "type": row.type,
-         "direction": row.direction, "amount_minor": row.amount_minor, "currency": row.currency,
-         "category": row.category or "未分类", "merchant": row.merchant, "posted_at_utc": row.posted_at_utc,
-         "status": row.status, "business_id": row.business_id, "original_transaction_id": row.original_transaction_id}
-        for row in rows], "total": total, "limit": limit, "offset": offset,
-        "coverage": [{"account_id": item.account_id, "start_utc": item.start_utc,
-                      "end_utc": item.end_utc, "completeness": item.completeness} for item in coverage]})
+                 owner_id: str = Depends(require_owner), db: Session = Depends(get_db),
+                 merchant: str | None = None,type: str | None = None,direction: str | None = None,status: str | None = None,
+                 sort: str = 'date_desc',_query_guard=Depends(check_read_query)):
+    from app.domain.financial_queries import list_facts
+    return envelope(list_facts(db,owner_id,start=start,end=end,account_id=account_id,card_id=card_id,category=category,
+        limit=limit,offset=offset,merchant=merchant,type=type,direction=direction,status=status,sort=sort))
+
+@app.get('/api/transactions/{transaction_id}')
+def transaction_detail(transaction_id:str,owner_id:str=Depends(require_owner),db:Session=Depends(get_db)):
+    from app.domain.financial_queries import fact_detail
+    return envelope(fact_detail(db,owner_id,transaction_id))
+
 
 @app.get("/api/spending")
 def spending(start: str | None = None, end: str | None = None, account_id: str | None = None,
              category: str | None = None, comparison_mode: str | None = None,
              compare_start: str | None = None, compare_end: str | None = None,
              evidence_limit: int = Query(20, ge=1, le=100), evidence_offset: int = Query(0, ge=0),
-             owner_id: str = Depends(require_owner), db: Session = Depends(get_db)):
+             owner_id: str = Depends(require_owner), db: Session = Depends(get_db),
+             card_id: str | None = None,merchant: str | None = None,_query_guard=Depends(check_read_query)):
     result = summarize_spending(db, owner_id=owner_id, account_id=account_id, category=category,
                                 start=start, end=end, comparison_mode=comparison_mode,
                                 compare_start=compare_start, compare_end=compare_end,
-                                evidence_limit=evidence_limit, evidence_offset=evidence_offset)
+                                evidence_limit=evidence_limit, evidence_offset=evidence_offset,card_id=card_id,merchant=merchant)
     return envelope(result)
 
 
@@ -476,6 +464,8 @@ class BirthdayDetailsPayload(BaseModel):
 
 class TransferDetailsPayload(BaseModel):
     model_config=ConfigDict(extra="forbid",strict=True)
+    source_reference:str=Field(default='',max_length=80)
+    amount_yuan:str=Field(default='',max_length=13,pattern=r'^$|^[0-9]{1,10}(\.[0-9]{1,2})?$')
     name: str = Field(min_length=1,max_length=80)
     bank_name: str = Field(min_length=1,max_length=80)
     account_number: str = Field(min_length=6,max_length=50)
@@ -485,14 +475,18 @@ def birthday_details_route(task_id: str,payload:BirthdayDetailsPayload,request:R
                            session:DemoSession=Depends(require_demo_session),db:Session=Depends(get_db)):
     require_write_protection(request,session)
     from app.agent.forms import supplement_birthday
-    return envelope(supplement_birthday(db,session,task_id,{key:value.strip() for key,value in payload.model_dump().items()}))
+    result=supplement_birthday(db,session,task_id,{key:value.strip() for key,value in payload.model_dump().items()})
+    from app.agent.dynamic_runtime import after_input
+    return envelope(after_input(db,session,task_id,result))
 
 @app.post("/api/tasks/{task_id}/transfer-details")
 def transfer_details_route(task_id: str,payload:TransferDetailsPayload,request:Request,
                            session:DemoSession=Depends(require_demo_session),db:Session=Depends(get_db)):
     require_write_protection(request,session)
     from app.agent.forms import supplement_transfer
-    return envelope(supplement_transfer(db,session,task_id,payload.model_dump()))
+    result=supplement_transfer(db,session,task_id,payload.model_dump())
+    from app.agent.dynamic_runtime import after_input
+    return envelope(after_input(db,session,task_id,result))
 
 @app.post("/api/tasks/{task_id}/cancel")
 def cancel_task_route(task_id: str, request: Request,
@@ -563,10 +557,17 @@ register_card_routes(app,get_db,require_demo_session,require_write_protection,en
 
 from app.api.subscriptions import register_routes as register_subscription_routes
 register_subscription_routes(app,get_db,require_demo_session,require_write_protection,envelope)
+from app.api.financial_profile import register_routes as register_financial_routes
+register_financial_routes(app,get_db,require_demo_session,envelope)
 
 from app.api.birthdays import register_routes as register_birthday_routes
 register_birthday_routes(app, get_db, require_demo_session, require_write_protection, envelope)
 from app.api.security import register_routes as register_security_routes
 register_security_routes(app, get_db, require_demo_session, require_write_protection, envelope)
+from app.api.servicing import register_routes as register_servicing_routes
+register_servicing_routes(app,get_db,require_demo_session,require_write_protection,envelope)
 from app.api.control import register_routes as register_control_routes
 register_control_routes(app, get_db, require_demo_session, require_write_protection, envelope)
+
+from app.api.directory import register_routes as register_directory_routes
+register_directory_routes(app, get_db, require_demo_session, require_write_protection, envelope)

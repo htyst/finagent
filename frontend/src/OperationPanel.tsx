@@ -67,7 +67,7 @@ export default function OperationPanel({ accounts, cards, onChanged, agentPropos
 
   async function prepare(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true); setError(''); setNotice('');
+    if (!setBusy(true)) return; setError(''); setNotice('');
     try {
       const activeTaskId = task?.proposal?.status === 'pending_confirmation' ? task.id : undefined;
       if (kind === 'transfer') {
@@ -92,7 +92,7 @@ export default function OperationPanel({ accounts, cards, onChanged, agentPropos
   }
 
   async function confirm(proposal: Proposal) {
-    setBusy(true); setError(''); setNotice('');
+    if (!setBusy(true)) return; setError(''); setNotice('');
     try {
       const { confirmation_token } = await write<{ confirmation_token: string }>(
         `/api/proposals/${proposal.id}/confirmation-token`);
@@ -114,7 +114,7 @@ export default function OperationPanel({ accounts, cards, onChanged, agentPropos
   }
 
   async function cancel(proposal: Proposal) {
-    setBusy(true); setError(''); setNotice('');
+    if (!setBusy(true)) return; setError(''); setNotice('');
     try {
       await write(`/api/proposals/${proposal.id}/cancel`);
       await refreshTask(proposal.task_id);
@@ -125,7 +125,7 @@ export default function OperationPanel({ accounts, cards, onChanged, agentPropos
   const activeProposal = task?.proposal?.id === agentProposalId ? null : task?.proposal;
   const sourceChoices = accounts.filter((item) => item.status === 'active');
   const targetChoices = targetType === 'own_account'
-    ? sourceChoices.filter((item) => item.id !== sourceId).map((item) => ({ id: item.id, label: `${item.alias} ${item.account_mask}` }))
+    ? accounts.filter((item) => ['active', 'frozen'].includes(item.status) && item.id !== sourceId).map((item) => ({ id: item.id, label: `${item.alias} ${item.account_mask}` }))
     : recipients.filter((item) => item.status === 'active').map((item) => ({ id: item.id, label: `${item.name} ${item.account_mask}${item.phone_mask ? ` · ${item.phone_mask}` : ''}` }));
 
   return <section className="section operation-section">

@@ -11,7 +11,7 @@ from app.data.atomic import atomic_write
 from app.data.models import AgentTask, AgentStep, AuditEvent, Task, User
 from app.data.wealth_models import WealthProduct, RiskAssessment, WealthPosition, WealthOrder
 from app.domain.errors import DomainError
-from app.domain.ledger import owned_account, post_entry, available_balance
+from app.domain.ledger import owned_account, post_entry, available_balance, assert_debit_allowed
 from app.domain.money import MAX_MINOR
 from app.domain.operations import _session, _now, _digest, _canonical, _stamp
 
@@ -130,13 +130,18 @@ def order_view(row,now=None):
 
 def portfolio(db,*,session_id,now=None):
     instant=_now(now);session,_=_session(db,session_id,instant)
-    return dict(assessment=assessment_view(current_assessment(db,session.owner_id,instant)),questions=QUESTIONS,
+    result=dict(assessment=assessment_view(current_assessment(db,session.owner_id,instant)),questions=QUESTIONS,
       assessment_rule='四题每题0至2分；总分0至2适配R1，3至5适配R2，6至8适配R4，有效365天；只用于模拟产品',
       products=[product_view(r) for r in db.scalars(select(WealthProduct).order_by(WealthProduct.id))],
       positions=[dict(id=r.id,product_id=r.product_id,units_hundredths=r.units_hundredths,acquired_at_utc=r.acquired_at_utc) for r in db.scalars(select(WealthPosition).where(WealthPosition.owner_id==session.owner_id))],
       orders=[order_view(r,instant) for r in db.scalars(select(WealthOrder).where(WealthOrder.owner_id==session.owner_id,WealthOrder.dataset_version==session.dataset_version).order_by(WealthOrder.created_at_utc.desc(),WealthOrder.id).limit(100))])
+    from app.domain.financial_profile import rows
+    result.update(imported_positions=rows(db,session.owner_id,'investment_holdings'),imported_positions_read_only=True,positions_scope='positions为本系统新交易；imported_positions为导入日快照，只读且不支持原生赎回')
+    return result
+
 
 def _check_trade(db,owner,product,account,kind,amount,units,instant):
+    if kind=="buy":assert_debit_allowed(db,account)
     assessment=current_assessment(db,owner,instant)
     if assessment is None:raise DomainError('RISK_ASSESSMENT_REQUIRED','请先完成有效风险评估',409)
     if product.risk_level>assessment.max_risk:raise DomainError('RISK_MISMATCH','产品风险等级超出当前评估适用范围',409)

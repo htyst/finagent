@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -52,9 +52,12 @@ class Account(Base):
 
 class Recipient(Base):
     __tablename__ = "recipients"
+    __table_args__ = (Index("uq_recipient_number", "owner_id", "number_fingerprint", unique=True),)
     id: Mapped[str] = mapped_column(String, primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    bank_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    number_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     account_last4: Mapped[str] = mapped_column(String(4), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(11), nullable=True)
     remark: Mapped[str | None] = mapped_column(String(80), nullable=True)
@@ -64,13 +67,15 @@ class Recipient(Base):
 
 class Card(Base):
     __tablename__ = "cards"
-    __table_args__ = (CheckConstraint("status IN ('active', 'frozen')"),)
+    __table_args__ = (CheckConstraint("status IN ('active', 'frozen')"),
+                      Index("uq_card_number", "owner_id", "number_fingerprint", unique=True))
     id: Mapped[str] = mapped_column(String, primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), nullable=False)
     alias: Mapped[str] = mapped_column(String, nullable=False)
     brand: Mapped[str] = mapped_column(String, nullable=False)
     card_last4: Mapped[str] = mapped_column(String(4), nullable=False)
+    number_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
@@ -258,3 +263,4 @@ from app.data import wealth_models as _wealth_models
 from app.data import card_models as _card_models
 from app.data import subscription_models as _subscription_models
 from app.data import birthday_models as _birthday_models
+from app.data import financial_models as _financial_models

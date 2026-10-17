@@ -1,0 +1,10 @@
+.directory-add { margin: 16px 0 22px; padding: 16px; border: 1px solid #dce3ee; border-radius: 12px; background: #f8faff; }
+.directory-add summary { cursor: pointer; font-weight: 650; color: #394da6; }
+.directory-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 18px; margin-top: 16px; }
+.directory-form label { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.directory-form input,.directory-form select { width: 100%; min-width: 0; box-sizing: border-box; }
+.directory-form-actions { grid-column: 1 / -1; }
+.directory-form-actions button { min-height: 44px; }
+.single-user-profile { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+.single-user-profile small { display: block; margin-top: 4px; color: #697386; }
+@media(max-width:600px) { .directory-form { grid-template-columns: minmax(0,1fr); } }

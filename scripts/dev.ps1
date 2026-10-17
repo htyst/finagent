@@ -32,13 +32,23 @@ $env:FINAGENT_ALLOWED_ORIGIN = 'http://127.0.0.1:5173'
 # Upgrade schema only. Never call reset from the normal startup path.
 & $python -m app.data.cli migrate
 if ($LASTEXITCODE -ne 0) { throw '数据库升级失败，服务未启动；请保留数据并检查上方错误。' }
+if (-not ('FinAgentRuntime.ServiceProcesses' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'ServiceProcesses.cs') -ReferencedAssemblies 'System.Management.dll'
+}
+$stopEvent = $null
+if ($env:FINAGENT_STOP_EVENT) {
+    $stopEvent = [System.Threading.EventWaitHandle]::OpenExisting($env:FINAGENT_STOP_EVENT)
+}
 $backend = $null
 $frontend = $null
 try {
-    $backend = Start-Process -FilePath $python -ArgumentList @('-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8000') -WorkingDirectory $root -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir 'backend.out.log') -RedirectStandardError (Join-Path $logDir 'backend.err.log')
-    $frontend = Start-Process -FilePath $node -ArgumentList @(('"' + $vite + '"'),'--host','127.0.0.1','--port','5173','--strictPort') -WorkingDirectory (Join-Path $root 'frontend') -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDir 'frontend.out.log') -RedirectStandardError (Join-Path $logDir 'frontend.err.log')
+    if ($stopEvent -and $stopEvent.WaitOne(0)) { return }
+    $backend = [FinAgentRuntime.ServiceProcesses]::Start($python, '-m uvicorn app.main:app --host 127.0.0.1 --port 8000', $root, (Join-Path $logDir 'backend.out.log'), (Join-Path $logDir 'backend.err.log'))
+    if ($stopEvent -and $stopEvent.WaitOne(0)) { return }
+    $frontend = [FinAgentRuntime.ServiceProcesses]::Start($node, ('"' + $vite + '" --host 127.0.0.1 --port 5173 --strictPort'), (Join-Path $root 'frontend'), (Join-Path $logDir 'frontend.out.log'), (Join-Path $logDir 'frontend.err.log'))
     $ready = $false
     for ($attempt = 0; $attempt -lt 40; $attempt++) {
+        if ($stopEvent -and $stopEvent.WaitOne(0)) { return }
         $backend.Refresh(); $frontend.Refresh()
         if ($backend.HasExited -or $frontend.HasExited) { throw '服务启动失败，请查看 var/logs/ 中的错误日志。' }
         try {
@@ -50,10 +60,18 @@ try {
     if (-not $ready) { throw '服务启动超时，请查看 var/logs/；本次启动的进程将退出。' }
     Write-Host "FinAgent $Mode 模式已就绪： http://127.0.0.1:5173"
     Write-Host '按 Ctrl+C 停止本脚本启动的服务。'
-    while (-not $backend.HasExited -and -not $frontend.HasExited) { Start-Sleep -Seconds 1; $backend.Refresh(); $frontend.Refresh() }
+    while (-not $backend.HasExited -and -not $frontend.HasExited) {
+        if ($stopEvent) { if ($stopEvent.WaitOne(250)) { return } }
+        else { Start-Sleep -Milliseconds 250 }
+        $backend.Refresh(); $frontend.Refresh()
+    }
     throw '服务意外退出；请查看 var/logs/'
 } finally {
-    foreach ($process in @($backend,$frontend)) {
-        if ($process) { $process.Refresh(); if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } }
+    foreach ($process in @($frontend,$backend)) {
+        if ($process) {
+            if (-not [FinAgentRuntime.ServiceProcesses]::StopTree($process)) { Write-Warning '服务子进程未完全退出，请检查日志与端口。' }
+            $process.Dispose()
+        }
     }
+    if ($stopEvent) { $stopEvent.Dispose() }
 }

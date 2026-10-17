@@ -1,0 +1,4 @@
+.financial-read-report table{width:max-content;min-width:100%}
+.financial-read-report th,.financial-read-report td{min-width:100px;max-width:340px;white-space:nowrap;word-break:normal}
+.financial-read-report dl>div{display:flex;gap:24px;justify-content:space-between;max-width:480px;padding:6px 0}
+.financial-read-report dd{margin:0;font-variant-numeric:tabular-nums}

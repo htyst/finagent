@@ -218,3 +218,44 @@ def test_failed_snapshot_is_persisted_without_debit(bank):
     assert db.get(Proposal, pid).status == 'invalidated'
     assert db.get(Account, 'a1c').balance_minor == before
     assert db.scalar(select(func.count()).select_from(TransferOrder)) == 0
+
+
+def test_simulated_sms_is_bound_to_pending_operation_and_session(bank):
+    db, _ = bank
+    pid = transfer(db, 200000)
+    issued = security.start_challenge(db, 's1', 'proposal', pid)
+    sms = security.read_simulated_sms(db, 's1', 'proposal', pid, issued['challenge_id'])
+    assert len(sms['code']) == 6 and sms['code'].isdigit()
+    assert db.get(SecurityChallenge, issued['challenge_id']).status == 'pending'
+    with pytest.raises(DomainError):
+        confirm(db, pid)
+    for sid in ['s2', 'other']:
+        with pytest.raises(DomainError):
+            security.read_simulated_sms(db, sid, 'proposal', pid, issued['challenge_id'])
+    with pytest.raises(DomainError):
+        security.read_simulated_sms(db, 's1', 'proposal', 'another-operation', issued['challenge_id'])
+    security.start_challenge(db, 's1', 'proposal', pid)
+    with pytest.raises(DomainError, match='失效'):
+        security.read_simulated_sms(db, 's1', 'proposal', pid, issued['challenge_id'])
+
+
+@pytest.mark.parametrize('invalid', ['expired', 'cancelled', 'locked', 'missing_delivery', 'tampered_delivery'])
+def test_simulated_sms_rejects_invalid_delivery_or_state(bank, invalid):
+    db, _ = bank
+    pid = transfer(db, 200000)
+    issued = security.start_challenge(db, 's1', 'proposal', pid)
+    inbox = app.config.ROOT / 'var' / 'auth-simulator' / (issued['challenge_id'] + '.json')
+    if invalid == 'expired':
+        db.get(SecurityChallenge, issued['challenge_id']).expires_at = (security.now() - timedelta(seconds=1)).isoformat()
+        db.commit()
+    elif invalid == 'cancelled':
+        cancel_proposal(db, session_id='s1', proposal_id=pid)
+    elif invalid == 'locked':
+        db.add(SecurityState(owner_id='u1', failures=5, locked_until=(security.now() + timedelta(minutes=15)).isoformat()))
+        db.commit()
+    elif invalid == 'missing_delivery':
+        inbox.unlink()
+    else:
+        inbox.write_text(json.dumps({'challenge_id': issued['challenge_id'], 'code': '1234567'}), encoding='utf-8')
+    with pytest.raises(DomainError):
+        security.read_simulated_sms(db, 's1', 'proposal', pid, issued['challenge_id'])

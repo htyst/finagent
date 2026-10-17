@@ -25,40 +25,18 @@ def explicit_intent(text: str, previous: dict) -> str | None:
     return None
 
 
-def _explicit_span(text: str, demo: date, previous: dict) -> tuple[str, str] | None:
-    iso = re.findall(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", text)
-    if iso:
-        if len(iso) != 2:
-            raise DomainError("INVALID_INPUT", "请同时给出开始和结束日期，格式为 YYYY-MM-DD")
-        selected_range(*iso)
-        return tuple(iso)
-    base_year = parse_day(previous["start"]).year if previous.get("start") else demo.year
-    match = re.search(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日(?:至|到|—|-)(?:(?:(\d{4})年)?(\d{1,2})月)?(\d{1,2})日", text)
-    try:
-        if match:
-            year, month, first, end_year, end_month, last = match.groups()
-            year, month = int(year or base_year), int(month)
-            return date(year, month, int(first)).isoformat(), date(int(end_year or year), int(end_month or month), int(last)).isoformat()
-        match = re.search(r"(?:(\d{4})年)?(\d{1,2})月", text)
-        if match:
-            year, month = int(match[1] or base_year), int(match[2])
-            return date(year, month, 1).isoformat(), date(year, month, calendar.monthrange(year, month)[1]).isoformat()
-        match = re.search(r"(\d{4})年", text)
-        if match and re.search(r"年度|全年|年报", text):
-            year = int(match[1])
-            return date(year, 1, 1).isoformat(), date(year, 12, 31).isoformat()
-    except (ValueError, OverflowError) as exc:
-        raise DomainError("INVALID_INPUT", "无效日期") from exc
-    return None
+def _explicit_span(text, demo, previous):
+    from app.agent.date_language import explicit_span
+    return explicit_span(text,demo,previous)
 
 
 def resolve_read(db, task, intent: str, text: str, context: dict, decision=None):
     previous_query = context.get("last_query", {})
     previous = previous_query.get("args", {})
     follow = (decision.follow_up if decision else False) or any(word in text for word in FOLLOW)
-    allowed = {"start", "end", "account_id", "category"}
+    allowed = {"start", "end", "account_id", "card_id", "category", "merchant"}
     args = {key: value for key, value in previous.items() if key in allowed} if follow else {}
-    category = next((c for c in ("餐饮", "购物", "交通", "未分类") if c in text), None)
+    category = next((c for c in ("餐饮", "购物", "交通", "未分类", "日用采购", "文娱", "医疗", "居住", "水电通信", "教育", "旅行", "经营支出", "保险保障", "订阅续费") if c in text), None)
     category = category or (decision.category if decision else None)
     if category:
         args["category"] = None if category == "全部" else category
@@ -95,7 +73,7 @@ def resolve_read(db, task, intent: str, text: str, context: dict, decision=None)
     elif intent == "anomalies":
         name = "inspect_anomalies"
     else:
-        kind = "annual" if re.search(r"年度|全年|年报", text) else "monthly" if re.search(r"月度|月报", text) else previous.get("report_kind") or (decision.report_kind if decision else None)
+        kind = "annual" if re.search(r"年度|全年|年报|一年|整年|12个月", text) else "monthly" if re.search(r"月度|月报", text) else previous.get("report_kind") or (decision.report_kind if decision else None)
         if not args.get("start") or not kind:
             return None, {}, "请说明要生成哪一年或哪一月的账单报告。"
         args.update(report_kind=kind, comparison_mode="none")
@@ -107,9 +85,19 @@ def resolve_read(db, task, intent: str, text: str, context: dict, decision=None)
         rows = db.scalars(select(Account).where(Account.owner_id == task.owner_id)).all()
         matched = _match(decision.source, rows)
         if len(matched) != 1:
-            return None, {}, "要查哪个账户？可选：" + "、".join(row.alias for row in rows) + "。"
-        args["account_id"] = matched[0].id
+            try:
+                from app.domain.financial_queries import resolve_card_reference
+                args['card_id']=resolve_card_reference(db,task.owner_id,decision.source)['id']
+            except DomainError:
+                return None, {}, "请明确本人账户或银行卡尾号。账户可选：" + "、".join(row.alias for row in rows) + "。"
+        else:args["account_id"] = matched[0].id
+    if decision and decision.card:
+        from app.domain.financial_queries import resolve_card_reference
+        try:args['card_id']=resolve_card_reference(db,task.owner_id,decision.card)['id']
+        except DomainError:return None,{},'请明确要查询的一张本人银行卡，可使用卡尾号。'
+    if '全部账户' in text or '所有账户' in text:
+        args.pop('account_id',None);args.pop('card_id',None)
     if intent in {"spending", "statement"}:
-        args["evidence_limit"] = 100
+        args["evidence_limit"] = 20
     context["last_query"] = {"intent": intent, "args": args.copy()}
     return name, args, None

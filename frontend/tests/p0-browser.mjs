@@ -52,7 +52,7 @@ try {
   });
   await page.getByRole('button', { name: '重新查询操作状态', exact: true }).click();
   await page.getByRole('button', { name: '核对并继续', exact: true }).last().click();
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog', { name: '红色 · 独立强验证', exact: true });
   await dialog.waitFor();
   assert.match(await dialog.innerText(), /红色/);
   await dialog.getByRole('button', { name: '获取模拟短信验证码', exact: true }).click();
@@ -62,7 +62,9 @@ try {
   simulatedInbox = path.resolve(import.meta.dirname, '../../var/auth-simulator', identifier + '.json');
   const simulated = JSON.parse(await readFile(simulatedInbox, 'utf8'));
   assert.match(simulated.code, /^\d{6}$/);
-  await dialog.getByLabel('六位验证码', { exact: true }).fill(simulated.code);
+  const popup = page.getByRole('dialog', { name: '模拟短信验证码', exact: true });
+  await popup.getByRole('button', { name: '填入验证码', exact: true }).click();
+  assert.equal(await dialog.getByLabel('六位验证码', { exact: true }).inputValue(), simulated.code);
   await dialog.getByRole('button', { name: '确认条款并验证执行', exact: true }).click();
   let afterRed;
   for (let attempt = 0; attempt < 60; attempt++) {

@@ -28,6 +28,7 @@ from app.domain.errors import DomainError
 from app.domain.ledger import owned_account, post_entry
 from app.domain.money import MAX_MINOR
 from app.domain.operations import _canonical, _digest, _now, _session, _stamp
+from app.domain.financial_profile import imported_subscriptions, executable_subscription_filter
 
 LOGGER = logging.getLogger(__name__)
 LABELS = {"reminder": "设置续费提醒", "revoke": "解除银行代扣授权"}
@@ -96,7 +97,7 @@ def _instant(value: str) -> datetime:
 
 def authorization_view(row):
     return {key: getattr(row, key) for key in ("id", "account_id", "merchant", "amount_minor", "period",
-        "charge_day", "next_charge_at_utc", "timezone", "status", "version", "created_at_utc", "revoked_at_utc")}
+        "charge_day", "next_charge_at_utc", "timezone", "status", "version", "created_at_utc", "revoked_at_utc", "payment_card_id")}
 
 
 def identify(db, session_id):
@@ -104,22 +105,32 @@ def identify(db, session_id):
     from app.domain.security import assert_subscription_access
     assert_subscription_access(db, session_id)
     session, _ = _session(db, session_id, _now())
+    from app.domain.financial_profile import rows as archive_rows
+    known={c['service_name'] for c in archive_rows(db,session.owner_id,'subscriptions')}
     groups = defaultdict(list)
     for row in db.scalars(select(Transaction).where(Transaction.owner_id == session.owner_id,
         Transaction.type == "purchase", Transaction.direction == "debit", Transaction.status == "posted",
         Transaction.currency == "CNY").order_by(Transaction.posted_at_utc, Transaction.id)):
         merchant = (row.merchant or "").strip()
-        if merchant:
+        if merchant and merchant not in known and row.category not in {'居住','保险保障','教育'}:
             groups[(row.account_id, merchant, row.amount_minor)].append(row)
     result = []
     for (account_id, merchant, amount), rows in groups.items():
         days = [_instant(row.posted_at_utc).astimezone(SHANGHAI).date() for row in rows]
         months = [day.year * 12 + day.month for day in days]
-        if (len(rows) < 3 or len({day.day for day in days}) != 1 or
-                any(right != left + 1 for left, right in zip(months, months[1:]))):
+        # A historic gap does not invalidate the most recent consecutive run.
+        tail=len(rows)-1
+        while tail>0 and months[tail]-months[tail-1]==1:tail-=1
+        rows=rows[tail:];days=days[tail:];months=months[tail:]
+        desired=max((d.day for d in days),default=1)
+        import calendar
+        if (len(rows) < 3 or any(day.day!=min(desired,calendar.monthrange(day.year,day.month)[1]) for day in days)):
             continue
         next_day = shifted_month(days[-1], 1)
         predicted = datetime.combine(next_day, time(9), SHANGHAI).astimezone(utc_timezone.utc)
+        while predicted<=subscription_now(db):
+            next_day=shifted_month(next_day,1,desired)
+            predicted=datetime.combine(next_day,time(9),SHANGHAI).astimezone(utc_timezone.utc)
         authorization = db.scalar(select(SubscriptionAuthorization).where(
             SubscriptionAuthorization.owner_id == session.owner_id,
             SubscriptionAuthorization.dataset_version == session.dataset_version,
@@ -160,6 +171,7 @@ def notification_view(row):
 
 def charge_view(db, row):
     messages = {"INSUFFICIENT_FUNDS": "余额不足，本次代扣失败", "INVALID_ACCOUNT_STATE": "账户状态不可用，本次代扣失败",
+                "ACCOUNT_FROZEN": "账户已冻结，本次代扣未执行",
         "DATASET_CHANGED": "演示数据已变化，本次代扣未执行", "INVALID_INPUT": "代扣条款无效，本次未扣款"}
     auth = db.get(SubscriptionAuthorization, row.authorization_id)
     return dict(id=row.id, authorization_id=row.authorization_id, merchant=auth.merchant,
@@ -192,9 +204,25 @@ def get_portfolio(db, session_id):
     previous = db.scalar(select(AgentStep.result_json).join(AgentTask, AgentStep.task_id == AgentTask.id).where(
         AgentTask.owner_id == session.owner_id, AgentTask.dataset_version == session.dataset_version,
         AgentStep.tool_name == "identify_subscriptions").order_by(AgentStep.created_at_utc.desc(), AgentStep.id.desc()))
-    candidates = json.loads(previous).get("candidates", []) if previous else []
+    try:decoded=json.loads(previous) if previous else []
+    except (TypeError,ValueError):decoded=[]
+    candidates=decoded.get('candidates',[]) if isinstance(decoded,dict) else decoded if isinstance(decoded,list) else []
+    if not isinstance(candidates,list):candidates=[]
+    from app.data.security_models import SecurityAuthorization
+    from app.domain.security import subscription_terms,digest as security_digest,POLICY_VERSION
+    grants={g.resource:g for g in db.scalars(select(SecurityAuthorization).where(SecurityAuthorization.owner_id==session.owner_id,
+        SecurityAuthorization.resource.in_(['subscription:'+a.id for a in auths])))}
+    auth_views=[]
+    for row in auths:
+        grant=grants.get('subscription:'+row.id)
+        enabled=bool(grant and row.status=='active' and grant.status=='active' and grant.remaining>0 and grant.policy_version==POLICY_VERSION and _instant(grant.expires_at)>_now() and grant.digest==security_digest(subscription_terms(row)))
+        auth_views.append({**authorization_view(row),'background_execution_authorized':enabled,
+            'background_authorization_expires_at':grant.expires_at if grant else None,
+            'background_remaining':grant.remaining if grant and enabled else 0,
+            'authorization_kind':'card_bound_bank_mandate' if row.payment_card_id else 'bank_account_mandate'})
     return dict(rules=RULES, business_now_utc=_stamp(subscription_now(db)), candidates=candidates,
-        authorizations=[authorization_view(row) for row in auths], requests=[request_view(row) for row in requests],
+        imported=imported_subscriptions(db,session_id),
+        authorizations=auth_views, requests=[request_view(row) for row in requests],
         reminders=[reminder_view(db, row) for row in reminders],
         notifications=[notification_view(row) for row in notifications],
         charges=[charge_view(db, row) for row in related(SubscriptionCharge)])
@@ -503,6 +531,8 @@ def _charge_due(db, authorization_id, business):
         auth = db.get(SubscriptionAuthorization, authorization_id)
         if auth is None:
             return None
+        from app.domain.servicing import merchant_stopped
+        if merchant_stopped(db,auth):return None
         due = _instant(auth.next_charge_at_utc)
         if due > business:
             return None
@@ -540,7 +570,7 @@ def _charge_due(db, authorization_id, business):
                     check_grant(db, auth.owner_id, 'subscription:' + auth.id, subscription_terms(auth), consume=True)
                     tx = post_entry(db, owner_id=auth.owner_id, account_id=auth.account_id, kind="purchase",
                         direction="debit", amount_minor=auth.amount_minor, business_at=due,
-                        merchant=auth.merchant, category="订阅服务", business_id=row.id, system_now=actual)
+                        merchant=auth.merchant, category="订阅续费", card_id=auth.payment_card_id,business_id=row.id, system_now=actual)
                     row.transaction_id = tx.id
                     row.balance_minor = account.balance_minor
             except DomainError as exc:
@@ -566,6 +596,7 @@ def run_due_subscriptions(session_factory, *, now=None, limit=20):
             SubscriptionReminder.status == "scheduled", SubscriptionReminder.fire_at_utc <= _stamp(business))
             .order_by(SubscriptionReminder.fire_at_utc, SubscriptionReminder.id).limit(limit)))
         authorization_ids = list(db.scalars(select(SubscriptionAuthorization.id).where(
+            executable_subscription_filter(),
             SubscriptionAuthorization.next_charge_at_utc <= _stamp(business))
             .order_by(SubscriptionAuthorization.next_charge_at_utc, SubscriptionAuthorization.id).limit(limit)))
     results = []

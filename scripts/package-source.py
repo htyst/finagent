@@ -9,10 +9,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_DIRS = {'.git', '.agents', '.codex', '.aws', '.venv', '.deps', 'node_modules',
                  'var', 'dist', 'build', '__pycache__', '.pytest_cache', 'test-results', 'playwright-report'}
-SOURCE_DIRS = {'backend', 'frontend', 'scripts', 'docs', 'deploy', '.github', 'evals', 'tools', 'evidence'}
+SOURCE_DIRS = {'backend', 'frontend', 'scripts', 'docs', 'deploy'}
 ROOT_FILES = {'README.md', '.env.example', '.gitignore', '.dockerignore', 'compose.yaml',
-              'Dockerfile.backend', 'Dockerfile.frontend', 'Dockerfile.cloud', 'render.yaml', '.gitattributes'}
-SUFFIXES = {'.py', '.toml', '.ini', '.lock', '.txt', '.md', '.json', '.jsonl', '.ts', '.tsx', '.js',
+              'Dockerfile.backend', 'Dockerfile.frontend'}
+SUFFIXES = {'.py', '.toml', '.ini', '.lock', '.txt', '.md', '.json', '.ts', '.tsx', '.js',
             '.cjs', '.mjs', '.css', '.html', '.svg', '.ico', '.png', '.ps1', '.cs', '.conf', '.yaml', '.yml', '.xml'}
 REQUIRED = {'backend/tests/test_security.py', 'backend/tests/test_background.py',
             'backend/tests/test_migrations.py', 'backend/migrations/versions/0013_security.py',

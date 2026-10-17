@@ -20,6 +20,7 @@ def detect(text):
  if re.search(r'单笔.*(?:限额|额度)|交易限额',text):return 'limit'
  if re.search(r'解除.*线上|恢复.*线上|允许.*线上',text):return 'online_unblock'
  if re.search(r'(?:禁止|关闭|禁用|暂停).*线上',text):return 'online_block'
+ if re.search(r'解挂|解除挂失|撤销挂失',text):return 'unloss'
  if re.search(r'挂失|卡.*丢了',text):return 'loss'
  return None
 def slots(text,account_aliases=()):
@@ -64,7 +65,7 @@ def dispatch(db,session,task,text, *, decision_hint=None):
   if task.stop_requested or latest.get('card_request_version')!=version:return view(db,task)
   if kind=='status':
    data=portfolio(db,session.id);labels={'pending_confirmation':'待确认，未办理','submitted':'审核中，尚未发卡','issued':'已发卡','executed':'已办理','cancelled':'已取消','invalidated':'已失效','expired':'已过期'}
-   reply='卡片：'+('；'.join(r['alias']+' '+r['mask']+'：'+('已挂失' if r['lost'] else '已冻结' if r['status']=='frozen' else '正常')+f"，单笔限额{r['limit_minor']/100:.2f}元，线上消费"+('允许' if r['online_enabled'] else '禁止')+'，线下消费'+('禁止' if r['lost'] or r['status']!='active' else '可用，仍受单笔限额约束') for r in data['cards']) or '暂无')+'。\n申请与办理记录：'+('；'.join(r['label']+' '+r['id']+'：'+labels[r['status']] for r in data['requests']) or '暂无')+'。挂失不能通过解冻解除；当前不支持解挂或补卡。'
+   reply='卡片：'+('；'.join(r['alias']+' '+r['mask']+'：'+('已挂失' if r['lost'] else '已冻结' if r['status']=='frozen' else '正常')+f"，单笔限额{r['limit_minor']/100:.2f}元，线上消费"+('允许' if r['online_enabled'] else '禁止')+'，线下消费'+('禁止' if r['lost'] or r['status']!='active' else '可用，仍受单笔限额约束') for r in data['cards']) or '暂无')+'。\n申请与办理记录：'+('；'.join(r['label']+' '+r['id']+'：'+labels[r['status']] for r in data['requests']) or '暂无')+'。挂失不能通过解冻解除；解挂需单独强验证和页面确认，其他限制保留；当前不支持补卡。'
    _record_step(db,task,'read_card_management',{},data);task.intent='card_management_status';_say(db,task,reply,'completed');return view(db,task)
   invalidate_task(db,task)
   from app.domain.wealth import invalidate_task_order
@@ -91,7 +92,7 @@ def dispatch(db,session,task,text, *, decision_hint=None):
      if not values.get('amount'):_say(db,task,'请提供新的单笔交易限额（元）。','gathering_info');return view(db,task)
      kwargs['limit_minor']=decimal_hundredths(values['amount'],'限额')
    result=prepare(db,**kwargs);latest['card_request_id']=result['id'];task.context_json=_dump(latest);_record_step(db,task,'prepare_card_management',{'kind':kind,'card_id':result['card_id']},{'card_request':result});step=db.scalar(select(AgentStep).where(AgentStep.task_id==task.id).order_by(AgentStep.ordinal.desc()));step.result_ref=result['id'];step.status='awaiting_confirmation';terms=result['summary'];detail=('申请人'+terms['applicant']+'、关联'+terms['account_alias']) if kind=='apply' else terms['card_mask']+(f"、新单笔限额{terms['limit_minor']/100:.2f}元" if kind=='limit' else '')
-   _say(db,task,'已准备'+LABELS[kind]+'：'+detail+'。未办理、未改变卡片；请核对下方固定办理单，点击“确认卡片办理”。聊天确认不授权。','awaiting_confirmation');return view(db,task)
+   _say(db,task,'已准备'+LABELS[kind]+'：'+detail+'。未办理、未改变卡片；请核对下方固定办理单，点击“核对并继续”。聊天确认不授权。','awaiting_confirmation');return view(db,task)
   except DomainError as e:_say(db,task,e.message+'；未办理新业务。','gathering_info');return view(db,task)
 def cancel_card(db,session,task):
  from app.agent.service import _say,view

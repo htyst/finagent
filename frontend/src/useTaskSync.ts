@@ -73,9 +73,11 @@ export function useTaskSync<T extends TaskState>(path: string, onChanged: () => 
     return () => { stopped = true; clearTimeout(timer); };
   }, [busy, loading, syncError, task?.id, task?.status, task?.proposal?.status, refresh]);
   function setBusy(value: boolean) {
+    if (value && state.current.writing) return false;
     state.current.sequence++;
     state.current.writing = value;
     if (state.current.mounted) updateBusy(value);
+    return true;
   }
   return { task, setTask, busy, setBusy, loading, syncError, updatedAt, refresh, retry };
 }

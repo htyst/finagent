@@ -1,0 +1,354 @@
+{
+  "passed": true,
+  "summary_checks": [
+    {
+      "name": "20_complete_user_profiles",
+      "passed": true
+    },
+    {
+      "name": "56_accounts_52_cards",
+      "passed": true
+    },
+    {
+      "name": "40_debit_12_credit_cards",
+      "passed": true
+    },
+    {
+      "name": "unique_cash_ids",
+      "passed": true
+    },
+    {
+      "name": "unique_debt_events",
+      "passed": true
+    },
+    {
+      "name": "cash_ledger_order",
+      "passed": true
+    },
+    {
+      "name": "cash_closing_balances_match_accounts",
+      "passed": true
+    },
+    {
+      "name": "no_refund_over_original",
+      "passed": true
+    },
+    {
+      "name": "own_transfer_pairs",
+      "passed": true
+    },
+    {
+      "name": "deposit_principal_moves_are_paired",
+      "passed": true
+    },
+    {
+      "name": "debt_closing_reconciles",
+      "passed": true
+    },
+    {
+      "name": "48_subscription_contracts",
+      "passed": true
+    },
+    {
+      "name": "three_explained_failures",
+      "passed": true
+    },
+    {
+      "name": "overlapping_subscriptions_share_category",
+      "passed": true
+    },
+    {
+      "name": "low_cash_balance_preserved",
+      "passed": true
+    },
+    {
+      "name": "no_future_actual_cash_events",
+      "passed": true
+    },
+    {
+      "name": "all_disclosed_opening_and_closing_stocks_reconcile",
+      "passed": true
+    },
+    {
+      "name": "credit_and_loan_movements_reconcile",
+      "passed": true
+    },
+    {
+      "name": "subscription_contracts_and_charges_reconcile",
+      "passed": true
+    },
+    {
+      "name": "deposits_and_funds_not_double_counted",
+      "passed": true
+    },
+    {
+      "name": "insurance_coverage_not_counted_as_assets",
+      "passed": true
+    },
+    {
+      "name": "incomplete_history_remains_marked",
+      "passed": true
+    },
+    {
+      "name": "all_csv_hashes_match",
+      "passed": true
+    },
+    {
+      "name": "utf8_bom_all_csvs",
+      "passed": true
+    },
+    {
+      "name": "exactly_23_csv_tables",
+      "passed": true
+    }
+  ],
+  "error_count": 0,
+  "errors": [],
+  "cash_rows_checked": 25471,
+  "debt_events_checked": 903,
+  "billing_events_checked": 514,
+  "monthly_snapshots_checked": 260,
+  "annual_net_worth_bridges": [
+    {
+      "owner_id": "u1",
+      "opening_net_worth_minor": 2470000,
+      "closing_net_worth_minor": 5322653,
+      "income_minor": 13104729,
+      "net_cash_consumption_minor": 9150462,
+      "credit_consumption_minor": 934331,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 180000,
+      "unrealized_pnl_minor": 12717,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u2",
+      "opening_net_worth_minor": 17180000,
+      "closing_net_worth_minor": 25564322,
+      "income_minor": 22468880,
+      "net_cash_consumption_minor": 13042470,
+      "credit_consumption_minor": 868306,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 250000,
+      "unrealized_pnl_minor": 76218,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u3",
+      "opening_net_worth_minor": 1250000,
+      "closing_net_worth_minor": 5331469,
+      "income_minor": 9857222,
+      "net_cash_consumption_minor": 5575753,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 200000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u4",
+      "opening_net_worth_minor": 1450000,
+      "closing_net_worth_minor": 1225317,
+      "income_minor": 3444000,
+      "net_cash_consumption_minor": 3418683,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 250000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u5",
+      "opening_net_worth_minor": 1710000,
+      "closing_net_worth_minor": 1433837,
+      "income_minor": 9298748,
+      "net_cash_consumption_minor": 8379216,
+      "credit_consumption_minor": 941295,
+      "finance_expense_minor": 44400,
+      "external_transfers_minor": 210000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u6",
+      "opening_net_worth_minor": 5520000,
+      "closing_net_worth_minor": 14240284,
+      "income_minor": 25200000,
+      "net_cash_consumption_minor": 15322196,
+      "credit_consumption_minor": 769702,
+      "finance_expense_minor": 186300,
+      "external_transfers_minor": 210000,
+      "unrealized_pnl_minor": 8482,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u7",
+      "opening_net_worth_minor": 720000,
+      "closing_net_worth_minor": 3117454,
+      "income_minor": 12606341,
+      "net_cash_consumption_minor": 9136946,
+      "credit_consumption_minor": 853698,
+      "finance_expense_minor": 60960,
+      "external_transfers_minor": 170000,
+      "unrealized_pnl_minor": 12717,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u8",
+      "opening_net_worth_minor": -4750000,
+      "closing_net_worth_minor": -885817,
+      "income_minor": 37381412,
+      "net_cash_consumption_minor": 32124161,
+      "credit_consumption_minor": 911486,
+      "finance_expense_minor": 289800,
+      "external_transfers_minor": 220000,
+      "unrealized_pnl_minor": 28218,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u9",
+      "opening_net_worth_minor": 97130000,
+      "closing_net_worth_minor": 99049710,
+      "income_minor": 5529600,
+      "net_cash_consumption_minor": 3419890,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 190000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u10",
+      "opening_net_worth_minor": 13790000,
+      "closing_net_worth_minor": 24284914,
+      "income_minor": 26751538,
+      "net_cash_consumption_minor": 14968097,
+      "credit_consumption_minor": 1001244,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 300000,
+      "unrealized_pnl_minor": 12717,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u11",
+      "opening_net_worth_minor": 3190000,
+      "closing_net_worth_minor": 2722956,
+      "income_minor": 14126901,
+      "net_cash_consumption_minor": 13450928,
+      "credit_consumption_minor": 880389,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 220000,
+      "unrealized_pnl_minor": -42628,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u12",
+      "opening_net_worth_minor": 460000,
+      "closing_net_worth_minor": 28000,
+      "income_minor": 7805240,
+      "net_cash_consumption_minor": 7967240,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 270000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u13",
+      "opening_net_worth_minor": 2630000,
+      "closing_net_worth_minor": 9182365,
+      "income_minor": 16500344,
+      "net_cash_consumption_minor": 8902260,
+      "credit_consumption_minor": 868436,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 190000,
+      "unrealized_pnl_minor": 12717,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u14",
+      "opening_net_worth_minor": 2400000,
+      "closing_net_worth_minor": 4757719,
+      "income_minor": 12164281,
+      "net_cash_consumption_minor": 8630785,
+      "credit_consumption_minor": 1033995,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 170000,
+      "unrealized_pnl_minor": 28218,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u15",
+      "opening_net_worth_minor": 1410000,
+      "closing_net_worth_minor": 7964135,
+      "income_minor": 14863912,
+      "net_cash_consumption_minor": 8109776,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 200001,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u16",
+      "opening_net_worth_minor": 1810000,
+      "closing_net_worth_minor": 5097247,
+      "income_minor": 10511169,
+      "net_cash_consumption_minor": 6993922,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 230000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u17",
+      "opening_net_worth_minor": 63210000,
+      "closing_net_worth_minor": 72091401,
+      "income_minor": 13477100,
+      "net_cash_consumption_minor": 4211717,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 142200,
+      "external_transfers_minor": 270000,
+      "unrealized_pnl_minor": 28218,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u18",
+      "opening_net_worth_minor": 1320000,
+      "closing_net_worth_minor": 489803,
+      "income_minor": 8561376,
+      "net_cash_consumption_minor": 8342583,
+      "credit_consumption_minor": 798990,
+      "finance_expense_minor": 60000,
+      "external_transfers_minor": 190000,
+      "unrealized_pnl_minor": 0,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u19",
+      "opening_net_worth_minor": 133690000,
+      "closing_net_worth_minor": 145331728,
+      "income_minor": 17990578,
+      "net_cash_consumption_minor": 5076847,
+      "credit_consumption_minor": 0,
+      "finance_expense_minor": 976320,
+      "external_transfers_minor": 330000,
+      "unrealized_pnl_minor": 34317,
+      "bridge_difference_minor": 0
+    },
+    {
+      "owner_id": "u20",
+      "opening_net_worth_minor": 2470000,
+      "closing_net_worth_minor": 6806754,
+      "income_minor": 14612657,
+      "net_cash_consumption_minor": 9257358,
+      "credit_consumption_minor": 746763,
+      "finance_expense_minor": 0,
+      "external_transfers_minor": 300000,
+      "unrealized_pnl_minor": 28218,
+      "bridge_difference_minor": 0
+    }
+  ],
+  "scope": "逐笔现金/负债、订阅扣款、资产与净资产年度变化独立重算；未验收真实金融业务"
+}

@@ -9,9 +9,12 @@ import DetailDialog from './DetailDialog';
 import MessageComposer from './MessageComposer';
 import Icon from './Icon';
 import ExecutionRecord from './ExecutionRecord';
+import SubscriptionQueryConsent from './SubscriptionQueryConsent';
+import ConversationAuthorizations from './ConversationAuthorizations';
+import AnalysisWorkflowSummary from './AnalysisWorkflowSummary';
 
 const money = (n: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n / 100);
-const shortcuts = [ ['transfer', '给小林转 200 元', '快速准备转账', '给小林转200元'], ['bill', '分析本月账单', '查看收支结构与异常', '分析本月账单'], ['wallet', '管理订阅代扣', '查看与撤销已授权服务', '管理订阅代扣'], ['calendar', '安排生日预算', '规划预算并设置安排', '安排生日预算'] ];
+const shortcuts = [ ['transfer', '给小林转 200 元', '快速准备转账', '给小林转200元'], ['bill', '分析本月账单', '查看收支结构与异常', '分析本月账单'], ['wallet', '管理订阅代扣', '先查看续费与扣费记录', '先查看我的订阅扣费和自动续费情况'], ['calendar', '安排生日预算', '规划预算并设置安排', '安排生日预算'] ];
 
 export function TaskContextPanel({ workspace: w, onNavigate, standalone = false }: { workspace: AgentWorkspace; onNavigate: (page: string) => void; standalone?: boolean }) {
   const t = w.task;
@@ -19,6 +22,9 @@ export function TaskContextPanel({ workspace: w, onNavigate, standalone = false 
   const p = t.proposal, finished = ['completed', 'cancelled', 'failed', 'expired'].includes(t.status);
   return <aside className={`task-context${standalone ? ' standalone' : ''}`} aria-label="当前任务">
     <div className="context-heading"><h2>当前任务</h2><span className={`tag ${t.status === 'awaiting_confirmation' ? 'warning' : ''}`}>{labels[t.status] ?? t.status}</span></div>
+    {standalone&&<SubscriptionQueryConsent workspace={w}/>}
+    {standalone&&<AnalysisWorkflowSummary workflow={t.analysis_workflow}/>}
+    {standalone&&<ConversationAuthorizations workspace={w}/>}
     {t.control?.state && <p className="operation-note">{({ paused: '已暂停', handoff: '等待模拟坐席接管', awaiting_reverification: '待用户重新验证', running: '可以继续' } as Record<string, string>)[t.control.state] ?? t.control.state} {t.control.reason}{t.control.suggestion && ` · 坐席建议：${t.control.suggestion}`}</p>}
     <ol className="task-timeline">{t.steps.length ? t.steps.map(s => <li key={`${t.id}-${t.plan_version}-${s.ordinal}`} className={`step-${s.status}`}><span className="step-marker">{s.status === 'succeeded' ? '✓' : s.ordinal}</span><div><strong>{stepTitle(s)}</strong>{s.result.reason && <p>{s.result.reason}</p>}{s.result.message && <p>{s.result.message}</p>}</div></li>) : <li><span className="step-marker">1</span><div><strong>{labels[t.status] ?? t.status}</strong><p>等待补充需求或核对业务信息。</p></div></li>}</ol>
     {p && <div className="context-details"><h3>操作详情</h3><dl>{p.summary.target && <div><dt>收款人</dt><dd>{p.summary.target.alias} {p.summary.target.mask}</dd></div>}{p.summary.source && <div><dt>转出账户</dt><dd>{p.summary.source.alias} {p.summary.source.mask}</dd></div>}{p.summary.card && <div><dt>卡片</dt><dd>{p.summary.card.alias} {p.summary.card.mask}</dd></div>}{p.summary.amount_minor !== undefined && <div><dt>金额</dt><dd>{money(p.summary.amount_minor)}</dd></div>}<div><dt>操作单状态</dt><dd>{labels[p.status] ?? p.status}</dd></div></dl></div>}
@@ -52,13 +58,13 @@ export default function AssistantWorkspace({ workspace: w, accounts, mode, onNav
   const [drawer, setDrawer] = useState(false), [collapsed, setCollapsed] = useState(false), [evidence, setEvidence] = useState(false);
   const scroll = useRef<HTMLDivElement>(null), nearBottom = useRef(true);
   const [unread, setUnread] = useState(false);
-  const t = w.task, landing = home || !t?.messages.length;
-  useEffect(() => { if (nearBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; else setUnread(true); }, [t?.id, t?.messages.length, t?.proposal?.status, w.busy]);
+  const t = w.outgoing?.newTask?null:w.task, landing = home || (!t?.messages.length&&!w.outgoing);
+  useEffect(() => { if (nearBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; else setUnread(true); }, [t?.id, t?.messages.length, t?.proposal?.status, w.busy,w.outgoing?.id]);
   useEffect(() => { nearBottom.current = true; if (scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; }, [landing]);
   function send() { onHomeChange(false); nearBottom.current = true; void w.sendMessage(w.input.trim()); }
-  function messageText(content: string) { if (!content.startsWith('选择交易 ')) return content; const c = t?.candidates.find(x => x.id === content.slice(5)); return c ? `选择 ${c.merchant || '商户未提供'} · ${money(c.amount_minor)} · 卡尾号 ${c.card_last4 ?? '未知'}` : '已选择要核对的交易'; }
-  const reports = t?.steps.filter(s => ['summarize_spending', 'generate_statement', 'inspect_anomalies', 'list_transactions'].includes(s.tool_name)) ?? [];
-  const businessTarget = (t?.birthday_request || t?.intent?.includes('birthday')) ? 'tasks/birthdays' : (t?.subscription_request || t?.intent?.includes('subscription')) ? 'assets/subscriptions' : (t?.wealth_order || t?.intent?.includes('wealth')) ? 'assets/wealth' : ['schedule_transfer', 'aa_collection'].includes(t?.intent ?? '') ? 'tasks/schedules' : (t?.card_request || t?.intent?.startsWith('card_')) ? 'assets/cards' : null;
+  function messageText(content: string) { if (!content.startsWith('选择交易 ')) return content; const c = w.task?.candidates.find(x => x.id === content.slice(5)); return c ? `选择 ${c.merchant || '商户未提供'} · ${money(c.amount_minor)} · 卡尾号 ${c.card_last4 ?? '未知'}` : '已选择要核对的交易'; }
+  const reports = t?.steps.filter(s => s.status === 'succeeded' && ['summarize_spending', 'generate_statement', 'inspect_anomalies', 'list_transactions', 'analyze_finances', 'read_financial_history', 'read_subscriptions', 'identify_subscriptions'].includes(s.tool_name)) ?? [];
+  const businessTarget = t?.service_request ? (t.service_request.kind==='cancel_contract'?'assets/subscriptions':'assets/cards') : (t?.birthday_request || t?.intent?.includes('birthday')) ? 'tasks/birthdays' : (t?.subscription_request || t?.intent?.includes('subscription')) ? 'assets/subscriptions' : (t?.wealth_order || t?.intent?.includes('wealth')) ? 'assets/wealth' : ['schedule_transfer', 'aa_collection'].includes(t?.intent ?? '') ? 'tasks/schedules' : (t?.card_request || t?.intent?.startsWith('card_')) ? 'assets/cards' : null;
   return <section id="assistant" className={`assistant-workspace ${landing ? 'is-home' : 'is-working'}${collapsed ? ' context-collapsed' : ''}`}>
     {landing ? <div className="assistant-home">{balance !== undefined && <button className="balance-glance" onClick={() => onNavigate('assets/accounts')}><span>可用余额 <Icon name="eye" size={16} /></span><strong>{money(balance)}</strong><Icon name="chevron" size={17} /></button>}<div className="home-content"><h1>把繁琐的金融操作，交给一句话。</h1><p className="home-subtitle">查账、转账、管理卡片，让每一步都清楚可控。</p>
       <MessageComposer value={w.input} onChange={w.setInput} onSend={send} disabled={w.unavailable} home />
@@ -67,8 +73,10 @@ export default function AssistantWorkspace({ workspace: w, accounts, mode, onNav
       <p className="home-footnote"><Icon name="info" size={17} />查询直接返回，涉及资金或安全的操作会先请你确认。</p>
     </div></div> : <><div className="conversation-panel"><header className="conversation-heading"><div><h2>{t?.proposal?.kind === 'transfer' ? `转账给${t.proposal.summary.target?.alias ?? '收款人'}` : '对话助手'}</h2><span>{w.busy ? '正在处理，请稍候…' : w.loading ? '正在恢复任务…' : w.syncError ? '状态待核实' : '服务端状态已同步'}</span></div><div><button className="secondary context-toggle" onClick={() => setDrawer(true)}>当前任务</button><button className="text-button" onClick={() => onHomeChange(true)}>助手首页</button></div></header>
       <div className="conversation-scroll" ref={scroll} onScroll={e => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.clientHeight - el.scrollTop < 90; if (nearBottom.current) setUnread(false); }}>
-        <div className="agent-messages" aria-live="polite">{t?.messages.map((m, i) => <div key={`${t.id}-${i}`} className={`message-row ${m.role === 'user' ? 'from-user' : 'from-assistant'}`}><span className="message-avatar"><Icon name={m.role === 'user' ? 'user' : 'chat'} /></span><div className="message-bubble">{messageText(m.content)}</div></div>)}</div>
-        <OperationSummaryCard workspace={w} />
+        <div className="agent-messages" aria-live="polite">{w.task?.messages.map((m, i) => <div key={`${w.task!.id}-${i}`} className={`message-row ${m.role === 'user' ? 'from-user' : 'from-assistant'}`}><span className="message-avatar"><Icon name={m.role === 'user' ? 'user' : 'chat'} /></span><div className="message-bubble">{messageText(m.content)}</div></div>)}{w.outgoing&&<div className="message-row from-user" data-testid="outgoing-message"><span className="message-avatar"><Icon name="user"/></span><div className="message-bubble"><div>{w.outgoing.text}</div><small className="outgoing-status" role="status">{w.outgoing.status==='sending'?'正在发送…':w.outgoing.status==='failed'?'未确认送达，请核对错误后重试。':'送达状态待核实，未自动重发。'}</small>{w.outgoing.status!=='sending'&&<button className="secondary" disabled={w.busy} onClick={w.retry}>核对发送状态</button>}</div></div>}</div>
+        {t&&(t.authorization_operations?<ConversationAuthorizations workspace={w}/>:<OperationSummaryCard workspace={w} />)}
+        {t&&<SubscriptionQueryConsent workspace={w}/>}
+        <AnalysisWorkflowSummary workflow={t?.analysis_workflow}/>
         {t?.birthday_details && <TaskDetailsForm taskId={t.id} kind="birthday" value={t.birthday_details} accounts={accounts} disabled={w.unavailable} onSubmit={w.submitDetails} />}
         {t?.transfer_details && <TaskDetailsForm taskId={t.id} kind="transfer" value={t.transfer_details} accounts={accounts} disabled={w.unavailable} onSubmit={w.submitDetails} />}
         {!!t?.candidates.length && <div className="agent-candidates"><h3>待核对的候选交易</h3>{t.query_range && <p className="caption">北京时间 {t.query_range.map(s => new Date(s).toLocaleString('zh-CN')).join(' 至 ')}（结束时刻不含）</p>}{t.candidates.map(c => <article className="agent-candidate" key={c.id}><strong>{c.merchant || '商户未提供'} · {money(c.amount_minor)}</strong><p>{new Date(c.posted_at_utc).toLocaleString('zh-CN')} · 卡尾号 {c.card_last4 ?? '未知'}</p>{t.status === 'gathering_info' && <button disabled={w.unavailable} onClick={() => void w.sendMessage(`选择交易 ${c.id}`)}>选择这笔交易</button>}</article>)}</div>}
@@ -85,6 +93,6 @@ export default function AssistantWorkspace({ workspace: w, accounts, mode, onNav
     </div>{t && <div className="desktop-context"><button className="context-collapse text-button" onClick={() => setCollapsed(v => !v)}>{collapsed ? '展开任务栏' : '收起任务栏'}</button>{!collapsed && <TaskContextPanel workspace={w} onNavigate={onNavigate} />}</div>}
     {drawer && <DetailDialog title="当前任务" onClose={() => setDrawer(false)}><TaskContextPanel workspace={w} onNavigate={onNavigate} /></DetailDialog>}</>}
     {w.error && <div className="alert workspace-alert" role="alert">{w.error}</div>}{w.syncError && <div className="alert workspace-alert" role="alert">{w.syncError} 写操作已暂停。<button className="secondary" onClick={w.retry} disabled={w.busy}>重新查询状态</button></div>}
-    {evidence && <DetailDialog title="报告与业务证据" onClose={() => setEvidence(false)}>{reports.map(s => <div key={`${t?.id}-${s.ordinal}`}>{s.tool_name === 'list_transactions' && s.result.items ? <TransactionEvidence initial={{ items: s.result.items, total: s.result.total ?? s.result.items.length, limit: s.result.limit ?? 20, offset: s.result.offset ?? 0 }} filters={s.arguments ?? {}} /> : <AnalyticsReport value={s.result} />}</div>)}</DetailDialog>}
+    {evidence && <DetailDialog title="报告与业务证据" onClose={() => setEvidence(false)}>{reports.map(s => <div key={`${t?.id}-${s.ordinal}`}>{s.tool_name === 'list_transactions' && s.result.items ? <TransactionEvidence initial={{ items: s.result.items, total: s.result.total ?? s.result.items.length, limit: s.result.limit ?? 20, offset: s.result.offset ?? 0 }} filters={s.arguments ?? {}} /> : <AnalyticsReport value={s.result} filters={s.arguments??{}} />}</div>)}</DetailDialog>}
   </section>;
 }

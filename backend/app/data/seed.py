@@ -15,6 +15,7 @@ from app.data.scheduled_models import ScheduledTransfer
 from app.data.collection_models import CollectionRequest, CollectionMember, CollectionPayment
 from app.data.wealth_models import WealthOrder, WealthPosition, RiskAssessment, WealthProduct
 from app.data.card_models import CardPayment, CardRequest, CardControl
+from app.data.servicing_models import MerchantContractState,CreditFacility,ServiceRequest
 from app.data.subscription_models import SubscriptionNotification, SubscriptionReminder, SubscriptionCharge, SubscriptionRequest, SubscriptionAuthorization
 from app.data.birthday_models import (BirthdayNotification, BirthdayFundEvent, BirthdayOrder,
                                      BirthdayReservation, BirthdayRequest, BirthdayPlan)
@@ -37,7 +38,11 @@ def iso_utc(day: date, hour: int = 12, minute: int = 0) -> str:
 
 def reset_demo(db: Session, demo_date: date = date(2026, 9, 24)) -> str:
     """Rebuild only the caller's selected project database, inside one transaction."""
-    for model in (BirthdayNotification, BirthdayFundEvent, BirthdayOrder, BirthdayReservation, BirthdayRequest, BirthdayPlan, SubscriptionNotification, SubscriptionReminder, SubscriptionCharge, SubscriptionRequest, SubscriptionAuthorization, CardPayment, CardRequest, CardControl, WealthOrder, WealthPosition, RiskAssessment, WealthProduct, CollectionPayment, CollectionMember, CollectionRequest, ScheduledTransfer, RecipientCredit, AgentStep, AgentMessage, AgentTask, AuditEvent, BusinessResult, TransferOrder, CardActionOrder, Proposal, Task,
+    from app.data.financial_models import FinancialDatasetRow, FinancialDatasetImport,FinancialEvent
+    db.execute(delete(FinancialEvent))
+    db.execute(delete(FinancialDatasetRow))
+    db.execute(delete(FinancialDatasetImport))
+    for model in (MerchantContractState,CreditFacility,ServiceRequest,BirthdayNotification, BirthdayFundEvent, BirthdayOrder, BirthdayReservation, BirthdayRequest, BirthdayPlan, SubscriptionNotification, SubscriptionReminder, SubscriptionCharge, SubscriptionRequest, SubscriptionAuthorization, CardPayment, CardRequest, CardControl, WealthOrder, WealthPosition, RiskAssessment, WealthProduct, CollectionPayment, CollectionMember, CollectionRequest, ScheduledTransfer, RecipientCredit, AgentStep, AgentMessage, AgentTask, AuditEvent, BusinessResult, TransferOrder, CardActionOrder, Proposal, Task,
                   DemoSession, DataCoverage, Transaction, Card, Recipient, Account, DemoSetting, User):
         db.execute(delete(model))
 

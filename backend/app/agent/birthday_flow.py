@@ -178,7 +178,7 @@ def dispatch(db,session,task,text, *, details=None, decision_hint=None):
     kind="create" if details is not None else next((key for key,value in INTENTS.items() if value==decision_hint.intent),None) if decision_hint is not None else detect(text,ctx,task)
     pending=task_state(db,task).get('birthday_request')
     if kind is None and pending and pending['status']=='pending_confirmation' and re.fullmatch(r'(?:确认|好的|同意|执行)[。！!\s]*',text):
-        _message(db,task,'user',text,already_recorded=decision_hint is not None);_say(db,task,'请在“生日安排”的固定办理单点击对应确认按钮；聊天回复不授权，资金和订单尚未因本条消息改变。','awaiting_confirmation');return view(db,task)
+        _message(db,task,'user',text,already_recorded=decision_hint is not None);_say(db,task,'请在下方对话中的固定办理单点击“核对并继续”；聊天回复不授权，资金和订单尚未因本条消息改变。','awaiting_confirmation');return view(db,task)
     if kind is None:return None
     if task.stop_requested:return view(db,task)
     sid,tid=session.id,task.id
@@ -323,7 +323,7 @@ def dispatch(db,session,task,text, *, details=None, decision_hint=None):
             detail=(f"生日{fixed.get('birthday_date')}；{fixed.get('order_at_utc')}（UTC，北京时间+8小时）下单；{fixed.get('delivery_date')}送达；"
                     f"预算{fixed.get('budget_minor',0)/100:.2f}元，付款{fixed.get('account_alias','账户A')}，收货{fixed.get('recipient','')}，"
                     f"任务完成后释放余款。")
-            _say(db,task,'已准备固定生日办理单：'+detail+f"请核对“生日安排”并点击“{BUTTONS[kind]}”。本次聊天没有授权或执行；已有已授权计划和订单以真实记录为准。",'awaiting_confirmation')
+            _say(db,task,'已准备固定生日办理单：'+detail+f"请核对下方对话中的固定办理单并点击“核对并继续”。本次聊天没有授权或执行；已有已授权计划和订单以真实记录为准。",'awaiting_confirmation')
         except DomainError as error:_say(db,task,error.message+'；未办理本次变更。','gathering_info')
         return view(db,task)
 

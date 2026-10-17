@@ -58,3 +58,38 @@ def test_mfa_challenge_does_not_expose_code_or_secret(client):
     data = client.post(f'/api/security/operations/proposal/{pid}/challenge', headers=protected).json()['data']
     assert 'challenge_id' in data
     assert not {'code', 'code_hash', 'secret'} & set(data)
+
+
+def test_simulated_sms_popup_requires_csrf_and_explicit_verification(client, monkeypatch):
+    from app.domain import security
+    monkeypatch.setattr(security.secrets, 'randbelow', lambda _: 123)
+    protected = headers(client)
+    before = client.get('/api/accounts').json()['data']
+    prepared = client.post('/api/transfers/prepare', headers=protected, json={
+        'source_account_id': 'a1c', 'target': {'type': 'own_account', 'account_id': 'a1s'}, 'amount_minor': 200000})
+    pid = prepared.json()['data']['proposal']['id']
+    base = f'/api/security/operations/proposal/{pid}'
+    issued = client.post(base + '/challenge', headers=protected).json()['data']
+    payload = {'challenge_id': issued['challenge_id']}
+    assert client.post(base + '/simulated-sms', json=payload).status_code == 403
+    response = client.post(base + '/simulated-sms', headers=protected, json=payload)
+    assert response.status_code == 200
+    assert response.headers['Cache-Control'] == 'no-store'
+    sms = response.json()['data']
+    assert sms == {**payload, 'code': '000123', 'expires_at': issued['expires_at'], 'simulated': True}
+    assert client.get('/api/accounts').json()['data'] == before
+    assert client.post(base + '/verify', headers=protected, json={**payload, 'code': sms['code']}).status_code == 200
+    assert client.post(base + '/simulated-sms', headers=protected, json=payload).status_code == 403
+
+
+def test_simulated_sms_popup_rejects_nonlocal_clients(client):
+    with TestClient(app, client=('198.51.100.1', 12345)) as remote:
+        protected = headers(remote)
+        prepared = remote.post('/api/transfers/prepare', headers=protected, json={
+            'source_account_id': 'a1c', 'target': {'type': 'own_account', 'account_id': 'a1s'}, 'amount_minor': 200000})
+        pid = prepared.json()['data']['proposal']['id']
+        base = f'/api/security/operations/proposal/{pid}'
+        issued = remote.post(base + '/challenge', headers=protected).json()['data']
+        denied = remote.post(base + '/simulated-sms', headers=protected, json={'challenge_id': issued['challenge_id']})
+        assert denied.status_code == 403
+        assert denied.json()['error_code'] == 'LOCAL_SIMULATOR_ONLY'

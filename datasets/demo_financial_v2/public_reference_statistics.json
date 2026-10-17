@@ -1,0 +1,43 @@
+{
+  "source_id": "S02",
+  "archive_sha256": "f5385cbb54bbebf7196389109c6b0621faab0c304e3702548165e71c84aede8b",
+  "raw_rows": 541909,
+  "valid_price_quantity_rows": 539392,
+  "raw_columns": [
+    "InvoiceNo",
+    "StockCode",
+    "Description",
+    "Quantity",
+    "InvoiceDate",
+    "UnitPrice",
+    "CustomerID",
+    "Country"
+  ],
+  "negative_quantity_rows": 10624,
+  "zero_or_nonpositive_price_rows": 2517,
+  "missing_customer_id_rows": 135080,
+  "invoice_count": 23796,
+  "cancellation_invoice_count": 3836,
+  "positive_invoice_count": 19960,
+  "positive_invoice_amount_currency": "GBP",
+  "positive_invoice_median": 303.83,
+  "positive_invoice_p90": 940.89,
+  "positive_invoice_p99": 4821.17,
+  "invoice_counts_by_month": {
+    "2010-12": 1885,
+    "2011-01": 1346,
+    "2011-02": 1319,
+    "2011-03": 1772,
+    "2011-04": 1486,
+    "2011-05": 1995,
+    "2011-06": 1862,
+    "2011-07": 1745,
+    "2011-08": 1639,
+    "2011-09": 2170,
+    "2011-10": 2402,
+    "2011-11": 3210,
+    "2011-12": 965
+  },
+  "analysis_scope": "Entire source workbook; positive-price nonzero-quantity lines; invoice aggregation; no de-duplication.",
+  "caveat": "UK retail orders, including wholesale; not Chinese household bank payments; GBP not converted to CNY."
+}

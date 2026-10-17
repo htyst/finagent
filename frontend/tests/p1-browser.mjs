@@ -73,11 +73,12 @@ try {
   await page.reload(); await page.locator('#agent-message').waitFor(); assert.equal((await state()).wealth_order.id,task.wealth_order.id); passed.push('wealth-reload');
   await page.evaluate(() => {location.hash='assets/wealth';});
   await page.getByRole('button',{name:'确认理财交易',exact:true}).click();
-  const dialog=page.getByRole('dialog'); await dialog.waitFor(); assert.match(await dialog.innerText(),/红色/);
+  const dialog=page.getByRole('dialog',{name:'红色 · 独立强验证',exact:true}); await dialog.waitFor(); assert.match(await dialog.innerText(),/红色/);
   await dialog.getByRole('button',{name:'获取模拟短信验证码'}).click(); await dialog.getByText(/挑战编号：/).waitFor();
   const id=(await dialog.innerText()).match(/挑战编号：([0-9a-f]{32})/)[1];
   const code=JSON.parse(await readFile(path.resolve(import.meta.dirname,'../../var/auth-simulator',id+'.json'),'utf8')).code;
-  await dialog.getByLabel('六位验证码',{exact:true}).fill(code); await dialog.getByRole('button',{name:'确认条款并验证执行',exact:true}).click();
+  await page.getByRole('dialog',{name:'模拟短信验证码',exact:true}).getByRole('button',{name:'填入验证码',exact:true}).click();
+  assert.equal(await dialog.getByLabel('六位验证码',{exact:true}).inputValue(),code); await dialog.getByRole('button',{name:'确认条款并验证执行',exact:true}).click();
   await page.locator('.wealth-receipt').waitFor(); passed.push('wealth-red-success');
   task=await chat('申请一张虚拟卡'); assert.equal(task.status,'gathering_info'); passed.push('card-missing-info'); await cancelTask();
   task=await chat('申请一张虚拟卡，申请人是本人，关联活期账户'); assert.equal(task.card_request.status,'pending_confirmation');

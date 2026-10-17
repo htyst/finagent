@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {execFileSync} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+const base=process.env.FINAGENT_E2E_BASE_URL,output=process.env.FINAGENT_E2E_OUTPUT;
+assert(/^http:\/\/127\.0\.0\.1:\d+$/.test(base)&&output?.includes('TEST-ONLY'));
+await mkdir(output,{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{
+ assert.equal((await(await context.request.get(base+'/api/health')).json()).data.test_only,true);
+ await context.request.post(base+'/api/demo/session',{data:{user_id:'u1'}});
+ const sid=(await context.cookies()).find(c=>c.name==='finagent_demo_session').value;
+ const run=(arg)=>execFileSync(process.env.FINAGENT_TEST_PYTHON,[process.env.FINAGENT_TEST_SEED,sid,arg],{encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8'}});
+ run('risk');await page.goto(base);
+ const form=page.getByRole('form',{name:'对话风险评估'});await form.waitFor();
+ for(let i=0;i<4;i++)await form.locator('select').nth(i).selectOption('0');
+ await form.getByRole('button',{name:'提交评估并继续准备'}).click();await form.waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'核对并继续',exact:true}).click();
+ const modal=page.getByRole('dialog');await modal.waitFor();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ await page.screenshot({path:path.join(output,'mobile-strong-confirmation.png'),fullPage:true});
+ await modal.getByRole('button',{name:'取消',exact:true}).click();await modal.waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'当前任务',exact:true}).click();
+ await page.getByRole('dialog',{name:'当前任务'}).waitFor();
+ assert.deepEqual(errors,[]);
+ const result={status:'passed',passed:['questionnaire-submit-reachable-on-mobile','strong-verification-dialog-reachable-without-horizontal-overflow','mobile-task-drawer-remains-usable'],errors};
+ await writeFile(path.join(output,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}finally{await browser.close();}

@@ -20,6 +20,7 @@ class SubscriptionAuthorization(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     dataset_version: Mapped[str] = mapped_column(String, nullable=False)
     account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    payment_card_id: Mapped[str | None] = mapped_column(String, nullable=True)
     merchant: Mapped[str] = mapped_column(String, nullable=False)
     amount_minor: Mapped[int] = mapped_column(Integer, nullable=False)
     period: Mapped[str] = mapped_column(String, nullable=False, default="monthly")

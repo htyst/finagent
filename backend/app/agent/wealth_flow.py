@@ -100,8 +100,10 @@ def dispatch(db,session,task,text, *, decision_hint=None):
         try:
             if intent=='wealth_assessment':
                 assessment=current_assessment(db,session.owner_id)
-                reply=('尚未完成有效风险评估。' if assessment is None else '已有有效评估，可在下方重新完整回答以更新。')+'请在“模拟理财”区域回答投资经验、可接受本金损失、资金使用期限、收入与应急资金四个问题后提交。不是固定风险标签；结果有形成时间、有效期和适用范围。'
-                _say(db,task,reply,'completed')
+                from app.agent.authorization import stage_assessment
+                stage_assessment(task,{'kind':'assessment'})
+                reply=('尚未完成有效风险评估。' if assessment is None else '已有有效评估，可以重新完整回答以更新。')+'请在下方对话表单按实际情况回答四个问题；结果有形成时间、有效期和适用范围，提交不会交易。'
+                _say(db,task,reply,'gathering_info')
             elif intent=='wealth_compare':
                 if not slots.get('amount_yuan') or not slots.get('horizon_days'):
                     _say(db,task,'请提供可投资预算，以及多久内可能需要使用这笔钱。','gathering_info')
@@ -129,9 +131,19 @@ def dispatch(db,session,task,text, *, decision_hint=None):
                     _record_step(db,task,'prepare_wealth',{'product_id':order['product_id'],'account_id':order['account_id'],'amount_minor':order['amount_minor'],'units_hundredths':order['units_hundredths']},{'order':order})
                     step=db.scalar(select(AgentStep).where(AgentStep.task_id==task.id).order_by(AgentStep.ordinal.desc()))
                     step.result_ref=order['id'];step.status='awaiting_confirmation'
-                    _say(db,task,f"已准备{order['product_id']} {'申购' if intent=='wealth_buy' else '赎回'}固定订单：{order['amount_minor']/100:,.2f}元、{order['units_hundredths']/100:,.2f}份，手续费{order['summary']['fee_minor']/100:.2f}元；尚未受理、未结算、未改变余额和持仓。请核对下方订单并点击“确认理财交易”。聊天确认不授权。",'awaiting_confirmation')
+                    _say(db,task,f"已准备{order['product_id']} {'申购' if intent=='wealth_buy' else '赎回'}固定订单：{order['amount_minor']/100:,.2f}元、{order['units_hundredths']/100:,.2f}份，手续费{order['summary']['fee_minor']/100:.2f}元；尚未受理、未结算、未改变余额和持仓。请核对下方订单并点击“核对并继续”。聊天确认不授权。",'awaiting_confirmation')
             task.intent=intent;commit(db);return view(db,task)
         except DomainError as error:
+            if error.code=='RISK_ASSESSMENT_REQUIRED':
+                from app.agent.authorization import stage_assessment
+                if intent=='wealth_compare':
+                    continuation={'kind':'compare','budget_minor':decimal_hundredths(slots['amount_yuan'],'预算'),'horizon_days':slots['horizon_days']}
+                else:
+                    continuation={'kind':'buy' if intent=='wealth_buy' else 'redeem','product_id':slots['product'].upper(),'account_id':matched[0].id,**kwargs}
+                stage_assessment(task,continuation)
+                task.intent=intent
+                _say(db,task,'这项理财需求需要先完成有效风险评估。请填写下方问卷，我会保留原产品、金额或份额和账户，评估后继续核对并准备固定单；尚未交易。','gathering_info')
+                return view(db,task)
             task.intent=intent;_say(db,task,error.message+'；未办理新交易，不产生额外扣款、份额变动或成功回执。','gathering_info')
             return view(db,task)
 

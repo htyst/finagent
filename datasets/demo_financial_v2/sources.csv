@@ -1,0 +1,6 @@
+﻿"source_id","title","url","source_kind","inspected_on","license_or_use","applied_to","limitation"
+"S01","国家统计局：2025年居民收入和消费支出情况","https://www.stats.gov.cn/sj/zxfb/202601/t20260119_1962321.html","official_aggregate_real","2026-10-15","公开统计参考；未复制调查户微观数据","收入类型与消费类别设计；全国人均消费29476元、城镇35869元用于量级对照","本演示是目的抽样画像，不拟合全国代表性，不把统计均值设为所有用户收入"
+"S02","Chen, D. (2015). Online Retail. UCI. DOI 10.24432/C5BW33","https://archive.ics.uci.edu/dataset/352/online+retail","public_real_retail_orders","2026-10-15","CC BY 4.0；公开参考样本需保留来源署名；没有导出CustomerID","实际下载541909行订单明细并按发票聚合；导出100张正向订单与20张取消发票供查看","英国2010—2011年零售含批发；不是中国银行卡流水；GBP未换算为CNY，金额不用于直接校准"
+"S03","IBM AMLSim repository","https://github.com/IBM/AMLSim","synthetic_method_reference","2026-10-15","仅参考公开项目方法说明；未复制源码","将周期收支、关联账户转账和明确设计的异常场景分开生成","没有运行AMLSim，也没有将它的合成数据称为真实银行记录"
+"S04","CTU Relational Repository: Financial (PKDD99)","https://relational.fel.cvut.cz/dataset/Financial","public_real_banking_catalog","2026-10-15","仅核对大学数据目录；未下载或再分发银行原始行","提供后续真实匿名银行样本研究入口；本交付没有将其记录混入演示数据","历史捷克银行场景；目录提供数据库访问方法，本轮未连接该数据库或获得明细样本"
+"S05","FinAgent完整金融档案合成设定",,"author_synthetic_assumptions","2026-10-15","本项目自行生成","账户、存款、虚构净值/利率、贷款与信用卡、保险、订阅合同及扣款历史","不是银行/基金/保险/订阅报价；没有真实金融数据统计校准"

@@ -71,6 +71,8 @@ def view(db: Session, task: AgentTask) -> dict:
     business.update(task_state(db, task))
     from app.domain.card_management import task_state as card_task_state
     business.update(card_task_state(db,task))
+    from app.domain.servicing import task_state as service_task_state
+    business.update(service_task_state(db,task))
     from app.domain.subscriptions import task_state as subscription_task_state
     business.update(subscription_task_state(db,task))
     from app.domain.birthdays import task_state as birthday_task_state
@@ -92,6 +94,9 @@ def view(db: Session, task: AgentTask) -> dict:
                   "expired": "expired", "invalidated": "gathering_info",
                   "failed": "failed"}.get(proposal["status"], status)
     from app.agent.forms import birthday_details,transfer_details
+    dynamic=json.loads(task.context_json).get('dynamic_runtime',{})
+    if dynamic.get('status')=='running':
+        status='running_readonly'
     from app.agent.control import state as control_state
     control = control_state(db, task.id)
     if json.loads(task.context_json).get('unified_plan') and any(
@@ -103,7 +108,20 @@ def view(db: Session, task: AgentTask) -> dict:
         status = 'cancelled'
     elif task.stop_requested:
         status = 'cancelled' if task.status == 'cancelled' else status
-    return {**business, 'control': control, "birthday_details":birthday_details(db,task),"transfer_details":transfer_details(db,task), "id": task.id, "mode": task.mode, "intent": task.intent, "status": status,
+    from app.agent.conversation_reads import next_actions
+    from app.agent.authorization import operations,prerequisites
+    authorization_operations=operations(db,task,{**business,'proposal':proposal},control)
+    if dynamic and not task.stop_requested and control.get('state') not in {'paused','handoff','awaiting_reverification','terminated'}:
+        # A historical business receipt must not complete a new query, hide
+        # missing fields, or mask a failed post-confirmation synthesis.
+        runtime_status=dynamic.get('status')
+        if runtime_status=='running':status='running_readonly'
+        elif any(op['status']=='pending_confirmation' for op in authorization_operations):status='awaiting_confirmation'
+        elif runtime_status in {'gathering_info','partially_completed','completed','paused','cancelled','superseded'}:status=runtime_status
+    from app.agent.analysis_workflow import public as analysis_public
+    from app.agent.dynamic_runtime import public as dynamic_public
+    business['analysis_workflow']=dynamic_public(task) or analysis_public(task)
+    return {**business, 'authorization_operations':authorization_operations, 'prerequisites':prerequisites(task,control), 'next_actions':next_actions(task,control), 'control': control, "birthday_details":birthday_details(db,task),"transfer_details":transfer_details(db,task), "id": task.id, "mode": task.mode, "intent": task.intent, "status": status,
             "proposal": proposal, "messages": [{"role": row.role, "content": row.content,
                                                   "created_at_utc": row.created_at_utc} for row in rows],
             "plan_version": task.plan_version, "plan": json.loads(task.plan_json),
@@ -216,6 +234,11 @@ def _resolve(task: AgentTask, text: str, context: dict, db: Session, *, intent_h
             context.pop("source_account_id", None)
     elif len(mentioned) >= 2 and any(word in text for word in ("转", "到")):
         context["source_account_id"] = mentioned[0].id
+    elif context.get('clarification_transfer_active') and not (context.get('phone_choices') or context.get('remark_choices')):
+        from app.agent.forms import payment_account
+        selected=payment_account(db,task.owner_id,text.strip('。！! '))
+        if selected:context['source_account_id']=selected.id
+        elif re.fullmatch(r'[^，,。；;]{0,40}尾号\s*\d{4}[。！! ]*',text):context.pop('source_account_id',None)
     source_id = context.get("source_account_id")
     candidates = [item for item in mentioned if item.id != source_id]
     if candidates and any(word in text for word in ("到", "转入", "转给", "改成")):
@@ -348,21 +371,21 @@ def _summary(name: str, result) -> str:
     if name == "list_transactions":
         return f"查到 {result['total']} 条流水，以下展示前 {len(result['items'])} 条；详情以逐笔证据为准。"
     if name == "list_cards":
-        return "；".join(f"{item['alias']} 尾号{item['card_mask'][-4:]}：{'已挂失' if item['status']=='lost' else '已冻结' if item['status']=='frozen' else '正常'}" for item in result)
+        return '；'.join(f"{item['alias']} 尾号{item['card_mask'][-4:]}："+{'lost':'已挂失','frozen':'已冻结','expired':'已到期','active':'正常'}.get(item['status'],item['status'])+(f"，信用额度{int(item.get('credit_limit_minor') or 0)/100:.2f}元、欠款{int(item.get('outstanding_minor') or 0)/100:.2f}元（导入快照，只读）" if item.get('card_type')=='credit' else '') for item in result)
     if name.startswith("prepare_"):
         if result.get("already_in_state"):
             return "卡片已处于目标状态，无需确认或执行。"
         return "已准备固定操作单。请核对下方摘要并点击“确认执行”；聊天回复“确认”不会执行。"
     return "已读取服务端结果。"
 
-def _record_step(db: Session, task: AgentTask, name: str, args: dict, result) -> None:
+def _record_step(db: Session, task: AgentTask, name: str, args: dict, result, *, max_steps=MAX_STEPS) -> None:
     ordinal = (db.query(AgentStep).filter(AgentStep.task_id == task.id).count() or 0) + 1
-    if ordinal > MAX_STEPS:
+    if ordinal > max_steps:
         raise DomainError("TOOL_BUDGET_EXCEEDED", "任务步骤已达上限", 409)
     proposal = result.get('proposal') if name.startswith('prepare_') else None
     db.add(AgentStep(id=uuid4().hex, task_id=task.id, plan_version=task.plan_version, ordinal=ordinal, tool_name=name,
                      args_json=_dump(args), result_json=_dump(result),
-                     status='awaiting_confirmation' if proposal else 'succeeded',
+                     status='failed' if isinstance(result,dict) and result.get('error') else 'awaiting_confirmation' if proposal else 'succeeded',
                      result_ref=proposal['id'] if proposal else None,
                      created_at_utc=_stamp()))
 
@@ -496,7 +519,7 @@ def _apply_live_decision(db, session, task, text, current, decision):
                 name == "prepare_card_action" and fixed["action"] == raw_args.get("action")
                 and fixed["card_id"] == raw_args.get("card_id"))
             if unchanged:
-                _say(db, task, "这笔操作已经准备好了，还没有执行。核对下方金额和对象后，点击‘确认执行’即可。", "awaiting_confirmation")
+                _say(db, task, "这笔操作已经准备好了，还没有执行。核对下方金额和对象后，点击‘核对并继续’即可。", "awaiting_confirmation")
                 return view(db, task)
             invalidate_agent_proposal(db, session_id=session.id, proposal_id=task.proposal_id)
             task = _task(db, session, task.id)
@@ -641,6 +664,8 @@ def send(db: Session, session: DemoSession, task_id: str, text: str) -> dict:
     if task.mode == 'live':
         if text.strip('。！! ') in {'紧急停止', '停止任务'}:
             return cancel(db, session, task_id, text=text)
+        from app.agent.dynamic_runtime import enabled,send as send_tools
+        if enabled():return send_tools(db,session,task,text)
         from app.agent.dialogue import send as send_dialogue
         return send_dialogue(db, session, task, text)
     from app.agent.orchestrator import dispatch as dispatch_composite
@@ -838,6 +863,8 @@ def cancel(db: Session, session: DemoSession, task_id: str, *, text: str | None 
             cancel_task(db, session, task)
             return view(db, task)
         task.stop_requested = True
+        from app.domain.servicing import invalidate_task as invalidate_service
+        invalidate_service(db,task)
         if task.proposal_id and current["proposal"]["status"] == "pending_confirmation":
             from app.domain.operations import cancel_proposal
             cancel_proposal(db, session_id=session.id, proposal_id=task.proposal_id)

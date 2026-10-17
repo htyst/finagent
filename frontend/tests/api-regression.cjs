@@ -94,3 +94,22 @@ test('expected-user header is sent with every request', async () => {
   c.setExpectedUser('u1'); await c.api('/api/accounts');
   assert.equal(expected, 'u1');
 });
+
+test('late successful reads are rejected after switching users', async () => {
+  let release;
+  const c = client(() => new Promise(resolve => { release = () => resolve(response({ owner: 'u1' })); }));
+  c.setExpectedUser('u1');
+  const pending = c.api('/api/accounts');
+  c.setExpectedUser('u2'); release();
+  await assert.rejects(pending, error => error.code === 'SESSION_CHANGED');
+});
+
+test('a delayed CSRF response cannot continue a write as another user', async () => {
+  let release, writes = 0;
+  const c = client(path => path.endsWith('/csrf') ? new Promise(resolve => { release = () => resolve(response({csrf_token:'old'})); }) : (writes++, Promise.resolve(response({}))));
+  c.setExpectedUser('u1');
+  const pending = (async () => { const token = await c.api('/api/demo/csrf'); await c.api('/api/tasks', {method:'POST',body:JSON.stringify(token)}); })();
+  c.setExpectedUser('u2');release();
+  await assert.rejects(pending, error => error.code === 'SESSION_CHANGED');
+  assert.equal(writes, 0);
+});

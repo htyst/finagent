@@ -1,0 +1,25 @@
+.subscription-query-consent{border:1px solid #d7ddfa;border-radius:12px;background:#f8f9ff;padding:18px;margin:16px 0}
+.subscription-query-consent h3{font-size:16px;margin:0 0 10px}
+.subscription-query-consent p{font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+.subscription-query-consent .caption{margin-bottom:0}
+.outgoing-status{display:block;font-size:12px;opacity:.75;margin-top:7px}
+.agent-details-form select{max-width:100%;width:100%;min-width:0;padding:10px;border:1px solid #d7dded;border-radius:8px;background:#fff;font:inherit}
+.conversation-authorizations{min-width:0}
+.conversation-authorization{margin:18px 0;max-width:100%;overflow:hidden}
+.authorization-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f7fc;border-bottom:1px solid #e4e8f0}
+.authorization-heading strong{display:flex;align-items:center;gap:8px}
+.authorization-body{padding:18px;overflow-wrap:anywhere}
+.authorization-level{font-size:13px;color:#53627b;margin:0 0 12px}
+.authorization-key-terms dl{display:grid;gap:8px;margin:12px 0}
+.authorization-key-terms dl>div{display:grid;grid-template-columns:minmax(80px,1fr) minmax(0,2fr);gap:12px}
+.authorization-body dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.authorization-body details{margin:12px 0;max-width:100%;overflow-wrap:anywhere}
+.authorization-body details dl>div{margin:8px 0}
+.authorization-body details dt{font-size:12px;color:#64748b}
+.conversation-assessment{border:1px solid #d7ddfa;border-radius:12px;background:#f8f9ff;padding:18px;margin:18px 0}
+.conversation-assessment h3{font-size:16px;margin-top:0}
+.conversation-assessment p{font-size:13px;line-height:1.65}
+.assessment-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.assessment-fields label{display:grid;gap:6px;font-size:13px;min-width:0}
+.assessment-fields select{width:100%;min-width:0;max-width:100%;padding:9px 8px}
+@media(max-width:600px){.assessment-fields{grid-template-columns:1fr}.authorization-body,.authorization-heading{padding:14px}.authorization-key-terms dl>div{grid-template-columns:90px minmax(0,1fr)}.authorization-heading{align-items:flex-start}}

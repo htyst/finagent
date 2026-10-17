@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import './Subscriptions.css';
+import ImportedSubscriptions, {type ImportedData} from './ImportedSubscriptions';
 
 type Evidence = { id: string; merchant: string; amount_minor: number; posted_at_utc: string };
 type Candidate = {
@@ -9,7 +10,7 @@ type Candidate = {
 };
 type Authorization = {
   id: string; account_id: string; merchant: string; amount_minor: number; period: string; charge_day: number;
-  next_charge_at_utc: string; timezone: string; status: string; version: number; revoked_at_utc: string | null;
+  next_charge_at_utc: string; timezone: string; status: string; version: number; revoked_at_utc: string | null; payment_card_id?: string | null; background_execution_authorized?: boolean; background_remaining?: number; background_authorization_expires_at?: string | null;
 };
 type Reminder = {
   id: string; merchant: string; amount_minor: number; charge_at_utc: string; fire_at_utc: string;
@@ -26,7 +27,7 @@ type Charge = {
   id: string; merchant: string; amount_minor: number; due_at_utc: string; status: string;
   error_code: string | null; transaction_id: string | null; balance_minor: number; message?: string;
 };
-type Data = { rules: string; candidates: Candidate[]; authorizations: Authorization[]; reminders: Reminder[];
+type Data = { imported?: ImportedData; rules: string; candidates: Candidate[]; authorizations: Authorization[]; reminders: Reminder[];
   notifications: Notification[]; requests: Request[]; charges: Charge[] };
 
 const money = (minor: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(minor / 100);
@@ -139,6 +140,7 @@ export default function Subscriptions({ revision, onChanged }: { revision: numbe
     {error && <div className="alert" role="alert">{error}</div>}
     {notice && <p className="operation-notice" role="status">{notice}</p>}
 
+    <ImportedSubscriptions data={data?.imported} refreshKey={JSON.stringify(data?.charges.map(c=>[c.id,c.status]))} />
     <div className="subscription-candidates"><h3>流水识别的疑似订阅</h3>
       {!loading && !data?.candidates.length && <p className="operation-note">还没有识别记录。在对话中提出识别需求后，这里会展示候选和逐笔依据。</p>}
       <div className="subscription-grid">{data?.candidates.map(candidate => <article className="subscription-candidate" key={candidate.id} data-candidate-id={candidate.id}>
@@ -157,7 +159,7 @@ export default function Subscriptions({ revision, onChanged }: { revision: numbe
       <div className="subscription-grid">{data?.authorizations.map(authorization => <article className="subscription-authorization" key={authorization.id} data-authorization-id={authorization.id}>
         <div className="subscription-card-heading"><h4>{authorization.merchant}</h4><span className={authorization.status === 'active' ? 'tag good' : 'tag'}>{authorization.status === 'active' ? '银行代扣有效' : '银行代扣已解除'}</span></div>
         <p>{money(authorization.amount_minor)} · {authorization.period === 'monthly' ? '每月' : authorization.period}</p>
-        <p>下一扣费时点 {local(authorization.next_charge_at_utc)}（北京时间）</p>
+        <p>下一扣费时点 {local(authorization.next_charge_at_utc)}（北京时间）</p><p>后台执行：{authorization.background_execution_authorized ? `已明确授权，剩余 ${authorization.background_remaining ?? 0} 次` : '尚未明确授权'}{authorization.payment_card_id && ` · 绑定卡 ${authorization.payment_card_id}`}</p>
           <p>扣费账户编号：{authorization.account_id}；每月{authorization.charge_day}日09:00（不足该日则为月末）</p>
         {authorization.status === 'active' && <><p>后台专项授权范围：此账户、此商户、固定金额，每月一次，最多12次且366天内有效；撤销代扣将停止执行。</p><button disabled={unavailable} onClick={() => void act(async () => { await post(`/api/subscriptions/authorizations/${authorization.id}/authorize-background`, { expected_version: authorization.version }); return '已确认此固定范围的模拟后台代扣授权'; })}>确认授权此范围内的后台代扣</button></>}
         {authorization.revoked_at_utc && <p>解除时间 {local(authorization.revoked_at_utc)}（北京时间）</p>}

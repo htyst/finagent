@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {writeFile} from 'node:fs/promises';
+const base='http://127.0.0.1:5173';
+const output='D:/finagent/var/reviews/latest-20261015/';
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000}});
+const page=await context.newPage();const errors=[];const results=[];
+page.on('pageerror',e=>errors.push(e.message));
+const profile=page.locator('#financial-profile');
+async function user(id){await page.locator('#user').selectOption(id);await profile.getByRole('heading',{name:'我的完整金融档案',exact:true}).waitFor();}
+try{
+ await page.goto(base);
+ await page.waitForFunction(()=>document.querySelectorAll('#user option').length===21);
+ assert.equal(await page.locator('#user option').count(),21);
+ const info=await (await context.request.get(base+'/api/demo/info')).json();
+ assert.equal(info.data.seed_version,'demo-financial-v2');assert.equal(info.data.mode,'live');
+ results.push({check:'20-user annual dataset and live mode',passed:true,version:info.data.dataset_version});
+ await user('u1');
+ const net=await page.evaluate(async()=> (await (await fetch('/api/financial-profile')).json()).data);
+ assert.equal(net.balances.net_worth_minor,5322653);assert.equal(net.cards.length,3);
+ for(const detail of await profile.locator('details').all())await detail.locator('summary').click();
+ assert.match(await profile.innerText(),/信用卡/);assert.match(await profile.innerText(),/基金/);
+ await profile.screenshot({path:output+'annual-financial-profile.png'});
+ results.push({check:'financial profile with bank/card/investment/debt/insurance',passed:true});
+ await user('u14');
+ assert.equal((await context.request.get(base+'/api/financial-profile/subscriptions')).status(),403);
+ await page.getByRole('button',{name:'明确确认订阅查询',exact:true}).click();
+ await page.getByRole('heading',{name:'年度案例订阅合同 · 5份',exact:true}).waitFor();
+ assert.match(await page.locator('.imported-subscriptions').innerText(),/同类服务重叠/);
+ await page.locator('.imported-subscriptions').screenshot({path:output+'annual-subscriptions.png'});
+ results.push({check:'subscription query confirmation and five distinct contracts/duplicate group',passed:true});
+ await user('u16');await profile.locator('summary').first().click();
+ assert.match(await profile.innerText(),/到期/);
+ await user('u19');
+ const term=await page.evaluate(async()=> (await (await fetch('/api/accounts')).json()).data);
+ assert.equal(term.find(a=>a.id==='a19t').status,'locked');
+ assert.equal(term.find(a=>a.id==='a19t').available_balance_minor,0);
+ const anonymous=await browser.newContext();
+ assert.equal((await anonymous.request.get(base+'/api/financial-profile')).status(),401);await anonymous.close();
+ results.push({check:'expired card, locked term deposit and authentication',passed:true});
+ await user('u1');
+ assert.deepEqual(errors,[]);
+ console.log(JSON.stringify({passed:true,results,page_errors:errors},null,2));
+ await writeFile(output+'annual-browser-result.json',JSON.stringify({passed:true,results,page_errors:errors},null,2));
+}finally{await browser.close();}

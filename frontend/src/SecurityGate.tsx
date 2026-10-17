@@ -1,8 +1,39 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, setSecurityGate } from './api';
+import { api, ApiError, setSecurityGate } from './api';
 import type { SecurityOperation } from './api';
 
+import './SecurityGate.css';
+
+type SimulatedSMS = { challenge_id: string; code: string; expires_at: string; simulated: true };
+
+function SimulatedSMSPopup({ sms, onClose, onFill }: { sms: SimulatedSMS; onClose: () => void; onFill: () => void }) {
+  const popup = useRef<HTMLDialogElement>(null);
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((Date.parse(sms.expires_at) - Date.now()) / 1000)));
+  useEffect(() => {
+    const element = popup.current;
+    element?.showModal();
+    const timer = window.setInterval(() => setRemaining(Math.max(0, Math.ceil((Date.parse(sms.expires_at) - Date.now()) / 1000))), 1000);
+    return () => { window.clearInterval(timer); element?.close(); };
+  }, [sms]);
+  return <dialog ref={popup} className="simulated-sms-popup" aria-labelledby="simulated-sms-heading" onCancel={event => { event.preventDefault(); onClose(); }} onKeyDown={event => {
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(popup.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }}>
+    <h2 id="simulated-sms-heading">模拟短信验证码</h2>
+    <p>仅供本地测试，验证码只用于当前操作单。</p>
+    {remaining > 0 ? <><output className="simulated-sms-code" aria-label="测试验证码">{sms.code}</output><p>剩余 {remaining} 秒有效</p></> : <p role="alert">验证码已过期，请关闭小窗重新获取。</p>}
+    <div className="simulated-sms-actions"><button disabled={remaining === 0} onClick={onFill}>填入验证码</button><button className="secondary" onClick={onClose}>关闭</button></div>
+    <p className="caption">填入后，请核对条款并点击“确认条款并验证执行”。</p>
+  </dialog>;
+}
+
 const labels: Record<string, string> = {
+  replace_card:'补发模拟借记卡',credit_limit:'申请信用卡授信调整',cancel_contract:'取消会员下期续订',unloss:'解除挂失',
+  requested_limit_minor:'申请的新授信总额度',credit_limit_minor:'当前授信总额度',available_credit_minor:'档案可用额度',outstanding_minor:'档案欠款',
+  access_period_state:'档案权益期限状态',access_note:'权益说明',expired:'已过截止日',within_recorded_end_date:'尚未超过档案截止日',access_end_date:'权益截止日期',provider:'办理方',local_merchant_simulator:'本地模拟商户',subject_id:'办理对象编号',
   transfer: '转账', schedule: '预约转账', buy: '理财申购', redeem: '理财赎回', loss: '卡片挂失',
   freeze: '临时冻结', unfreeze: '卡片解冻', apply: '虚拟卡申请', limit_increase: '提高交易限额',
   limit_decrease: '降低交易限额', online_block: '禁止线上交易', online_unblock: '恢复线上交易',
@@ -16,7 +47,8 @@ const labels: Record<string, string> = {
   own_account: '本人账户', saved_recipient: '已保存收款人', external_account: '外部账户',
   recipient_id: '收款人编号', name: '姓名', alias: '名称', note: '备注', title: '标题',
   bank_name: '银行', account_number: '账户号码', product: '产品', product_id: '产品编号',
-  product_name: '产品名称', units_hundredths: '份额（百分之一份）', merchant: '商户',
+  product_name: '产品名称', units_hundredths: '份额', merchant: '商户',account:'账户',position_units:'当前持仓（份）',remaining_units_hundredths:'剩余份额',
+  fire_at_utc:'提醒时间',next_charge_at_utc:'下次预计扣费',delivery_date:'送达日期',recipient:'收件人',scope:'授权范围',bank_debit_authorization:'银行代扣',
   period: '周期', monthly: '每月', days_before: '提前天数', hour: '时', minute: '分',
   timezone: '时区', execute_at_utc: '执行时间', birthday: '生日', birthday_date: '生日日期',
   address: '地址', delivery_address: '配送地址', recipient_name: '收件人', recipient_phone: '联系电话',
@@ -25,16 +57,16 @@ const labels: Record<string, string> = {
   target_binding: '预约收款对象', members: '分摊成员', share_minor: '分摊金额', mask: '尾号',
   impact: '执行影响', phone_mask: '电话尾号', card: '卡片', target_type: '收款类型',
 };
-function Terms({ value }: { value: unknown }) {
+export function Terms({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <span>无</span>;
   if (Array.isArray(value)) return <ol>{value.map((item, index) => <li key={index}><Terms value={item} /></li>)}</ol>;
   if (typeof value === 'object') return <dl>{Object.entries(value).filter(([key]) => !/digest|version|hash/.test(key)).map(([key, item]) => <div key={key}>
-    <dt>{labels[key] || key}</dt><dd>{key.endsWith('_minor') && typeof item === 'number' ? `¥${(item / 100).toFixed(2)}` : <Terms value={item} />}</dd>
+    <dt>{labels[key] || key}</dt><dd>{key.endsWith('_minor') && typeof item === 'number' ? `¥${(item / 100).toFixed(2)}` : (key.endsWith('_hundredths')||key==='position_units')&&typeof item==='number'?`${(item/100).toFixed(2)} 份`:key.endsWith('_utc')&&typeof item==='string'?new Date(item).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):<Terms value={item} />}</dd>
   </div>)}</dl>;
   return <span>{typeof value === 'boolean' ? (value ? '是' : '否') : labels[String(value)] || String(value)}</span>;
 }
 
-function keyTerms(operation: SecurityOperation): Record<string, unknown> {
+export function keyTerms(operation: SecurityOperation): Record<string, unknown> {
   const summary = operation.terms['核对摘要'];
   if (summary && typeof summary === 'object' && !Array.isArray(summary)) {
     const result: Record<string, unknown> = {};
@@ -47,15 +79,26 @@ function keyTerms(operation: SecurityOperation): Record<string, unknown> {
     }
     return result;
   }
-  return Object.fromEntries(Object.entries(operation.terms).filter(([key]) => ['target_binding','card_mask','account_alias','account_mask','product_name','execute_at_utc','recipient','recipient_name','merchant'].includes(key)));
+  const result=Object.fromEntries(Object.entries(operation.terms).filter(([key]) => ['requested_limit_minor','credit_limit_minor','access_end_date','impact','target_binding','card_mask','account_alias','account_mask','product_name','execute_at_utc','recipient','recipient_name','merchant','limit_minor','fire_at_utc','next_charge_at_utc','birthday_date','delivery_date'].includes(key)));
+  for(const key of ['account','product']){
+    const value=operation.terms[key];
+    if(value&&typeof value==='object'&&!Array.isArray(value)){
+      const parts=value as Record<string,unknown>;
+      result[key]=(key==='product'?['id','name']:['alias','mask']).map(field=>parts[field]).filter(Boolean).join(' · ');
+    }
+  }
+  return result;
 }
 
 export default function SecurityGate() {
   const [operation, setOperation] = useState<SecurityOperation | null>(null);
   const [challenge, setChallenge] = useState(''), [code, setCode] = useState('');
+  const [sms, setSms] = useState<SimulatedSMS | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const pending = useRef<{ resolve: () => void; reject: (error: Error) => void } | null>(null);
+  const working=useRef(false);
   const dialog = useRef<HTMLElement>(null);
+  const codeInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!operation) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -65,13 +108,13 @@ export default function SecurityGate() {
   }, [operation]);
   function close(accepted: boolean) {
     const current = pending.current; pending.current = null;
-    setOperation(null); setCode(''); setChallenge(''); setError('');
-    if (accepted) current?.resolve(); else current?.reject(Error('已取消安全确认，未执行操作'));
+    working.current=false;setBusy(false);setOperation(null); setCode(''); setChallenge(''); setSms(null); setError('');
+    if (accepted) current?.resolve(); else current?.reject(new ApiError('已取消安全确认，未执行操作','AUTHORIZATION_CANCELLED',0));
   }
   useEffect(() => {
     setSecurityGate(details => new Promise<void>((resolve, reject) => {
       if (pending.current) { reject(Error('已有操作正在安全确认')); return; }
-      pending.current = { resolve, reject }; setOperation(details); setCode(''); setChallenge(''); setError('');
+      working.current=false;setBusy(false);pending.current = { resolve, reject }; setOperation(details); setCode(''); setChallenge(''); setSms(null); setError('');
     }));
     const cancelled = () => close(false);
     window.addEventListener('finagent:session-lost', cancelled);
@@ -79,26 +122,35 @@ export default function SecurityGate() {
   }, []);
   async function post<T>(suffix: string, payload?: unknown) {
     const { csrf_token } = await api<{ csrf_token: string }>('/api/demo/csrf');
-    return api<T>(`/api/security/operations/${operation!.resource_kind}/${operation!.resource_id}/${suffix}`, {
+    const base=operation!.authorization_path??`/api/security/operations/${operation!.resource_kind}/${operation!.resource_id}`;
+    return api<T>(`${base}/${suffix}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-FinAgent-CSRF': csrf_token },
-      body: payload ? JSON.stringify(payload) : undefined,
+      body: operation!.action_id?JSON.stringify({action_id:operation!.action_id,...(payload as Record<string,unknown>??{})}):payload?JSON.stringify(payload):undefined,
     });
   }
   async function requestCode() {
+    if(working.current)return;working.current=true;
     const waiting = pending.current;
-    setBusy(true); setError('');
-    try { const next = await post<{ challenge_id: string }>('challenge'); if (pending.current === waiting) setChallenge(next.challenge_id); }
-    catch (e) { setError(e instanceof Error ? e.message : '签发失败'); }
-    finally { setBusy(false); }
+    setBusy(true); setError(''); setChallenge(''); setCode(''); setSms(null);
+    try {
+      const next = await post<{ challenge_id: string }>('challenge');
+      if (pending.current !== waiting) return;
+      setChallenge(next.challenge_id);
+      const delivered = await post<SimulatedSMS>('simulated-sms', { challenge_id: next.challenge_id });
+      if (pending.current === waiting) setSms(delivered);
+    }
+    catch (e) { if(pending.current===waiting)setError(e instanceof Error ? e.message : '签发失败'); }
+    finally { if(pending.current===waiting){working.current=false;setBusy(false);} }
   }
   async function accept() {
+    if(working.current)return;working.current=true;
     const waiting = pending.current;
     setBusy(true); setError('');
     try {
       if (operation?.level === 'red') await post('verify', { challenge_id: challenge, code });
       if (pending.current === waiting) close(true);
-    } catch (e) { setError(e instanceof Error ? e.message : '验证失败'); setCode(''); }
-    finally { setBusy(false); }
+    } catch (e) { if(pending.current===waiting){setError(e instanceof Error ? e.message : '验证失败'); setCode('');} }
+    finally { if(pending.current===waiting){working.current=false;setBusy(false);} }
   }
   if (!operation) return null;
   return <div className="security-overlay"><section ref={dialog} tabIndex={-1} className="security-dialog" role="dialog" aria-modal="true" aria-labelledby="security-heading" onKeyDown={event => {
@@ -117,12 +169,14 @@ export default function SecurityGate() {
     <div className="security-key-terms"><Terms value={keyTerms(operation)} /></div>
     <details><summary>核对对象、账户及完整固定条款</summary><Terms value={operation.terms} /></details>
     {operation.level === 'red' && <>
-      <p>本地模拟短信收件箱由本机命令读取：在项目目录运行 scripts/auth-code.ps1。验证码不会进入聊天或模型。</p>
+      <p>获取后会弹出本地测试验证码小窗，也可运行 scripts/auth-code.ps1 查看。验证码不会进入聊天或模型。</p>
       <button disabled={busy} onClick={() => void requestCode()}>{challenge ? '重新签发验证码' : '获取模拟短信验证码'}</button>
       {challenge && <p>挑战编号：{challenge}（3分钟有效，仅绑定本单）</p>}
-      <label>六位验证码<input autoComplete="one-time-code" inputMode="numeric" type="password" value={code} maxLength={6} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+      <label>六位验证码<input ref={codeInput} autoComplete="one-time-code" inputMode="numeric" type="password" value={code} maxLength={6} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
     </>}
     {error && <p role="alert">{error}</p>}
     <div className="proposal-actions"><button disabled={busy || (operation.level === 'red' && (!challenge || code.length !== 6))} onClick={() => void accept()}>确认条款并{operation.level === 'red' ? '验证执行' : '执行'}</button><button className="secondary" disabled={busy} onClick={() => close(false)}>取消</button></div>
-  </section></div>;
+  </section>{sms && <SimulatedSMSPopup key={sms.challenge_id} sms={sms} onClose={() => setSms(null)} onFill={() => {
+    setCode(sms.code); setSms(null); window.requestAnimationFrame(() => codeInput.current?.focus());
+  }} />}</div>;
 }

@@ -5,7 +5,7 @@ type Assessment = { id: string; max_risk: number; score: number; created_at_utc:
 type Order = { id: string; kind: string; status: string; product_id: string; account_id: string; amount_minor: number; units_hundredths: number; expires_at_utc: string;
  summary: { product: Product; account: { alias: string; mask: string }; fee_minor: number; settlement: string };
  receipt: { message: string; transaction_id: string; balance_minor: number; remaining_units_hundredths: number; accepted_at_utc: string; settled_at_utc: string } | null };
-type Portfolio = { assessment: Assessment | null; assessment_rule: string; questions: Array<{ label: string; options: string[] }>; products: Product[];
+type Portfolio = { imported_positions?: Array<Record<string,string>>; assessment: Assessment | null; assessment_rule: string; questions: Array<{ label: string; options: string[] }>; products: Product[];
  positions: Array<{ id: string; product_id: string; units_hundredths: number }>; orders: Order[] };
 const money = (n: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n / 100);
 const local = (value: string) => new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
@@ -63,7 +63,8 @@ export default function WealthPanel({ revision, onChanged }: { revision: number;
      <button disabled={unavailable || answers.some(v => v === '')}>提交风险评估</button>
    </form>}
    <div className="wealth-products"><h3>模拟产品事实</h3><div className="analytics-table-wrap"><table><thead><tr><th>产品</th><th>风险与起购</th><th>期限与赎回</th><th>收益口径</th></tr></thead><tbody>{data?.products.map(p => <tr key={p.id}><th>{p.id} {p.name}</th><td>R{p.risk_level} · {money(p.min_minor)}</td><td>{p.lock_days ? `锁定${p.lock_days}天，期内不可赎回` : '无固定锁定期，授权时同步结算'}</td><td>{p.yield_text}</td></tr>)}</tbody></table></div></div>
-   <div className="wealth-positions"><h3>持久持仓</h3>{data?.positions.length ? data.positions.map(p => <p key={p.id}><strong>{p.product_id}：{(p.units_hundredths / 100).toFixed(2)}份</strong></p>) : <p>暂无持仓</p>}</div>
+   <div className="wealth-positions"><h3>持久持仓</h3>{data?.positions.length ? data.positions.map(p => <p key={p.id}><strong>{p.product_id}：{(p.units_hundredths / 100).toFixed(2)}份</strong></p>) : <p>暂无本系统新交易持仓</p>}</div>
+   {!!data?.imported_positions?.length && <div className="wealth-positions"><h3>导入基金持仓（快照，只读）</h3><p>导入持仓不支持在本系统赎回。</p>{data.imported_positions.map(p => <p key={p.holding_id}><strong>{p.product_name}</strong> · 市值 {money(Number(p.market_value_minor))} · 成本 {money(Number(p.current_cost_minor))}</p>)}</div>}
    <div className="wealth-orders"><h3>理财订单与回执</h3>{!data?.orders.length && <p>暂无订单</p>}{data?.orders.map(order => <article className="wealth-order" key={order.id}>
      <h4>{order.product_id} {order.kind === 'buy' ? '申购' : '赎回'} · {labels[order.status] ?? order.status}</h4>
      <p>{order.summary.account.alias} {order.summary.account.mask} · 金额 {money(order.amount_minor)} · 份额 {(order.units_hundredths / 100).toFixed(2)}份 · 手续费 {money(order.summary.fee_minor)} · 净值 {money(order.summary.product.nav_minor)}</p>

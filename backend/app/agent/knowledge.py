@@ -16,6 +16,6 @@ def search(query, limit=3):
     wanted = terms(query)
     ranked = sorted(((len(wanted & terms(row['title'] + row['text'])), row) for row in data['documents']),
                     key=lambda pair: (-pair[0], pair[1]['id']))
-    return {'version': data['version'], 'scope': 'local_simulator_documentation_not_dynamic_financial_data',
+    return {'version': data['version'], 'scope': 'versioned_capabilities_and_general_financial_education_not_account_data',
             'items': [dict(row, source_ref='kb:' + row['id'], score=score) for score, row in ranked[:limit] if score > 0],
-            'coverage': '仅项目自身已实现能力；不含真实银行规则、实时行情或个人账务'}
+            'coverage': '项目能力与已标注来源的通用理财教育；不含真实银行规则、实时行情或个人账务'}

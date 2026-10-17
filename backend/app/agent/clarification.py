@@ -19,7 +19,7 @@ INTENT_LABELS = {'transfer':'转账', 'birthday_create':'生日鲜花和蛋糕�
                  'card_management_status':'查询卡片办理状态',
                  'schedule_transfer':'预约转账', 'aa_collection':'发起AA收款',
                  'wealth_buy':'申购模拟理财', 'wealth_redeem':'赎回模拟理财',
-                 'wealth_assessment':'评估模拟理财', 'wealth_compare':'比较模拟理财',
+                 'wealth_guidance':'理财咨询', 'wealth_assessment':'评估模拟理财', 'wealth_compare':'比较模拟理财',
                  'wealth_status':'查询理财办理状态', 'subscription_inspect':'查询订阅扣费',
                  'subscription_reminder':'设置续费提醒', 'subscription_revoke':'解除银行代扣',
                  'subscription_status':'查询订阅办理状态'}
@@ -38,7 +38,7 @@ WRITE_KEYS = ('source_account_id','target','amount_minor','action','card_id','am
               'dialogue_intent','dialogue_slots','birthday_kind','birthday_slots','birthday_structured_fields',
               'clarification_transfer_active')
 READ_INTENTS = {'accounts','spending','transactions','statement','anomalies','cards','budget',
-                'wealth_assessment','wealth_compare','wealth_status','card_management_status',
+                'wealth_guidance','wealth_assessment','wealth_compare','wealth_status','card_management_status',
                 'subscription_inspect','subscription_status','birthday_status'}
 
 

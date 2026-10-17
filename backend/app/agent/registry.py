@@ -17,6 +17,18 @@ class StrictArgs(BaseModel):
 class Empty(StrictArgs):
     pass
 
+class ServiceRecords(StrictArgs):
+    kind: Literal['replace_card','credit_limit','cancel_contract'] | None = None
+
+class CreditCards(StrictArgs):
+    card: str | None = Field(default=None,min_length=1,max_length=100)
+
+class WealthProducts(StrictArgs):
+    product_id: str | None = Field(default=None,max_length=40)
+
+class PlanningBasis(StrictArgs):
+    lookback_months: StrictInt = Field(default=3, ge=1, le=12)
+
 class Recipients(StrictArgs):
     q: str | None = None
 
@@ -26,15 +38,53 @@ class Transactions(StrictArgs):
     account_id: str | None = None
     card_id: str | None = None
     category: str | None = None
-    limit: StrictInt = 20
-    offset: StrictInt = 0
+    merchant: str | None = Field(default=None,max_length=100)
+    type: str | None = None
+    direction: Literal['debit','credit'] | None = None
+    status: Literal['posted','pending','void'] | None = None
+    sort: Literal['date_desc','date_asc','amount_desc','amount_asc'] = 'date_desc'
+    limit: StrictInt = Field(default=20,ge=1,le=100)
+    offset: StrictInt = Field(default=0,ge=0)
+
+class History(StrictArgs):
+    table: Literal['credit_card_statements','liability_events','monthly_financial_snapshots','monthly_summary','investment_valuations','deposits','liabilities','insurance_policies','auto_debit_mandates','subscription_billing_events']
+    start: str | None = None
+    end: str | None = None
+    card_id: str | None = None
+    liability_id: str | None = None
+    subscription_id: str | None = None
+    status: str | None = None
+    limit: StrictInt = Field(default=50,ge=1,le=100)
+    offset: StrictInt = Field(default=0,ge=0)
+
+class SubscriptionRead(StrictArgs):
+    start: str | None = None
+    end: str | None = None
+    subscription_id: str | None = None
+    status: Literal['paid','failed','blocked'] | None = None
+    contract_limit: StrictInt = Field(default=50,ge=1,le=100)
+    contract_offset: StrictInt = Field(default=0,ge=0)
+    limit: StrictInt = Field(default=50,ge=1,le=100)
+    offset: StrictInt = Field(default=0,ge=0)
+
+class Analysis(StrictArgs):
+    kind: Literal['expense_by_merchant','cashflow','largest_expenses','daily_expenses']
+    start: str | None = None
+    end: str | None = None
+    account_id: str | None = None
+    card_id: str | None = None
+    category: str | None = None
+    merchant: str | None = Field(default=None,max_length=100)
+    top_n: StrictInt = Field(default=10,ge=1,le=50)
 
 class Spending(StrictArgs):
+    card_id: str | None = None
+    merchant: str | None = Field(default=None,max_length=100)
     start: str | None = None
     end: str | None = None
     account_id: str | None = None
     category: str | None = None
-    comparison_mode: str | None = None
+    comparison_mode: Literal['none','previous_corresponding','previous_full_month','custom'] | None = None
     compare_start: str | None = None
     compare_end: str | None = None
     evidence_limit: StrictInt = 20
@@ -44,6 +94,7 @@ class Statement(Spending):
     report_kind: Literal["monthly", "annual"]
 
 class Anomalies(StrictArgs):
+    card_id: str | None = None
     start: str | None = None
     end: str | None = None
     account_id: str | None = None
@@ -92,7 +143,7 @@ class WealthTrade(StrictArgs):
     units_hundredths: StrictInt | None = None
 
 class CardManagement(StrictArgs):
-    kind: Literal['apply', 'limit', 'online_block', 'online_unblock', 'loss']
+    kind: Literal['apply', 'limit', 'online_block', 'online_unblock', 'loss', 'unloss']
     card_id: str | None = None
     account_id: str | None = None
     limit_minor: StrictInt | None = None
@@ -126,6 +177,12 @@ class Collection(StrictArgs):
     title: str = 'AA收款'
 
 TOOL_MODELS = {
+    'read_service_requests':ServiceRecords,
+    'read_credit_cards':CreditCards,
+    'read_tool_catalog':Empty,'read_wealth_products':WealthProducts,'read_risk_assessment':Empty,
+    'read_investment_performance':Empty,'read_birthday_offers':Empty,
+    'financial_planning_basis': PlanningBasis,
+    'read_financial_profile': Empty, 'read_financial_history': History, 'analyze_finances': Analysis,
     'read_agent_status': AgentStatus, 'list_schedules': Empty, 'list_collections': Empty,
     'search_knowledge': Knowledge,
     "list_accounts": Empty, "list_transactions": Transactions,
@@ -133,19 +190,23 @@ TOOL_MODELS = {
     "list_cards": Empty, "prepare_transfer": Transfer,
     "prepare_card_action": CardAction, "get_task_status": TaskStatus,
     'read_wealth': Empty, 'prepare_wealth': WealthTrade,
-    'read_subscriptions': Empty, 'identify_subscriptions': Empty, 'prepare_subscription': Subscription,
+    'read_subscriptions': SubscriptionRead, 'identify_subscriptions': Empty, 'prepare_subscription': Subscription,
     'read_birthdays': Empty, 'prepare_birthday': Birthday,
     'read_card_management': Empty, 'prepare_card_management': CardManagement,
     'prepare_schedule': Schedule, 'prepare_collection': Collection,
 }
 DESCRIPTIONS = {
+    'financial_planning_basis': '本人财务规划底稿：可用活期排除定期、冻结和预留；最近1至12个完整月的全量消费/收入/净现金流与分类习惯。提供facts.key用于工作流计算，不读取受保护订阅合同。默认3个月，不把不完整月算进平均。',
+    'read_financial_history': '分页查询本人信用卡账单、负债事件、13个月末资产快照、基金估值、保单等；支持日期与卡筛选。订阅相关表仍需黄色确认。',
+    'analyze_finances': '全量服务端计算按商户汇总、每日支出、最大N笔或收入/现金流。不要从列表前几条自行求总和；支持现金与信用卡消费。',
+    'read_financial_profile': '只读本人完整金融档案：实时银行存款、导入定期/基金/信用卡/贷款/保险及净资产。非银行余额明确标导入快照，不含订阅（订阅查询需独立黄色确认）。',
     'read_agent_status': '只读当前会话的指定任务、草稿与持久操作单回执，不新建交易。task_id空时当前任务。',
     'list_schedules': '读取本人预约转账状态，不授权或执行。',
     'list_collections': '读取本人AA收款状态，不发起或代他人付款。',
     'search_knowledge': '检索版本化本地模拟项目知识，不能代替实时银行接口。',
     'read_wealth': '读取本人模拟产品、风险评估和持仓。',
     'prepare_wealth': '准备模拟申购或赎回，执行必须由页面授权。',
-    'read_subscriptions': '读取本人订阅，须先完成独立黄色查询确认。',
+    'read_subscriptions': '读取本人完整订阅合同、试用/涨价/失败、全年实付及自动续费折月汇总，并分页查扣费证据；须先黄色查询确认。',
     'identify_subscriptions': '识别本人疑似订阅，须先完成黄色查询确认。',
     'prepare_subscription': '准备提醒或撤销代扣，不执行。',
     'read_birthdays': '读取本人的模拟生日安排。',
@@ -165,6 +226,8 @@ DESCRIPTIONS = {
     "prepare_card_action": "只准备卡片冻解操作单，不改变卡状态。",
     "get_task_status": "读取当前用户已有任务和回执。",
 }
+from app.agent.tool_catalog import READ_DESCRIPTIONS
+DESCRIPTIONS.update(READ_DESCRIPTIONS)
 
 LIVE_WRITE_SCHEMAS = {
     "prepare_transfer": {"type": "object", "additionalProperties": False,
@@ -206,8 +269,17 @@ def execute(db: Session, *, session_id: str, owner_id: str, name: str, arguments
     from app.agent.sandbox import validate_envelope
     validate_envelope(name, arguments)
     args = validate(name, arguments)
+    if name in READ_DESCRIPTIONS:
+        from app.agent.tool_catalog import read
+        return read(db,session_id,name,args)
     # Import here so the HTTP layer and the registry do not form an import cycle.
     from app import main
+    if name == 'financial_planning_basis':
+        from app.domain.planning_basis import read
+        return read(db, owner_id, **args)
+    if name == 'read_financial_profile':
+        from app.domain.financial_profile import portfolio
+        return portfolio(db, owner_id)
     if name == 'search_knowledge':
         from app.agent.knowledge import search
         return search(**args)
@@ -225,13 +297,24 @@ def execute(db: Session, *, session_id: str, owner_id: str, name: str, arguments
         return list_collections(db, session_id=session_id)
     if name == 'read_wealth':
         from app.domain.wealth import portfolio
-        return portfolio(db, session_id=session_id)
+        from app.domain.financial_profile import rows
+        return {**portfolio(db,session_id=session_id),'imported_positions':rows(db,owner_id,'investment_holdings'),'imported_positions_read_only':True}
     if name == 'prepare_wealth':
         from app.domain.wealth import prepare_order
         return prepare_order(db, session_id=session_id, agent_task_id=agent_task_id, **args)
-    if name in {'read_subscriptions', 'identify_subscriptions'}:
-        from app.domain.subscriptions import get_portfolio, identify
-        return (identify if name == 'identify_subscriptions' else get_portfolio)(db, session_id)
+    if name == 'read_financial_history':
+        from app.domain.financial_profile import read_history
+        return read_history(db,owner_id,session_id=session_id,**args)
+    if name == 'analyze_finances':
+        from app.domain.financial_analysis import analyze
+        return analyze(db,owner_id,**args)
+    if name == 'read_subscriptions':
+        from app.domain.subscription_read import report
+        return report(db,session_id,**args)
+    if name == 'identify_subscriptions':
+        from app.domain.subscriptions import identify
+        from app.domain.subscription_read import report
+        return {'candidates':identify(db,session_id),'confirmed':report(db,session_id)}
     if name == 'prepare_subscription':
         from app.domain.subscriptions import prepare
         return prepare(db, session_id=session_id, agent_task_id=agent_task_id, **args)

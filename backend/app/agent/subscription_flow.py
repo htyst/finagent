@@ -73,7 +73,13 @@ def dispatch(db,session,task,text, *, decision_hint=None):
  try:authorizations=get_portfolio(db,sid)['authorizations']
  except DomainError as error:
   if error.code!='SUBSCRIPTION_CONFIRMATION_REQUIRED':raise
-  _message(db,task,'user',text,already_recorded=decision_hint is not None);_say(db,task,error.message+'。请在订阅面板确认后重新发送本需求。','gathering_info');return view(db,task)
+  from app.agent.conversation_reads import stage_subscription_access
+  from app.agent.language import Understanding
+  decision=decision_hint if decision_hint is not None else Understanding(intent=INTENTS[kind])
+  stage_subscription_access(task,text,[{'tool':'read_subscriptions','query':{},'error':{'code':error.code}}],decision)
+  task.intent=INTENTS[kind]
+  _message(db,task,'user',text,already_recorded=decision_hint is not None)
+  _say(db,task,'需要先确认本人订阅的查询范围。请点击下方确认，我会继续核对你刚才的需求；实际办理还会另行展示固定单。','gathering_info');return view(db,task)
  explicit,names=slots(text,authorizations)
  blocked=unsupported(text,authorizations) if writing else None
  if blocked:
@@ -100,6 +106,10 @@ def dispatch(db,session,task,text, *, decision_hint=None):
     if value is None:continue
     if key=='time_zone' and value=='北京时间':value='Asia/Shanghai'
     allowed=values.get(key,'Asia/Shanghai' if key=='time_zone' else None)
+    if key=='merchant' and allowed:
+     # Canonicalize only the dataset's explicit demo suffix, never fuzzy names.
+     normalized=lambda v:re.sub(r'[（(](?:虚构|合成|模拟)[）)]','',v).strip()
+     if normalized(value)==normalized(allowed):value=allowed
     if allowed is None or value!=allowed:raise DomainError('MODEL_SEMANTIC_MISMATCH','模型提取含未明确的信息或与明确对象、提醒时间不一致；请补充需求，未办理')
     values[key]=value
   except DomainError as error:
@@ -135,7 +145,7 @@ def dispatch(db,session,task,text, *, decision_hint=None):
     kwargs.update(days_before=values['days_before'],hour=values['hour'],minute=values['minute'],timezone=values.get('time_zone','Asia/Shanghai'))
    result=prepare(db,**kwargs);latest['subscription_request_id']=result['id'];task.context_json=_dump(latest)
    _record_step(db,task,'prepare_subscription',{'kind':kind,'authorization_id':rows[0]['id']},{'subscription_request':result});step=db.scalar(select(AgentStep).where(AgentStep.task_id==tid).order_by(AgentStep.ordinal.desc()));step.result_ref=result['id'];step.status='awaiting_confirmation'
-   button='确认续费提醒' if kind=='reminder' else '确认取消代扣';detail='；只解除银行代扣，商户会员或合同须另行处理' if kind=='revoke' else '；下一次续费前提醒，通知将在站内收件箱保存'
+   button='核对并继续';detail='；只解除银行代扣，商户会员或合同须另行处理' if kind=='revoke' else '；下一次续费前提醒，通知将在站内收件箱保存'
    _say(db,task,f"已准备{result['label']}：{rows[0]['merchant']}，预计扣费{rows[0]['amount_minor']/100:.2f}元"+detail+f"。请核对固定办理单并点击“{button}”。聊天确认不授权；当前尚未办理。",'awaiting_confirmation')
   except DomainError as error:_say(db,task,error.message+'；未办理新业务。','gathering_info')
   return view(db,task)

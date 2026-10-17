@@ -1,7 +1,7 @@
 """Server-owned policy, one-use transaction-bound challenges and bounded grants.
 
 SMS delivery is a LOCAL SIMULATOR, not bank authentication. Codes are available
-only through the OS-local simulator CLI, never in HTTP responses or model tools.
+through the local testing popup or simulator CLI, never through model tools.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ POLICY_VERSION = 'p0-2026-10-14-v1'
 FAILURE_LIMIT = 5
 LOCK_MINUTES = 15
 CHALLENGE_SECONDS = 180
-TERMINAL = {'executed', 'settled', 'submitted', 'issued', 'scheduled'}
+TERMINAL = {'executed', 'settled', 'submitted', 'issued', 'scheduled', 'rejected'}
 
 
 def now():
@@ -82,7 +82,7 @@ def daily_total(db, owner):
 
 def policy(db, owner, action, amount=0):
     total = daily_total(db, owner) if action in {'transfer', 'schedule'} else None
-    red = (action in {'buy', 'loss', 'unfreeze', 'online_unblock', 'limit_increase'} or
+    red = (action in {'buy', 'replace_card', 'credit_limit', 'loss', 'unloss', 'unfreeze', 'online_unblock', 'limit_increase'} or
            (total is not None and total + amount > 100000))
     return {'level': 'red' if red else 'yellow', 'required': '模拟短信验证码＋页面确认' if red else '明确页面确认',
             'action': action, 'amount_minor': amount, 'daily_total_minor': total,
@@ -100,7 +100,8 @@ def resolve(db, session_id, kind, rid):
     from app.data.subscription_models import SubscriptionRequest
     from app.data.scheduled_models import ScheduledTransfer
     from app.data.collection_models import CollectionRequest
-    models = {'proposal': Proposal, 'wealth': WealthOrder, 'card': CardRequest,
+    from app.data.servicing_models import ServiceRequest
+    models = {'service':ServiceRequest,'proposal': Proposal, 'wealth': WealthOrder, 'card': CardRequest,
               'birthday': BirthdayRequest, 'subscription': SubscriptionRequest,
               'schedule': ScheduledTransfer, 'collection': CollectionRequest}
     row = db.get(models[kind], rid) if kind in models else None
@@ -177,7 +178,31 @@ def start_challenge(db, session_id, kind, rid):
         path.chmod(0o600)
         audit(db, session.owner_id, 'mfa_challenge_issued', kind)
         return {'challenge_id': identifier, 'expires_at': expires, 'delivery': 'local_sms_simulator',
-                'message': '模拟短信已送达本机私有收件箱，请运行 scripts/auth-code.ps1 查看；不会发送真实短信。'}
+                'message': '模拟短信已送达，可在测试小窗或运行 scripts/auth-code.ps1 查看；不会发送真实短信。'}
+
+
+def read_simulated_sms(db, session_id, kind, rid, challenge_id):
+    """Read the simulator inbox for this pending operation; does not verify it."""
+    with atomic_write(db):
+        session, row, terms, binding, decision = resolve(db, session_id, kind, rid)
+        assert_unlocked(db, session.owner_id)
+        assert_pending(row)
+        challenge = db.get(SecurityChallenge, challenge_id)
+        if (not challenge or challenge.owner_id != session.owner_id or challenge.session_id != session.id or
+                challenge.binding != binding or challenge.status != 'pending' or
+                datetime.fromisoformat(challenge.expires_at) <= now()):
+            raise DomainError('MFA_INVALID', '验证码已失效，请重新获取模拟短信验证码', 403)
+        from app.config import ROOT
+        try:
+            delivered = json.loads((ROOT / 'var' / 'auth-simulator' / (challenge.id + '.json')).read_text(encoding='utf-8'))
+            code = delivered['code']
+            if (delivered['challenge_id'] != challenge.id or not isinstance(code, str) or
+                    len(code) != 6 or not code.isascii() or not code.isdigit() or
+                    not hmac.compare_digest(challenge.code_hash, digest({'id': challenge.id, 'code': code}))):
+                raise ValueError('Invalid simulator delivery')
+        except (OSError, ValueError, KeyError, TypeError):
+            raise DomainError('SIMULATOR_UNAVAILABLE', '模拟短信读取失败，请重新获取验证码', 503) from None
+        return {'challenge_id': challenge.id, 'code': code, 'expires_at': challenge.expires_at, 'simulated': True}
 
 
 def verify_challenge(db, session_id, kind, rid, challenge_id, code):
@@ -265,6 +290,9 @@ def secured(kind, id_arg):
                 with atomic_write(db):
                     session, row, terms, binding, decision = resolve(db, kwargs['session_id'], kind, kwargs[id_arg])
                     owner = session.owner_id
+                    if db.info.get('chat_authorization'):
+                        from app.agent.authorization import check_domain_binding
+                        check_domain_binding(db,session,kind,row.id)
                     # Return existing receipts without executing or requiring a new proof.
                     if row.status in TERMINAL:
                         return fn(db, *args, **kwargs)
@@ -321,6 +349,9 @@ def preparing(fn):
     @wraps(fn)
     def wrapped(db, *args, **kwargs):
         with atomic_write(db):
+            if kwargs.get('session_id'):
+                from app.domain.servicing import ensure_no_pending
+                ensure_no_pending(db,kwargs['session_id'],kwargs.get('agent_task_id') if fn.__module__=='app.domain.servicing' else None)
             if kwargs.get('agent_task_id'):
                 from app.agent.control import assert_running
                 assert_running(db, kwargs['agent_task_id'])
@@ -341,7 +372,7 @@ def birthday_terms(plan):
 def subscription_terms(auth):
     return {'owner': auth.owner_id, 'dataset': auth.dataset_version, 'account': auth.account_id,
             'merchant': auth.merchant, 'amount_minor': auth.amount_minor, 'period': auth.period,
-            'charge_day': auth.charge_day, 'timezone': auth.timezone}
+            'charge_day': auth.charge_day, 'timezone': auth.timezone, **({'payment_card_id':auth.payment_card_id} if auth.payment_card_id else {})}
 
 
 def assert_subscription_access(db, session_id):

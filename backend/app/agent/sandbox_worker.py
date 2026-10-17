@@ -2,7 +2,8 @@
 import json
 import sys
 
-TOOLS = {'list_accounts', 'list_cards', 'list_recipients', 'list_transactions', 'summarize_spending',
+TOOLS = {'read_service_requests','read_credit_cards','read_tool_catalog','read_wealth_products','read_risk_assessment','read_investment_performance','read_birthday_offers','financial_planning_basis', 'list_accounts', 'list_cards', 'list_recipients', 'list_transactions', 'summarize_spending',
+         'read_financial_profile', 'read_financial_history', 'analyze_finances',
          'generate_statement', 'inspect_anomalies', 'get_task_status', 'prepare_transfer', 'prepare_card_action',
          'read_wealth', 'prepare_wealth', 'read_subscriptions', 'identify_subscriptions', 'prepare_subscription',
          'read_birthdays', 'prepare_birthday', 'read_card_management', 'prepare_card_management',

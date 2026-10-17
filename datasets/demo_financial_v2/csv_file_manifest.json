@@ -1,0 +1,284 @@
+{
+  "encoding": "UTF-8 BOM",
+  "lineEnding": "CRLF",
+  "files": [
+    {
+      "file": "transactions.csv",
+      "rows": 25471,
+      "columns": 44,
+      "bytes": 12224708,
+      "sha256": "b75896ff46cfe46b87b8351d8e7d08ada83944afbb4861f9766aae16271dcceb"
+    },
+    {
+      "file": "users.csv",
+      "rows": 20,
+      "columns": 22,
+      "bytes": 10243,
+      "sha256": "c981be4de313d459b92a46e3ada8571c240998e04c73ed600f12242352893ebc"
+    },
+    {
+      "file": "accounts.csv",
+      "rows": 56,
+      "columns": 22,
+      "bytes": 17035,
+      "sha256": "e3fcb541a1cee1f53b4a48aba0fbda0a733d9e0dd1aee07895f4d41f91d61120"
+    },
+    {
+      "file": "cards.csv",
+      "rows": 52,
+      "columns": 32,
+      "bytes": 15924,
+      "sha256": "1637388f8c6d80232f5eb7e038e7812cefc0239685221946bbbdeea55f176794"
+    },
+    {
+      "file": "recipients.csv",
+      "rows": 60,
+      "columns": 7,
+      "bytes": 4603,
+      "sha256": "bd831d5f4d7a427fda035b039c5b8b52a0b5739ca81d149c48fada8f276433a7"
+    },
+    {
+      "file": "data_coverage.csv",
+      "rows": 57,
+      "columns": 7,
+      "bytes": 6980,
+      "sha256": "1c0b6ac7ecdfee4a33b8ec94fa291f9724918f41d7e12ecaaca0ecde67e112ed"
+    },
+    {
+      "file": "scenarios.csv",
+      "rows": 50,
+      "columns": 13,
+      "bytes": 21189,
+      "sha256": "e866a001e8208a4f5fc7e6ad646de25177afe86b05ad079ac17aacb11853dbf0"
+    },
+    {
+      "file": "monthly_summary.csv",
+      "rows": 260,
+      "columns": 17,
+      "bytes": 56293,
+      "sha256": "c079f370c66be76da2391b54e3de6a245e87c680cefed78a8ee1bf5da9494fe8"
+    },
+    {
+      "file": "sources.csv",
+      "rows": 5,
+      "columns": 8,
+      "bytes": 2051,
+      "sha256": "6f8921c7dd98921b625f8b5ab3f8e6b87233e3d63208a68e5bbc62d4a5ba98ee"
+    },
+    {
+      "file": "public_reference_sample.csv",
+      "rows": 120,
+      "columns": 9,
+      "bytes": 12084,
+      "sha256": "8f3c7303b1e1646352b4c100fd040964278ef7618981eba78b3306884ff0fc6a"
+    },
+    {
+      "file": "用户金融总览.csv",
+      "rows": 20,
+      "columns": 39,
+      "bytes": 16341,
+      "sha256": "4cdef256eb0ac9b89f522572b4227b539d965331806d8db805e0cafe20efadfd"
+    },
+    {
+      "file": "deposits.csv",
+      "rows": 16,
+      "columns": 24,
+      "bytes": 5266,
+      "sha256": "20c0794a68b2ee7a7486d63a9cd371c588c97e0757b11bee4348311ca5d1a861"
+    },
+    {
+      "file": "investment_holdings.csv",
+      "rows": 12,
+      "columns": 24,
+      "bytes": 4129,
+      "sha256": "d544f6694645c80e8335594630ed9a4b9772a87b7993ee87e4b76d7c9fdf1e81"
+    },
+    {
+      "file": "investment_valuations.csv",
+      "rows": 156,
+      "columns": 9,
+      "bytes": 15540,
+      "sha256": "6a7cb733c987148f1c2633d5b36646a5f7f6cbb67895ace0b074950524783493"
+    },
+    {
+      "file": "tangible_assets.csv",
+      "rows": 7,
+      "columns": 13,
+      "bytes": 1665,
+      "sha256": "65636e92a6ed2e25be7fc6d6fd710789a4a7e47868bcceb3977a3c696d0bc741"
+    },
+    {
+      "file": "liabilities.csv",
+      "rows": 20,
+      "columns": 23,
+      "bytes": 5820,
+      "sha256": "c9922261fd0c7310ea08acc83902fedfab769c69a54b854cd1fd9549506ec395"
+    },
+    {
+      "file": "liability_events.csv",
+      "rows": 903,
+      "columns": 17,
+      "bytes": 171063,
+      "sha256": "c7ac81258914203d31c3e66fe10b9dc2565fb079546311c291e4475c75397e8d"
+    },
+    {
+      "file": "credit_card_statements.csv",
+      "rows": 156,
+      "columns": 12,
+      "bytes": 28730,
+      "sha256": "8f6ce7a310a59383a1b96697f21cffefc20d11c8826f094d6f704e23965af50c"
+    },
+    {
+      "file": "subscriptions.csv",
+      "rows": 48,
+      "columns": 49,
+      "bytes": 29523,
+      "sha256": "771fa402e2e82bae609cfe68068eeca7350ecef7cb3d071d545dbfb58708bbb1"
+    },
+    {
+      "file": "subscription_billing_events.csv",
+      "rows": 514,
+      "columns": 19,
+      "bytes": 98767,
+      "sha256": "870a4f9d790d6ae9127a61ca7e87818ef199dbb728b600177402d9355d9de6fd"
+    },
+    {
+      "file": "auto_debit_mandates.csv",
+      "rows": 124,
+      "columns": 16,
+      "bytes": 26084,
+      "sha256": "03745ddbe9347d72d27c2cee67a39a45bb0994671a7b4bd525c65c179cc60072"
+    },
+    {
+      "file": "monthly_financial_snapshots.csv",
+      "rows": 260,
+      "columns": 13,
+      "bytes": 55875,
+      "sha256": "29c284aede87bdd9960d3400d05b533cd2ad420209474c4dd21b9d94691ba7af"
+    },
+    {
+      "file": "insurance_policies.csv",
+      "rows": 12,
+      "columns": 15,
+      "bytes": 3085,
+      "sha256": "dfab9bd9ceda5149bfd05414acbbe5147905ed4a2aecb6c65c6ce5f8073fe649"
+    }
+  ],
+  "checks": [
+    {
+      "table": "transactions",
+      "artifact_roundtrip_rows": 25471,
+      "passed": true
+    },
+    {
+      "table": "users",
+      "artifact_roundtrip_rows": 20,
+      "passed": true
+    },
+    {
+      "table": "accounts",
+      "artifact_roundtrip_rows": 56,
+      "passed": true
+    },
+    {
+      "table": "cards",
+      "artifact_roundtrip_rows": 52,
+      "passed": true
+    },
+    {
+      "table": "recipients",
+      "artifact_roundtrip_rows": 60,
+      "passed": true
+    },
+    {
+      "table": "data_coverage",
+      "artifact_roundtrip_rows": 57,
+      "passed": true
+    },
+    {
+      "table": "scenarios",
+      "artifact_roundtrip_rows": 50,
+      "passed": true
+    },
+    {
+      "table": "monthly_summary",
+      "artifact_roundtrip_rows": 260,
+      "passed": true
+    },
+    {
+      "table": "sources",
+      "artifact_roundtrip_rows": 5,
+      "passed": true
+    },
+    {
+      "table": "public_reference_sample",
+      "artifact_roundtrip_rows": 120,
+      "passed": true
+    },
+    {
+      "table": "用户金融总览",
+      "artifact_roundtrip_rows": 20,
+      "passed": true
+    },
+    {
+      "table": "deposits",
+      "artifact_roundtrip_rows": 16,
+      "passed": true
+    },
+    {
+      "table": "investment_holdings",
+      "artifact_roundtrip_rows": 12,
+      "passed": true
+    },
+    {
+      "table": "investment_valuations",
+      "artifact_roundtrip_rows": 156,
+      "passed": true
+    },
+    {
+      "table": "tangible_assets",
+      "artifact_roundtrip_rows": 7,
+      "passed": true
+    },
+    {
+      "table": "liabilities",
+      "artifact_roundtrip_rows": 20,
+      "passed": true
+    },
+    {
+      "table": "liability_events",
+      "artifact_roundtrip_rows": 903,
+      "passed": true
+    },
+    {
+      "table": "credit_card_statements",
+      "artifact_roundtrip_rows": 156,
+      "passed": true
+    },
+    {
+      "table": "subscriptions",
+      "artifact_roundtrip_rows": 48,
+      "passed": true
+    },
+    {
+      "table": "subscription_billing_events",
+      "artifact_roundtrip_rows": 514,
+      "passed": true
+    },
+    {
+      "table": "auto_debit_mandates",
+      "artifact_roundtrip_rows": 124,
+      "passed": true
+    },
+    {
+      "table": "monthly_financial_snapshots",
+      "artifact_roundtrip_rows": 260,
+      "passed": true
+    },
+    {
+      "table": "insurance_policies",
+      "artifact_roundtrip_rows": 12,
+      "passed": true
+    }
+  ]
+}

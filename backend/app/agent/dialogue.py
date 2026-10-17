@@ -19,8 +19,10 @@ from app.agent.privacy import model_payload
 from app.data.atomic import atomic_write, commit
 from app.data.models import Account, AgentMessage, AgentStep, Card, Recipient
 from app.domain.errors import DomainError
+from app.agent.read_evidence import memory_reference
 
-READ_TOOLS = frozenset({'list_accounts', 'list_cards', 'list_recipients', 'list_transactions',
+READ_TOOLS = frozenset({'read_service_requests','read_credit_cards','read_tool_catalog','read_wealth_products','read_risk_assessment','read_investment_performance','read_birthday_offers','financial_planning_basis', 'list_accounts', 'list_cards', 'list_recipients', 'list_transactions',
+    'read_financial_profile', 'read_financial_history', 'analyze_finances',
     'summarize_spending', 'generate_statement', 'inspect_anomalies', 'read_wealth',
     'read_card_management', 'read_subscriptions', 'identify_subscriptions', 'read_birthdays',
     'read_agent_status', 'list_schedules', 'list_collections', 'search_knowledge'})
@@ -48,7 +50,7 @@ def compact(value, *, depth=0):
     if depth > 7:
         return '[嵌套内容已省略，以服务端原始证据为准]'
     if isinstance(value, dict):
-        return {k: compact(v, depth=depth+1) for k, v in value.items() if k not in {'confirmation_token', 'csrf_token'}}
+        return {k: (v if k=='allowed_read_tools' else [compact(x,depth=depth+1) for x in v[:50]] if k in {'months','history','categories','contracts'} and isinstance(v,list) else compact(v, depth=depth+1)) for k, v in value.items() if k not in {'confirmation_token', 'csrf_token'}}
     if isinstance(value, list):
         return [compact(v, depth=depth+1) for v in value[:12]]
     if isinstance(value, str):
@@ -67,9 +69,9 @@ def context_for(db, task, current):
     # remain authoritative; no model-generated narrative is used as an approval.
     earlier = [{'role': row.role, 'excerpt': row.content[:160]} for row in older]
     drafts = {key: context[key] for key in ('dialogue_slots', 'requirement', 'wealth_slots',
-        'card_slots', 'birthday_slots', 'subscription_slots', 'clarification', 'last_write_failure') if key in context}
+        'card_slots', 'birthday_slots', 'subscription_slots', 'service_draft', 'clarification', 'last_write_failure') if key in context}
     resources = {key: {k: value[k] for k in ('id', 'status', 'summary', 'execute_at_utc') if k in value}
-        for key in ('proposal', 'wealth_order', 'card_request', 'subscription_request', 'birthday_request', 'schedule', 'collection')
+        for key in ('proposal', 'wealth_order', 'card_request', 'service_request', 'subscription_request', 'birthday_request', 'schedule', 'collection')
         if isinstance((value := current.get(key)), dict)}
     # Safe references are scoped on every actual tool call. Never send a proof.
     result = {'task': {'id': task.id, 'intent': task.intent, 'status': current['status'],
@@ -80,8 +82,9 @@ def context_for(db, task, current):
         'conditions': memory.get('conditions', []), 'prohibitions': memory.get('prohibitions', []),
         'time_requirements': memory.get('time_requirements', []), 'hold_draft': memory.get('hold_draft', False),
         'original_user_request': memory.get('original_user_request'), 'recent_changes': memory.get('recent_changes', []),
+        'active_consultation': memory.get('active_consultation'),
         'earlier_summary': {'type': 'extractive_untrusted_not_authority', 'items': earlier},
-        'resources': resources, 'recent_evidence': memory.get('evidence', [])[-4:],
+        'resources': resources, 'recent_evidence': [memory_reference(e) for e in memory.get('evidence', [])[-4:]],
         'previous_task_id': context.get('last_agent_task_id'),
         'reference_fields': context.get('reference_fields', {}),
         'allowed_actions': ['answer', 'clarify', 'read', 'prepare_fixed_form', 'modify_draft', 'cancel_unexecuted', 'pause'],
@@ -95,14 +98,15 @@ def context_for(db, task, current):
 
 
 def envelope(name, args, data, ref, error=None):
+    from app.agent.read_evidence import project
     safe = model_payload(data)
-    reduced = compact(safe)
+    reduced = compact(model_payload(project(name,data)))
     return {'tool': name, 'query': model_payload(args), 'source_ref': ref,
         'queried_at_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'scope': 'authenticated_owner_and_session', 'data': reduced,
         'coverage': {'status': 'error' if error else 'bounded_excerpt' if reduced != safe else 'as_returned_by_domain',
                      'domain': safe.get('coverage') if isinstance(safe, dict) else None,
-                     'note': '列表最多12条，文本最多800字；总数、分页、区间与完整性以领域结果为准'},
+                     'note': '摘要来自全量服务端聚合；逐笔仅节选，禁止对节选自行求总额；months/history保留完整当前样本，明细按工具参数分页续取'},
         'error': error, 'allowed_next_actions': ['clarify', 'retry_read', 'use_fixed_authorization_panel'] if error else ['explain', 'clarify', 'propose_fixed_form']}
 
 
@@ -145,16 +149,16 @@ def normalize_reads(db, task, text, decision, checked):
     from app.agent.analytics import INTENTS, resolve_read
     normalized = []
     for name,args in checked:
-        if name in {'summarize_spending','generate_statement','inspect_anomalies','list_transactions'} and decision.intent in INTENTS:
+        if name in {'summarize_spending','generate_statement','inspect_anomalies','list_transactions','analyze_finances'} and (decision.intent in INTENTS or decision.intent=='financial_analysis'):
             context = json.loads(task.context_json)
             grounded_decision = decision.model_copy()
             if decision.source and decision.source not in text:
                 # Generic "本人全部账户" is not an account identifier. A read
                 # follows stored filters or the domain's explicit all-owner default.
                 grounded_decision.source = None
-            tool_intent={'summarize_spending':'spending','generate_statement':'statement','inspect_anomalies':'anomalies','list_transactions':'transactions'}[name]
+            tool_intent={'summarize_spending':'spending','generate_statement':'statement','inspect_anomalies':'anomalies','list_transactions':'transactions','analyze_finances':'spending'}[name]
             expected, grounded, question = resolve_read(db, task, tool_intent, text, context, grounded_decision)
-            if question or expected != name:
+            if question or expected != ('summarize_spending' if name=='analyze_finances' else name):
                 message = '读取工具和意图不一致，请重新选择所需业务和查询范围；账单相对日期按演示日期核对'
                 failure = DomainError('MODEL_TOOL_INTENT_MISMATCH', message, 422)
                 failure.feedback = {'intent':decision.intent,'rejected_tool':name,'expected_tool':expected,
@@ -162,7 +166,30 @@ def normalize_reads(db, task, text, decision, checked):
                 raise failure
             # Preserve model-selected pagination, not model-invented date scope.
             pagination = {key:args[key] for key in ('limit','offset','evidence_limit','evidence_offset') if key in args}
-            args = registry.validate(name, dict(grounded, **pagination))
+            # Explicitly grounded read filters survive normalization; unknown
+            # or ambiguous cards are rejected instead of broadening the scope.
+            for field in ('card_id','merchant','type','direction','status','sort','category'):
+                if field in args and args[field] is not None:
+                    if field=='category' and grounded.get('category'):continue
+                    if field=='card_id':
+                        from app.domain.financial_queries import resolve_card_reference
+                        selected=resolve_card_reference(db,task.owner_id,args[field])
+                        args[field]=selected['id']
+                        previous=context.get('last_query',{}).get('args',{}).get('card_id')
+                        from app.domain.financial_queries import card_directory
+                        unique_credit='信用卡' in text and selected.get('card_type')=='credit' and sum(c.get('card_type')=='credit' for c in card_directory(db,task.owner_id))==1
+                        if not unique_credit and not any(str(v) in text for v in (selected['id'],selected['alias'],selected['card_last4'])) and previous!=args[field]:
+                            raise DomainError('MODEL_OUTPUT_MISMATCH','银行卡筛选未在用户请求或唯一上下文中明确，请核对卡尾号',422)
+                    grounded[field]=args[field]
+            if name=='analyze_finances':
+                grounded={k:v for k,v in grounded.items() if k in registry.Analysis.model_fields}
+                grounded.update(kind=args['kind'],top_n=args['top_n'])
+            allowed=registry.TOOL_MODELS[name].model_fields
+            unsupported={k:v for k,v in grounded.items() if k not in allowed and v is not None}
+            if unsupported:raise DomainError('MODEL_TOOL_INTENT_MISMATCH','当前查询条件不适用于这项分析，请明确查询范围；没有扩大原条件',422)
+            grounded={k:v for k,v in grounded.items() if k in allowed}
+            try:args = registry.validate(name, dict(grounded, **pagination))
+            except (ValueError,TypeError) as error:raise DomainError('MODEL_OUTPUT_MISMATCH','分析参数未通过校验，请核对查询范围',422) from error
         normalized.append((name,args))
     return normalized
 
@@ -184,6 +211,8 @@ def invalidate(db, session, task):
     invalidate_task(db, task)
     invalidate_subscription(db, task)
     invalidate_birthday(db, task)
+    from app.domain.servicing import invalidate_task as invalidate_service
+    invalidate_service(db,task)
     from app.agent.business_flow import cancel_business
     context = json.loads(task.context_json)
     # Already-authorized background plans are not silently cancelled by a draft
@@ -316,6 +345,10 @@ def remember(task, text, decision):
     memory['version'] = 1
     memory['last_behavior'] = turn.behavior if turn else 'legacy_semantic'
     memory['last_semantic_intent'] = decision.intent
+    if decision.intent=='wealth_guidance':
+        memory['active_consultation']={'kind':'wealth_guidance','latest_question':text,'authority':'read_only'}
+    elif decision.intent in WRITE_INTENTS:
+        memory.pop('active_consultation',None)
     memory['missing_fields'] = decision.missing_fields or []
     # Keep original instructions even when a model summary omits a clause.
     goals = memory.setdefault('goals', [])
@@ -353,7 +386,12 @@ def safe_explanation(decision, evidence):
     text = decision.reply
     if not text:
         return None
+    # Ordered list markers are presentation, not unsupported financial amounts.
+    text = re.sub(r'(?m)^\s*[0-9]{1,2}[.、]\s+', '• ', text)
     turn = decision.dialogue
+    from app.agent.read_evidence import QUANTITATIVE
+    if any(e['tool'] in QUANTITATIVE for e in evidence):
+        return None  # trusted domain prose owns all financial amounts, scope and completion
     if evidence:
         refs = {e['source_ref'] for e in evidence}
         refs.update(item['source_ref'] for e in evidence if e['tool'] == 'search_knowledge'
@@ -373,6 +411,11 @@ def safe_explanation(decision, evidence):
                 for value in item: result += numbers(value)
             return result
         supported += ' ' + ' '.join(numbers(evidence))
+        if decision.intent=='wealth_guidance':
+            # Dates, URLs and tool IDs are not evidence for an allocation,
+            # return or a suggested number of months in financial guidance.
+            supported=' '.join(row['text'] for e in evidence if e['tool']=='search_knowledge'
+                for row in (e.get('data') or {}).get('items',[]))
         if any(n.replace(',', '') not in supported.replace(',', '') for n in re.findall(r'\d[\d,]*(?:\.\d+)?', text)):
             return None
     elif re.search(r'\d|余额.*(?:元|万)|已经?(?:转账|扣款|挂失|冻结)|成功|回执', text):
@@ -386,12 +429,50 @@ def evidence_reply(decision, evidence):
     from app.agent.service import _summary
     explanation = safe_explanation(decision, evidence)
     factual = []
-    for item in evidence:
+    seen=set()
+    for item in sorted(evidence,key=lambda e:0 if e['tool'] in {'summarize_spending','generate_statement'} else 1):
+        key=(item['tool'],json.dumps({k:v for k,v in item.get('query',{}).items() if k not in {'evidence_limit','evidence_offset','limit','offset'}},sort_keys=True))
+        if key in seen:continue
+        seen.add(key)
         if item.get('error'):
             factual.append(item['error']['message'] + '；当前没有获得该项完整数据。')
             continue
         if item['tool'] in {'list_accounts', 'list_cards', 'list_transactions', 'summarize_spending', 'generate_statement', 'inspect_anomalies'}:
-            factual.append(_summary(item['tool'], item['raw_data']))
+            if item['tool']=='summarize_spending' and decision.dialogue and decision.dialogue.presentation!='detailed':
+                from app.agent.conversation_reads import brief_spending
+                factual.append(brief_spending(item['raw_data']))
+            elif item['tool']=='inspect_anomalies' and decision.dialogue and decision.dialogue.presentation!='detailed':
+                from app.agent.conversation_reads import brief_anomalies
+                factual.append(brief_anomalies(item['raw_data']))
+            else:factual.append(_summary(item['tool'], item['raw_data']))
+        elif item['tool'] == 'read_financial_profile':
+            data = item['raw_data']
+            if not data.get('available'):
+                factual.append('当前用户尚未导入完整金融档案。')
+            else:
+                b = data['balances']
+                factual.append('本人金融档案：活期存款 {:.2f} 元，可用活期 {:.2f} 元，定期本金 {:.2f} 元；基金市值 {:.2f} 元，房车估值 {:.2f} 元，贷款及信用卡欠款 {:.2f} 元，净资产 {:.2f} 元。'.format(
+                    b['demand_minor']/100,b['available_minor']/100,b['term_minor']/100,
+                    (b['investment_snapshot_minor']+b['new_app_wealth_minor'])/100,
+                    b['physical_minor']/100,b['liabilities_snapshot_minor']/100,b['net_worth_minor']/100))
+                factual.append(data['snapshot_note'])
+        elif item['tool'] in {'read_subscriptions','identify_subscriptions'}:
+            from app.domain.subscription_read import summary_text
+            data=item['raw_data']
+            if isinstance(data,dict) and ('summary' in data or 'confirmed' in data):
+                factual.append(summary_text(data.get('confirmed',data)))
+                if item['tool']=='identify_subscriptions':
+                    factual.append(f"未知合同的规律候选{len(data.get('candidates',[]))}项；疑似规律不等于确认合同。")
+            else:factual.append('已查询疑似规律，合同与金额以订阅档案及明确授权为准。')
+        elif item['tool'] == 'analyze_finances':
+            from app.agent.conversation_reads import brief_analysis
+            factual.append(brief_analysis(item['raw_data']))
+        elif item['tool'] == 'read_financial_history':
+            from app.agent.read_evidence import history_text
+            factual.append(history_text(item['raw_data']))
+        elif item['tool'] == 'read_wealth':
+            data=item['raw_data']
+            factual.append(f"本系统新交易持仓{len(data.get('positions',[]))}项；导入快照基金{len(data.get('imported_positions',[]))}项。导入持仓不能直接通过本系统赎回。")
         elif item['tool'] == 'search_knowledge':
             if not explanation:
                 factual += [f"{row['title']}：{row['text']}〔{row['source_ref']}〕" for row in item['data']['items'][:2]]
@@ -408,7 +489,7 @@ def evidence_reply(decision, evidence):
     text = '\n'.join(factual)
     if explanation:
         text += ('\n' if text else '') + explanation
-        if decision.dialogue and decision.dialogue.evidence_refs:
+        if decision.dialogue and decision.dialogue.evidence_refs and not all(ref in explanation for ref in decision.dialogue.evidence_refs):
             text += '\n依据：' + '、'.join(decision.dialogue.evidence_refs)
     return text or '暂时没有足够证据形成结论，请补充要查询的范围或对象。'
 
@@ -419,6 +500,11 @@ def apply(db, session, task, text, current, decision, evidence):
     context = remember(task, text, decision)
     behavior = turn.behavior if turn else None
     memory = context['dialogue_memory']
+    from app.agent.conversation_reads import stage_subscription_access
+    if stage_subscription_access(task,text,evidence,decision):
+        if task.intent is None:task.intent=decision.intent
+        _say(db,task,'可以先帮你查看订阅合同、自动续费和历史扣费。请在下面确认查询范围，确认后我会直接继续；这一步只查询，不会扣款或撤销代扣。','gathering_info')
+        return view(db,task)
     if behavior == 'confirmation':
         _say(db, task, '聊天确认不执行操作。请核对固定操作单，使用页面确认及独立验证。', task.status)
         return view(db, task)
@@ -495,6 +581,7 @@ def apply(db, session, task, text, current, decision, evidence):
             invalidate(db, session, task)
             context = json.loads(task.context_json)
             clear_fields(context, unresolved)
+            if decision.intent=='transfer':task.intent='transfer'
             task.context_json = json.dumps(context, ensure_ascii=False)
             _say(db, task, '本轮关键字段没有得到用户明确内容或唯一上下文的支持，请重新明确' +
                 '、'.join({'source':'付款账户','target':'收款对象','amount_yuan':'金额','card':'卡片','schedule_text':'执行时间'}.get(key,key) for key in unresolved) +
@@ -518,8 +605,13 @@ def apply(db, session, task, text, current, decision, evidence):
         context = json.loads(task.context_json)
         pending = current.get('proposal') and current['proposal']['status'] == 'pending_confirmation'
         draft = context.get('dialogue_slots') or context['dialogue_memory'].get('hold_draft') or active
+        failures=[e for e in evidence if e.get('error')]
+        read_status='partially_completed' if failures and len(failures)<len(evidence) else 'failed' if failures else 'completed'
+        if turn and (turn.needs_clarification or any(g.kind=='unsupported' for g in turn.goals)):
+            read_status='partially_completed'
+        if not draft:task.intent=decision.intent
         _say(db, task, ('已停止推进原草稿，旧操作单失效；本次只查询。\n' if behavior == 'pause_query' else '') +
-            evidence_reply(decision, evidence), 'awaiting_confirmation' if pending and behavior != 'pause_query' else 'gathering_info' if draft else 'completed')
+            evidence_reply(decision, evidence), 'awaiting_confirmation' if pending and behavior != 'pause_query' else 'gathering_info' if draft else read_status)
         return view(db, task)
     if decision.intent == 'reply':
         text_reply = safe_explanation(decision, [])
@@ -547,6 +639,12 @@ def apply(db, session, task, text, current, decision, evidence):
     return result
 
 
+def read_signature(name,args):
+    fields=dict(args)
+    if name in {'summarize_spending','generate_statement'}:fields.pop('evidence_limit',None)
+    return name+json.dumps(fields,sort_keys=True)
+
+
 def send(db, session, task, text):
     from app.agent.language import interpret, payload_for
     from app.agent.service import _task, _message, _say, view, _record_step, MAX_STEPS
@@ -559,6 +657,10 @@ def send(db, session, task, text):
     evidence, checked_signatures = [], set()
     with atomic_write(db):
         task = _task(db, session, tid)
+        context=json.loads(task.context_json);context.pop('pending_subscription_query',None);context.pop('pending_risk_assessment',None)
+        if context.get('analysis_workflow',{}).get('status') in {'running','awaiting_confirmation'}:
+            context['analysis_workflow']['status']='superseded'
+        task.context_json=json.dumps(context,ensure_ascii=False)
         _message(db, task, 'user', text)
         current = view(db, task)
         payload = payload_for(db, task, current)
@@ -567,22 +669,45 @@ def send(db, session, task, text):
         revision = task.updated_at_utc
     failure, decision = None, None
     first_turn = None
+    guidance_only = False
     semantic_repairs = 0
     tools_left = setting['tools']
     with budget(setting['model_calls'], setting['seconds']) as used:
         try:
             while True:
+                if evidence and used['remaining']<=0:break
                 if len(json.dumps(payload, ensure_ascii=False)) > 64000:
                     raise DomainError('CONTEXT_BUDGET_EXCEEDED', '本轮上下文达到长度上限，保留已有目标，请新建任务或缩小查询范围', 409)
                 decision = interpret(payload)
+                from app.agent.consultation import normalize as normalize_consultation
+                decision = normalize_consultation(decision, text, locked=guidance_only)
+                guidance_only = decision.intent == 'wealth_guidance'
+                # Personal consultation needs synthesis, rather than a raw data dump.
+                from app.agent.consultation import general_guidance
+                if decision.dialogue and not decision.dialogue.workflow and not evidence and decision.intent not in WRITE_INTENTS:
+                    requests=decision.dialogue.tools
+                    if (decision.intent=='wealth_guidance' and not general_guidance(text) and any(r.name!='search_knowledge' for r in requests)) or any(r.name=='financial_planning_basis' for r in requests):
+                        from app.agent.dialogue_schema import AnalysisWorkflow,AnalysisNode
+                        nodes=[AnalysisNode(id='read'+str(i),title=registry.DESCRIPTIONS.get(r.name,r.name).split('：',1)[0][:24],name=r.name,arguments_json=r.arguments_json) for i,r in enumerate(requests)]
+                        nodes.append(AnalysisNode(id='answer',title='结合目标综合分析',name='compose_answer',depends_on=[n.id for n in nodes]))
+                        decision.dialogue.workflow=AnalysisWorkflow(objective=text,nodes=nodes)
+                if decision.dialogue and decision.dialogue.workflow and not evidence:
+                    from app.agent.analysis_workflow import start as start_analysis
+                    try:return start_analysis(db,session,task,text,current,decision,request_id,revision)
+                    except DomainError as error:
+                        if error.code!='INVALID_ANALYSIS_PLAN' or semantic_repairs>=2:raise
+                        semantic_repairs+=1
+                        payload['validation_feedback']={'code':error.code,'message':error.message,'instruction':'修正整个只读DAG，依赖必须指向前面的节点；终点compose_answer覆盖全部步骤，不包含写目标。'}
+                        continue
                 if first_turn is None and decision.dialogue:
                     first_turn = decision.dialogue.model_copy(deep=True)
                 if monotonic() - started >= setting['seconds']:
                     raise DomainError('MODEL_BUDGET_EXCEEDED', '本轮总耗时已到，迟到结果未应用', 503)
                 requests = decision.dialogue.tools if decision.dialogue else []
-                if decision.dialogue and decision.dialogue.behavior=='knowledge' and not any(e['tool']=='search_knowledge' for e in evidence) and not requests:
+                if (decision.intent=='wealth_guidance' or decision.dialogue and decision.dialogue.behavior=='knowledge') and not any(e['tool']=='search_knowledge' for e in evidence) and not any(r.name=='search_knowledge' for r in requests):
                     from app.agent.dialogue_schema import ReadRequest
-                    requests = [ReadRequest(name='search_knowledge',arguments_json=json.dumps({'query':text},ensure_ascii=False))]
+                    query=('通用理财建议 风险 期限 应急资金 '+text) if decision.intent=='wealth_guidance' else text
+                    requests = list(requests)+[ReadRequest(name='search_knowledge',arguments_json=json.dumps({'query':query},ensure_ascii=False))]
                 # A statistics intent needs the trusted calculator, even if the
                 # model also asks for supporting individual transaction evidence.
                 calculator={'spending':'summarize_spending','statement':'generate_statement','anomalies':'inspect_anomalies'}.get(decision.intent)
@@ -602,7 +727,7 @@ def send(db, session, task, text):
                     continue
                 # Repeated reads do not re-run. End the loop using the same
                 # authoritative evidence; never turn an LLM repetition into a write.
-                checked = [(name,args) for name,args in checked if name+json.dumps(args,sort_keys=True) not in checked_signatures]
+                checked = [(name,args) for name,args in checked if read_signature(name,args) not in checked_signatures]
                 if not checked:
                     if first_turn and decision.dialogue:
                         # Tool-loop answer cannot silently drop a goal/condition
@@ -633,7 +758,7 @@ def send(db, session, task, text):
                     for name, args in checked:
                         if name == 'read_agent_status' and first_turn and first_turn.behavior == 'result_query' and not args['task_id']:
                             args['task_id'] = json.loads(task.context_json).get('last_agent_task_id') or task.id
-                        signature = name + json.dumps(args, sort_keys=True)
+                        signature = read_signature(name,args)
                         if signature in checked_signatures:
                             raise DomainError('TOOL_REPEAT_REJECTED', '本轮重复读取已阻止，请使用已有证据或重新说明需求', 422)
                         checked_signatures.add(signature)
@@ -659,7 +784,8 @@ def send(db, session, task, text):
                         tools_left -= 1
                     context = json.loads(task.context_json)
                     memory = context.setdefault('dialogue_memory', {})
-                    memory['evidence'] = [{k: v for k, v in e.items() if k != 'raw_data'} for e in evidence[-6:]]
+                    from app.agent.read_evidence import memory_reference
+                    memory['evidence'] = [memory_reference(e) for e in evidence[-6:]]
                     for name,args in checked:
                         if name in {'summarize_spending','generate_statement','inspect_anomalies','list_transactions'}:
                             context['last_query'] = {'intent': {'summarize_spending':'spending','generate_statement':'statement',
@@ -667,10 +793,11 @@ def send(db, session, task, text):
                     task.context_json = json.dumps(context, ensure_ascii=False)
                     commit(db)
                     payload['tool_results'] = [{k: v for k, v in e.items() if k != 'raw_data'} for e in evidence]
-                    payload['tool_loop'] = {'remaining_tools': tools_left, 'instruction': '使用已返回证据，不重复相同读取；现在解释或继续必要查询，不执行业务'}
+                    payload['tool_loop'] = {'remaining_tools': tools_left,'remaining_model_calls':used['remaining'], 'instruction': '优先直接回答。已返回汇总即为全量计算，禁止为解释同一结果继续读不同页面或无关工具；只在用户明确目标尚未满足时补查。不要机械列出全部类别，默认结论+重点+下一步。剩最后一次调用时tools=[]，说明已完成和未完成的部分。'}
                     payload['dialogue_context'] = context_for(db, task, view(db, task))
                     payload['messages'] = payload['dialogue_context'].pop('messages')
                     revision = task.updated_at_utc  # Our own domain synchronization, under the same lock.
+                if any((e.get('error')or{}).get('code')=='SUBSCRIPTION_CONFIRMATION_REQUIRED' for e in evidence):break
         except DomainError as error:
             failure = error
     with atomic_write(db):
@@ -691,6 +818,14 @@ def send(db, session, task, text):
         if failure and hasattr(failure,'feedback'):
             context['dialogue_memory']['last_validation_error'] = failure.feedback
         task.context_json = json.dumps(context, ensure_ascii=False)
+        if failure and decision and decision.intent not in WRITE_INTENTS and evidence and failure.code in {'MODEL_BUDGET_EXCEEDED','MODEL_UNAVAILABLE','MODEL_RATE_LIMITED','CONTEXT_BUDGET_EXCEEDED','TOOL_BUDGET_EXCEEDED'}:
+            successful=[e for e in evidence if not e.get('error')]
+            if successful:
+                # Keep the trusted facts even when the optional synthesis call fails.
+                if decision.dialogue and first_turn:decision.dialogue.goals=first_turn.goals
+                result=apply(db,session,task,text,current,decision,evidence)
+                _say(db,task,'已保留上面的查询结果；补充分析暂未完成。可以继续问某一项，或展开已有报告查看。', 'awaiting_confirmation' if current.get('proposal') and current['proposal']['status']=='pending_confirmation' else 'partially_completed')
+                return view(db,task)
         if failure:
             _say(db, task, failure.message + '。Live未降级为Mock；可查看已有任务状态、回执或使用停止控制。',
                  'awaiting_confirmation' if current.get('proposal') and current['proposal']['status']=='pending_confirmation' else 'gathering_info')

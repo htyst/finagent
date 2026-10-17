@@ -1,0 +1,19 @@
+.simulated-sms-popup {
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px #18243b33;
+  color: var(--text, #18243b);
+  background: #fff;
+  text-align: center;
+}
+.simulated-sms-popup::backdrop { background: #18243b66; }
+.simulated-sms-popup h2 { margin: 0 0 12px; font-size: 20px; }
+.simulated-sms-popup p { font-size: 13px; line-height: 1.7; color: #566274; }
+.simulated-sms-code { display: block; margin: 20px 0 10px; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-variant-numeric: tabular-nums; color: var(--brand); }
+.simulated-sms-actions { display: flex; justify-content: center; gap: 10px; margin: 20px 0 12px; flex-wrap: wrap; }
+.simulated-sms-popup .caption { margin-bottom: 0; font-size: 12px; }

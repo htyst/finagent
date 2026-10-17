@@ -23,7 +23,7 @@ from app.data.collection_models import CollectionRequest
 from app.data.models import Account, AgentTask, DemoSession, DemoSetting, Recipient, Task
 from app.data.scheduled_models import ScheduledTransfer
 from app.domain.errors import DomainError
-from app.domain.ledger import owned_account
+from app.domain.ledger import owned_account, assert_debit_allowed
 from app.domain.money import require_cny, validate_transfer_amount
 from app.domain.operations import (_audit, _canonical, _digest, _now, _session, _stamp,
                                    confirm_proposal, issue_confirmation_token, prepare_transfer)
@@ -56,6 +56,7 @@ def _parse_execution(value: str, timezone_name: str, instant: datetime) -> datet
 
 def _binding(db: Session, owner_id: str, params: dict) -> dict:
     source = owned_account(db, owner_id, params["source_account_id"])
+    assert_debit_allowed(db, source)
     target = params["target"]
     source_binding = {"id": source.id, "alias": source.alias, "account_last4": source.account_last4,
                       "currency": source.currency}

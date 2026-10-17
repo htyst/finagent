@@ -33,6 +33,9 @@ def register_routes(app, get_db, require_demo_session, protect, envelope):
         if payload.action in {'terminate', 'suggest'}:
             raise DomainError('INVALID_INPUT', '请用取消任务或模拟坐席处理')
         change(db, task, payload.action, payload.reason)
+        if payload.action == 'resume':
+            from app.agent.dynamic_runtime import resume_control
+            return envelope(resume_control(db, session, task_id, view(db, task)))
         return envelope(view(db, task))
 
     @app.get('/api/operator/queue')

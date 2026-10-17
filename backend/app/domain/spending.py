@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
-from sqlalchemy import select
+from sqlalchemy import select,func,case
 from sqlalchemy.orm import Session
 
 from app.data.models import Account, DataCoverage, DemoSetting, Transaction
@@ -12,7 +12,7 @@ from app.domain.clock import (DateRange, current_month_range, parse_day, previou
                               previous_full_month_range, selected_range)
 from app.domain.errors import DomainError
 
-RULES_VERSION = "spending-v1"
+RULES_VERSION = "spending-v2-cash-and-credit"
 
 
 def _coverage(db: Session, owner_id: str, account_ids: list[str], period: DateRange) -> dict:
@@ -41,52 +41,52 @@ def _coverage(db: Session, owner_id: str, account_ids: list[str], period: DateRa
 
 
 def _summarize_period(db: Session, owner_id: str, account_ids: list[str], period: DateRange,
-                      category: str | None, evidence_limit: int, evidence_offset: int) -> dict:
-    filters = [Transaction.owner_id == owner_id, Transaction.account_id.in_(account_ids),
-               Transaction.status == "posted", Transaction.type.in_(["purchase", "refund"]),
-               Transaction.posted_at_utc >= period.start_utc, Transaction.posted_at_utc < period.end_utc]
-    if category == "未分类":
-        filters.append(Transaction.category.is_(None))
-    elif category:
-        filters.append(Transaction.category == category)
-    rows = db.scalars(select(Transaction).where(*filters).order_by(Transaction.posted_at_utc.desc(), Transaction.id)).all()
-    categories: dict[str, dict] = {}
-    purchase_minor = refund_minor = purchase_count = refund_count = 0
-    for row in rows:
-        label = row.category or "未分类"
-        item = categories.setdefault(label, {"category": label, "purchase_minor": 0, "refund_minor": 0,
-                                             "net_minor": 0, "purchase_count": 0, "refund_count": 0})
-        if row.type == "purchase":
-            purchase_minor += row.amount_minor
-            purchase_count += 1
-            item["purchase_minor"] += row.amount_minor
-            item["purchase_count"] += 1
-            item["net_minor"] += row.amount_minor
-        else:
-            refund_minor += row.amount_minor
-            refund_count += 1
-            item["refund_minor"] += row.amount_minor
-            item["refund_count"] += 1
-            item["net_minor"] -= row.amount_minor
+                      category: str | None, evidence_limit: int, evidence_offset: int,
+                      card_id=None,account_filter=False,merchant=None) -> dict:
+    from app.domain.financial_queries import fact_query,date_filtered
+    from app.domain.financial_profile import rows as archive_rows, dataset_manifest
+    facts=fact_query(db,owner_id,account_ids if account_filter else None,card_id,expense_only=True)
+    filters=date_filtered(facts,period,category,merchant)
+    purchase=case((facts.c.type=='purchase',facts.c.amount_minor),else_=0)
+    refund=case((facts.c.type=='refund',facts.c.amount_minor),else_=0)
+    groups=db.execute(select(facts.c.category,func.sum(purchase),func.sum(refund),
+        func.sum(case((facts.c.type=='purchase',1),else_=0)),func.sum(case((facts.c.type=='refund',1),else_=0))).where(*filters).group_by(facts.c.category).order_by(facts.c.category)).all()
+    categories=[dict(category=c,purchase_minor=int(p or 0),refund_minor=int(r or 0),net_minor=int((p or 0)-(r or 0)),purchase_count=int(pc or 0),refund_count=int(rc or 0)) for c,p,r,pc,rc in groups]
+    purchase_minor=sum(c['purchase_minor'] for c in categories);refund_minor=sum(c['refund_minor'] for c in categories)
+    purchase_count=sum(c['purchase_count'] for c in categories);refund_count=sum(c['refund_count'] for c in categories)
     coverage = _coverage(db, owner_id, account_ids, period)
-    items = [{"transaction_id": row.id, "account_id": row.account_id, "type": row.type,
-              "amount_minor": row.amount_minor, "signed_minor": row.amount_minor if row.type == "purchase" else -row.amount_minor,
-              "category": row.category or "未分类", "merchant": row.merchant,
-              "posted_at_utc": row.posted_at_utc, "original_transaction_id": row.original_transaction_id}
-             for row in rows[evidence_offset:evidence_offset + evidence_limit]]
+    credit_cards=[r for r in archive_rows(db,owner_id,'cards') if r['card_type']=='credit' and (not card_id or r['id']==card_id)]
+    include_credit=bool(credit_cards) and not account_filter
+    manifest=dataset_manifest(db)
+    source_coverage={'cash_ledger':coverage['status']}
+    if card_id and credit_cards:
+        coverage={'status':'complete','missing_account_ids':[],'segments':[]};source_coverage={}
+    if include_credit:
+        if manifest:
+            covered=selected_range(manifest['period_start'],manifest['period_end'])
+            credit_complete=covered.start<=period.start and covered.end_exclusive>=period.end_exclusive
+        else:credit_complete=False
+        source_coverage['credit_card_ledger']='complete' if credit_complete else 'incomplete'
+        if not credit_complete:coverage['status']='incomplete'
+    coverage.update(included_sources=list(source_coverage),source_coverage=source_coverage,
+        excluded_sources=[] if include_credit or not credit_cards else ['credit_card_ledger'],
+        scope='selected_deposit_account' if account_filter else 'selected_card' if card_id else 'all_owned_expense_sources')
+    selected=db.execute(select(facts).where(*filters).order_by(facts.c.posted_at_utc.desc(),facts.c.id).offset(evidence_offset).limit(evidence_limit)).mappings()
+    items=[{**dict(row),'transaction_id':row['id'],'signed_minor':row['amount_minor'] if row['type']=='purchase' else -row['amount_minor']} for row in selected]
+    total=purchase_count+refund_count
     return {"period": period.as_dict(), "coverage": coverage,
             "totals": {"purchase_minor": purchase_minor, "refund_minor": refund_minor,
                        "net_minor": purchase_minor - refund_minor, "purchase_count": purchase_count,
                        "refund_count": refund_count, "is_complete": coverage["status"] == "complete"},
-            "categories": [categories[key] for key in sorted(categories)],
-            "evidence": {"total": len(rows), "limit": evidence_limit, "offset": evidence_offset, "items": items}}
+            "categories": categories,
+            "evidence": {"total":total, "limit": evidence_limit, "offset": evidence_offset, "items": items,'has_more':evidence_offset+len(items)<total}}
 
 
 def summarize_spending(db: Session, *, owner_id: str, account_id: str | None = None,
                        category: str | None = None, start: str | None = None, end: str | None = None,
                        comparison_mode: str | None = None,
                        compare_start: str | None = None, compare_end: str | None = None,
-                       evidence_limit: int = 20, evidence_offset: int = 0) -> dict:
+                       evidence_limit: int = 20, evidence_offset: int = 0,card_id: str | None = None,merchant: str | None = None) -> dict:
     """Compute from all matching posted rows, then page only the evidence."""
     setting = db.get(DemoSetting, 1)
     if setting is None:
@@ -123,11 +123,17 @@ def summarize_spending(db: Session, *, owner_id: str, account_id: str | None = N
         accounts = db.scalars(select(Account.id).where(Account.owner_id == owner_id).order_by(Account.id)).all()
     if not accounts:
         raise DomainError("RESOURCE_NOT_FOUND", "没有可查询的账户", 404)
-    category = category if category and category != "全部" else None
-    present = _summarize_period(db, owner_id, accounts, current, category, evidence_limit, evidence_offset)
+    if card_id:
+        from app.domain.financial_queries import require_card
+        card=require_card(db,owner_id,card_id)
+        if account_id and card.get('account_id')!=account_id:raise DomainError('INVALID_INPUT','银行卡不属于所选账户')
+        if not account_id:accounts=[card['account_id']] if card.get('account_id') else []
+    from app.domain.categories import query_category
+    category=query_category(category)
+    present = _summarize_period(db, owner_id, accounts, current, category, evidence_limit, evidence_offset,card_id,bool(account_id),merchant)
     comparison = None
     if baseline:
-        past = _summarize_period(db, owner_id, accounts, baseline, category, evidence_limit, 0)
+        past = _summarize_period(db, owner_id, accounts, baseline, category, evidence_limit, 0,card_id,bool(account_id),merchant)
         reason = None
         delta = percent = None
         if not present["totals"]["is_complete"] or not past["totals"]["is_complete"]:
@@ -143,4 +149,6 @@ def summarize_spending(db: Session, *, owner_id: str, account_id: str | None = N
                       "totals": past["totals"], "delta_minor": delta,
                       "percent_change": percent, "percent_change_reason": reason}
     return {"account_ids": accounts, "category": category, "current": present,
-            "comparison": comparison, "rules_version": RULES_VERSION, "dataset_version": setting.dataset_version}
+            "comparison": comparison, "rules_version": RULES_VERSION, "dataset_version": setting.dataset_version,
+            'card_id':card_id,'merchant':merchant,'included_sources':present['coverage']['included_sources'],
+            'excluded_sources':present['coverage']['excluded_sources'],'expense_basis':'已入账现金消费及信用卡消费减退款；还款、本金调拨、未付利息不重复计消费'}

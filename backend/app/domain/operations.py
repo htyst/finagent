@@ -20,7 +20,7 @@ from app.domain.clock import Clock, parse_day, SHANGHAI
 from app.domain.conditions import evaluate_condition, normalize_condition
 from app.domain.errors import DomainError
 from app.domain.recipient_directory import mask_phone
-from app.domain.ledger import daily_transfer_outflow, owned_account, available_balance, post_external_transfer, post_internal_transfer
+from app.domain.ledger import daily_transfer_outflow, owned_account, available_balance, post_external_transfer, post_internal_transfer, assert_debit_allowed
 from app.domain.money import require_cny, validate_transfer_amount
 from app.domain.security import secured, preparing
 
@@ -266,6 +266,7 @@ def prepare_transfer(db: Session, *, session_id: str, source_account_id: str,
 
     def work():
         session, setting = _session(db, session_id, instant)
+        assert_debit_allowed(db, owned_account(db, session.owner_id, source_account_id))
         existing = _preparing(db, session, request_digest, task_id, instant)
         if existing:
             _bind_agent(db, session, existing, agent_task_id)
@@ -330,6 +331,8 @@ def prepare_card_action(db: Session, *, session_id: str, card_id: str, action: s
             evaluation = evaluate_condition(db, session.owner_id, condition)
             if not evaluation["met"]:
                 raise DomainError("TRANSACTION_CHANGED", "所选交易与卡片关联已变化", 409)
+        from app.domain.financial_profile import guard_card
+        guard_card(db, session.owner_id, card_id)
         card = db.scalar(select(Card).where(Card.id == card_id, Card.owner_id == session.owner_id))
         if card is None:
             raise DomainError("RESOURCE_NOT_FOUND", "资源不存在", 404)
@@ -440,6 +443,12 @@ def confirm_proposal(db: Session, *, session_id: str, proposal_id: str,
                 _end(db, proposal, "invalidated", instant, evaluation["error_code"])
                 message = "条件不满足，无需执行" if evaluation["complete"] else "统计数据不完整，不能执行"
                 return DomainError(evaluation["error_code"], message, 409)
+        if proposal.kind == 'transfer':
+            try:
+                assert_debit_allowed(db, owned_account(db, session.owner_id, params['source_account_id']))
+            except DomainError as error:
+                _end(db, proposal, 'failed', instant, error.code)
+                return error
         if not _check_snapshot(db, session.owner_id, proposal, params, snapshot):
             _end(db, proposal, "invalidated", instant, "STALE_RESOURCE")
             return DomainError("STALE_RESOURCE", "账户或卡片状态已变化，请重新准备", 409)
@@ -504,8 +513,12 @@ def confirm_proposal(db: Session, *, session_id: str, proposal_id: str,
             if params['action']=='unfreeze' and controls(db,card)['lost']:
                 raise DomainError('CARD_LOST','解冻不能解除挂失',409)
             before = card.status
+            from app.domain.financial_profile import guard_card
+            guard_card(db, session.owner_id, card.id)
             card.status = "frozen" if params["action"] == "freeze" else "active"
             card.version += 1
+            # A freeze/unfreeze invalidates previously prepared account snapshots.
+            db.get(Account, card.account_id).version += 1
             order = CardActionOrder(id=uuid4().hex, proposal_id=proposal.id, owner_id=session.owner_id,
                                     card_id=card.id, action=params["action"], before_status=before,
                                     after_status=card.status, created_at_utc=created)

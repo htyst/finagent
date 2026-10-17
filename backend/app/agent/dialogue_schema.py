@@ -24,7 +24,21 @@ class ReadRequest(SemanticModel):
     arguments_json: str = Field(default='{}', max_length=4000)
 
 
+class AnalysisNode(SemanticModel):
+    id: str = Field(pattern=r'^[a-z][a-z0-9_]{0,23}$')
+    title: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=80)
+    arguments_json: str = Field(default='{}', max_length=4000)
+    depends_on: list[str] = Field(default_factory=list, max_length=8)
+
+
+class AnalysisWorkflow(SemanticModel):
+    objective: str = Field(min_length=1, max_length=600)
+    nodes: list[AnalysisNode] = Field(min_length=2, max_length=8)
+
+
 class DialogueTurn(SemanticModel):
+    presentation: Literal['concise', 'detailed'] = 'concise'
     behavior: Literal['new_task', 'supplement', 'modify', 'insert_query', 'pause_query',
                       'cancel', 'pause', 'result_query', 'switch_topic', 'knowledge',
                       'unsupported', 'confirmation', 'continue']
@@ -39,3 +53,4 @@ class DialogueTurn(SemanticModel):
     needs_clarification: bool = False
     clarification: str | None = Field(default=None, max_length=300)
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
+    workflow: AnalysisWorkflow | None = None

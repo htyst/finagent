@@ -12,7 +12,7 @@ class CardControl(Base):
  version:Mapped[int]=mapped_column(Integer,nullable=False,default=1)
 class CardRequest(Base):
  __tablename__='card_requests'
- __table_args__=(CheckConstraint("kind IN ('apply','limit','online_block','online_unblock','loss')"),CheckConstraint("status IN ('pending_confirmation','submitted','issued','executed','cancelled','invalidated','expired')"),)
+ __table_args__=(CheckConstraint("kind IN ('apply','limit','online_block','online_unblock','loss','unloss')"),CheckConstraint("status IN ('pending_confirmation','submitted','issued','executed','cancelled','invalidated','expired')"),)
  id:Mapped[str]=mapped_column(String,primary_key=True)
  owner_id:Mapped[str]=mapped_column(ForeignKey('users.id'),nullable=False,index=True)
  session_id:Mapped[str]=mapped_column(String,nullable=False)

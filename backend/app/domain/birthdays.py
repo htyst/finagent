@@ -23,7 +23,7 @@ from app.data.birthday_models import (BirthdayPlan, BirthdayRequest, BirthdayRes
     BirthdayOrder, BirthdayFundEvent, BirthdayNotification)
 from app.domain.clock import SHANGHAI, parse_day
 from app.domain.errors import DomainError
-from app.domain.ledger import owned_account, available_balance, reserved_balance, post_entry
+from app.domain.ledger import owned_account, available_balance, reserved_balance, post_entry, assert_debit_allowed
 from app.domain.money import validate_minor
 from app.domain.operations import _canonical, _digest, _now, _session, _stamp
 
@@ -362,6 +362,8 @@ def _prepare_terms(db, session, kind, values, plan, business):
     if data["budget_minor"] < sum(item["amount_minor"] for item in contracts):
         raise DomainError("BUDGET_EXCEEDED", "预算不足以支付全部固定报价商品", 409)
     increase = new_hold - previous_hold
+    if kind in {"create", "retry"} or increase > 0:
+        assert_debit_allowed(db, account)
     if increase > available_balance(db, account):
         raise DomainError("INSUFFICIENT_FUNDS", "一般可用余额不足以新增生日专款", 409)
     return {**data, "kind": kind, "account_id": account.id, "account_alias": account.alias,
@@ -448,6 +450,8 @@ def _adjust_reservation(db, plan, new_amount, key, request_id=None):
     if difference == 0:
         return
     account = owned_account(db, plan.owner_id, plan.source_account_id)
+    if difference > 0:
+        assert_debit_allowed(db, account)
     if difference > available_balance(db, account):
         raise DomainError("INSUFFICIENT_FUNDS", "一般可用余额不足以增加生日专款", 409)
     hold.remaining_minor = new_amount
@@ -512,6 +516,7 @@ def confirm(db, *, session_id, request_id, confirmation_token, now=None, busines
             if datetime.fromisoformat(terms["order_at_utc"]) <= business:
                 raise DomainError("ORDER_TIME_PASSED", "预约下单时间已过，请重新规划", 409)
             account = owned_account(db, session.owner_id, terms["source_account_id"])
+            assert_debit_allowed(db, account)
             if available_balance(db, account) < terms["budget_minor"]:
                 raise DomainError("INSUFFICIENT_FUNDS", "一般可用余额不足以预留生日预算", 409)
             plan = BirthdayPlan(id=uuid4().hex, owner_id=session.owner_id, dataset_version=session.dataset_version,
@@ -556,6 +561,7 @@ def confirm(db, *, session_id, request_id, confirmation_token, now=None, busines
             else:
                 if business.astimezone(SHANGHAI).date() > parse_day(plan.delivery_date):
                     raise DomainError("ORDER_TIME_PASSED", "原送达日期已过，不能重试", 409)
+                assert_debit_allowed(db, owned_account(db, plan.owner_id, plan.source_account_id))
                 order.status, order.error_code = "pending", None
                 plan.status, plan.error_code = "scheduled", None
             plan.version += 1
@@ -648,6 +654,7 @@ def _execute_due(db, plan_id, business):
             from app.domain.security import check_grant, birthday_terms
             check_grant(db, plan.owner_id, 'birthday:' + plan.id, birthday_terms(plan))
             validate_authorized_plan(db, plan)
+            assert_debit_allowed(db, owned_account(db, plan.owner_id, plan.source_account_id))
         except DomainError as error:
             plan.status, plan.error_code, plan.updated_at_utc = "blocked", error.code, _stamp(_now())
             _notify(db, plan, plan.id + ":blocked", "生日安排被阻止", error.message + "；未新增订单或付款，专款保留。")
