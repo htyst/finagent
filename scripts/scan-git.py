@@ -7,7 +7,8 @@ import subprocess
 
 entries = subprocess.check_output(['git', 'ls-files', '--stage', '-z']).decode().split('\0')
 errors = []
-patterns = [rb'sk-[A-Za-z0-9_-]{24,}', rb'gh[pousr]_[A-Za-z0-9]{25,}', rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----']
+# Match credential prefixes at an identifier boundary, not inside task-/risk- names.
+patterns = [rb'(?<![A-Za-z0-9_])sk-[A-Za-z0-9_-]{24,}', rb'(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{25,}', rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----']
 # Exact invalid synthetic literals in pre-existing tests and their failure report.
 # A changed value or a copy into any other file still fails the scan.
 synthetic_hashes = {

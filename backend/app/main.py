@@ -215,7 +215,8 @@ def select_demo_user(payload: SelectUser, response: Response, request: Request, 
     except Exception:
         db.rollback()
         raise
-    response.set_cookie(COOKIE_NAME, session_id, httponly=True, samesite="lax", secure=False, path="/")
+    response.set_cookie(COOKIE_NAME, session_id, httponly=True, samesite="lax",
+                        secure=os.getenv('FINAGENT_SECURE_COOKIE', '0') == '1', path="/")
     return envelope({"user": {"id": user.id, "display_name": user.display_name}, "expires_at": expires_at})
 
 
