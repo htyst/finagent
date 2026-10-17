@@ -7,6 +7,7 @@ import subprocess
 
 entries = subprocess.check_output(['git', 'ls-files', '--stage', '-z']).decode().split('\0')
 errors = []
+launchers = {'FinAgent.exe', 'FinAgent-Mock.exe', 'FinAgent-Live.exe'}
 # Match credential prefixes at an identifier boundary, not inside task-/risk- names.
 patterns = [rb'(?<![A-Za-z0-9_])sk-[A-Za-z0-9_-]{24,}', rb'(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{25,}', rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----']
 # Exact invalid synthetic literals in pre-existing tests and their failure report.
@@ -23,7 +24,8 @@ for entry in filter(None, entries):
     name = parts[-1]
     if (any(p in {'var', '.venv', 'node_modules', '__pycache__'} or p.startswith('.venv') for p in parts)
             or name.startswith('.env') and name != '.env.example'
-            or name.endswith(('.key', '.pem', '.p12', '.pfx', '.sqlite3', '.sqlite3-wal', '.sqlite3-shm', '.exe'))):
+            or name.endswith(('.key', '.pem', '.p12', '.pfx', '.sqlite3', '.sqlite3-wal', '.sqlite3-shm'))
+            or name.lower().endswith('.exe') and path not in launchers):
         errors.append({'file': path, 'rule': 'private-or-runtime-file'})
         continue
     safe.append((metadata.split()[1], path))

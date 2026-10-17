@@ -17,6 +17,10 @@ __pycache__/
 *.p12
 *.pfx
 *.exe
+# Ship only the three Windows launchers built from scripts/Launcher.cs.
+!/FinAgent.exe
+!/FinAgent-Mock.exe
+!/FinAgent-Live.exe
 *.log
 .DS_Store
 Thumbs.db

@@ -4,7 +4,7 @@
 
 **年度案例已接入（2026-10-15）。** 本机环境已重建，数据库为 20 人的一年完整金融案例。直接运行 `scripts/dev.ps1 -Mode live`；不要用旧的 `reset-demo.ps1` 覆盖。页面新增完整金融档案和年度订阅记录。数据范围、重导入命令与执行边界见 [年度案例数据导入说明](docs/年度案例数据导入说明.md)。
 
-本地 P1 候选版：2026-10-15；基于原包标注的提交 `7e16cd7f8b01b21c53c14ef79209d0778a7afd0f`。本目录没有 Git 元数据，本轮修改尚未提交。
+项目从 2026-10-15 的本地 P1 候选包继续演进；原包标注提交为 `7e16cd7f8b01b21c53c14ef79209d0778a7afd0f`，后续变更以当前仓库提交记录为准。
 
 **当前为P1候选版，尚非赛事最终提交。** 最新范围见 [P1验收记录](docs/P1-验收记录.md)；[P0记录](docs/P0-验收记录.md)保留历史。不能把有限场景通过等同于赛事所有要求已获认可。
 
@@ -18,7 +18,7 @@
 
 环境：Windows；Python3.12—3.14（推荐3.12）、Node.js24/npm11。首次安装依赖需要网络。
 
-解压后进入 `finagent` 文件夹，打开PowerShell，依次运行：
+下载或克隆后进入包含本 README 的项目根目录，打开PowerShell，首次安装依次运行：
 
 ```powershell
 .\scripts\setup.ps1
@@ -37,7 +37,11 @@
 
 ## 启动器
 
-完成首次安装和演示数据初始化后，双击 `FinAgent.exe` 选择模式，或直接启动 `FinAgent-Mock.exe` / `FinAgent-Live.exe`。关闭启动器会停止它启动的服务；通过PowerShell启动时按Ctrl+C停止。
+仓库根目录随附 `FinAgent.exe`、`FinAgent-Mock.exe` 和 `FinAgent-Live.exe` 三个 Windows 启动器。完成上面的依赖安装和演示数据初始化后，双击 `FinAgent.exe` 选择模式，或直接启动 `FinAgent-Mock.exe` / `FinAgent-Live.exe`。关闭启动器会停止它启动的服务；通过PowerShell启动时按Ctrl+C停止。
+
+启动器负责管理服务进程，不内置 Python、Node.js、项目依赖或数据库。使用不含 EXE 的历史源码包时，可在 Windows 项目根目录运行 `.\scripts\build-launcher.ps1`，从随包源码生成这三个启动器。修改启动器源码后也应重新编译。
+
+GitHub Codespaces 使用 Linux 环境，应按云端入口运行 `Dockerfile.cloud`；这三个 EXE 供 Windows 本地使用。
 
 Live模式：仅在本地 `.env` 不存在时，从 `.env.example` 复制一份为 `.env`，填写自己的 `MODEL_API_KEY`。也可使用：
 
@@ -73,7 +77,7 @@ MODEL_API_KEY=在本地填写
 - `scripts/`：安装、环境检查、数据初始化、服务启动及启动器编译代码。
 - 根目录：三个EXE启动器、`.env.example`和本README。
 
-本包不携带本机密钥、已安装依赖或运行数据库。依赖由setup安装，数据由首次reset创建。
+本包不携带本机密钥、已安装依赖或运行数据库。依赖由 setup 安装，年度案例数据由首次 `import-financial-demo.ps1` 导入；已有年度数据库以后直接启动，不要运行旧的 reset 覆盖。
 
 ## P0 安全操作与验收
 
@@ -107,4 +111,6 @@ python scripts/check-static.py
 
 `compose.yaml` 是尚未实跑的Mock隔离部署候选配置（`docker compose up --build`），有只读根文件系统、非root、资源上限和禁止外网出口。模拟坐席接口只接受回环地址；容器反向代理部署尚不提供坐席接管演示，请使用本机Windows流程验收该功能。该容器配置不用于Live模型联网。
 
-生成带逐文件SHA-256清单的候选源码包：`python scripts/package-source.py`。源码包排除依赖、数据库、运行日志、认证收件箱、真实`.env`及二进制启动器；可按 `scripts/build-launcher.ps1` 重新编译启动器。最终交付状态须以全量验收为准。
+生成带逐文件 SHA-256 清单的候选源码包：`python scripts/package-source.py`。默认包包含源码、年度案例数据文件和云端配置，排除依赖、运行数据库、日志、认证收件箱、真实 `.env` 及二进制启动器。
+
+如需同时交付三个 Windows 启动器，先运行 `.\scripts\build-launcher.ps1`，再运行 `python scripts/package-source.py --include-launchers --name FinAgent-source-windows.zip`。该选项只包含根目录这三个指定 EXE，不包含其他二进制或运行数据。最终交付状态须以全量验收为准。

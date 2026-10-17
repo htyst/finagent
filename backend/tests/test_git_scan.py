@@ -54,6 +54,27 @@ def test_private_and_runtime_files_are_still_blocked(tmp_path, path):
     assert report['errors'] == [{'file': path, 'rule': 'private-or-runtime-file'}]
 
 
+@pytest.mark.parametrize('path', ['FinAgent.exe', 'FinAgent-Mock.exe', 'FinAgent-Live.exe'])
+def test_named_root_launchers_can_be_published(tmp_path, path):
+    result, report = scan_index(tmp_path / 'launcher', path, 'MZ\0TEST-ONLY')
+    assert result.returncode == 0
+    assert report['errors'] == []
+
+
+@pytest.mark.parametrize('path', ['Other.exe', 'Other.EXE', 'tools/FinAgent.exe', 'var/FinAgent.exe'])
+def test_other_executables_are_still_blocked(tmp_path, path):
+    result, report = scan_index(tmp_path / 'executable', path, 'MZ\0TEST-ONLY')
+    assert result.returncode == 1
+    assert report['errors'] == [{'file': path, 'rule': 'private-or-runtime-file'}]
+
+
+def test_named_launcher_does_not_bypass_credential_scanning(tmp_path):
+    token = 'ghp_' + 'C' * 32
+    result, report = scan_index(tmp_path / 'launcher-token', 'FinAgent.exe', 'MZ\0' + token)
+    assert result.returncode == 1
+    assert report['errors'] == [{'file': 'FinAgent.exe', 'rule': 'credential-pattern'}]
+
+
 def test_scanner_uses_staged_content_not_working_copy(tmp_path):
     token = 'sk-' + 'B' * 32
     result, report = scan_index(tmp_path / 'index', 'config.txt', token,

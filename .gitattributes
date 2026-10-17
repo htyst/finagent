@@ -11,6 +11,7 @@
 *.ps1 text eol=crlf
 *.png binary
 *.ico binary
+*.exe binary
 
 # Preserve original bytes required by the demo dataset SHA-256 manifest.
 datasets/demo_financial_v2/*.csv -text
