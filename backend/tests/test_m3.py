@@ -23,7 +23,9 @@ TRANSFER = {"source_account_id": "a1c", "target": {"type": "own_account", "accou
 
 
 @pytest.fixture
-def demo(tmp_path):
+def demo(tmp_path, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "ROOT", tmp_path)
     engine = make_engine(tmp_path / "m3.sqlite3")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -107,6 +109,9 @@ def test_external_transfer_only_debits_source_and_limits(demo):
                "amount_minor": 500_000, "note": "演示"}
     for _ in range(2):
         proposal = prepare(client, headers, payload)
+        with Session(engine) as db:
+            from test_security import mfa
+            mfa(db, proposal["id"], sid=_session_id)
         receipt = confirm(client, headers, proposal["id"], token(client, headers, proposal["id"])).json()["data"]
         assert receipt["recipient_id"] == "r1" and receipt["target_account_id"] is None
         assert len(receipt["transaction_ids"]) == 1
@@ -126,6 +131,10 @@ def test_card_freeze_unfreeze_and_new_purchase_restriction(demo):
         response = client.post("/api/cards/c1a/actions/prepare", headers=headers, json={"action": action})
         assert response.status_code == 200
         proposal = response.json()["data"]["proposal"]
+        if action == "unfreeze":
+            with Session(engine) as db:
+                from test_security import mfa
+                mfa(db, proposal["id"], sid=_session_id)
         result = confirm(client, headers, proposal["id"], token(client, headers, proposal["id"]))
         assert result.json()["data"]["card_status"] == expected
         assert client.post("/api/cards/c1a/actions/prepare", headers=headers,
@@ -317,6 +326,10 @@ def test_competing_proposals_cannot_overdraw(demo):
         payload = {**TRANSFER, "amount_minor": 500_000}
         first = prepare(client, headers1, payload)
         other = prepare(second, headers2, payload)
+        with Session(engine) as db:
+            from test_security import mfa
+            mfa(db, first["id"], sid=_sid1)
+            mfa(db, other["id"], sid=_sid2)
         assert confirm(client, headers1, first["id"], token(client, headers1, first["id"])).status_code == 200
         denied = confirm(second, headers2, other["id"], token(second, headers2, other["id"]))
         assert denied.status_code == 409 and denied.json()["error_code"] == "STALE_RESOURCE"

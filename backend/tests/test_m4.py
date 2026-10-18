@@ -18,7 +18,9 @@ from app.domain.errors import DomainError
 from app.main import app
 
 @pytest.fixture
-def demo(tmp_path):
+def demo(tmp_path, monkeypatch):
+    # This suite supplies Understanding decisions for the supported legacy engine.
+    monkeypatch.setenv("FINAGENT_AGENT_ENGINE", "legacy")
     engine = make_engine(tmp_path / "m4.sqlite3")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -204,6 +206,6 @@ def test_migrations_record_revision_and_preserve_existing_data(tmp_path, monkeyp
         reset_demo(db)
     migrate()
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0004_m5_plans"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0018_directory"
         assert connection.execute(text("SELECT count(*) FROM accounts")).scalar() == 6
     engine.dispose()

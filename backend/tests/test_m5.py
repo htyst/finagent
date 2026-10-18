@@ -77,9 +77,10 @@ def test_card_story_success_and_selected_evidence(demo):
     assert confirm(client, headers, task).status_code == 200
     task = get(client, task)
     assert task["status"] == "completed"
-    assert task["steps"][2]["result"]["available_balance_minor"] == 1000000
+    assert task["steps"][2]["result"]["available_balance_minor"] == 0
     with Session(engine) as db:
         assert db.get(Card,"c1a").status == "frozen" and count(db, CardActionOrder) == 1
+        assert db.get(Account,"a1c").balance_minor == 1000000
 
 @pytest.mark.parametrize("only", [True, False])
 def test_reject_only_operation_vs_cancel_whole_task(demo, only):

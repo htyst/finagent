@@ -161,6 +161,8 @@ def _minor(text: str) -> int | None:
     # Share the strict decimal/Chinese parser with scheduled transfers. An
     # ambiguous shorthand or negative amount never inherits an older amount.
     from app.agent.requirements import NUMBER, yuan_minor
+    from app.agent.guardrails import normalize_money
+    text = normalize_money(text)
     found = re.findall(r"([负−-]?\s*" + NUMBER + r")\s*(?:元|块)", text)
     if not found:
         return None
@@ -223,11 +225,12 @@ def _resolve(task: AgentTask, text: str, context: dict, db: Session, *, intent_h
         context.pop("amount_minor", None)
     active_accounts = [item for item in accounts if item.status == "active"]
     lookup_text = PHONE.sub("", text)
-    mentioned = [item for item in active_accounts if item.alias in lookup_text or item.account_last4 in lookup_text]
+    mentioned = [item for item in active_accounts if item.alias in lookup_text or item.alias.removesuffix("账户") in lookup_text or item.account_last4 in lookup_text]
     if "从" in text:
         after = lookup_text.split("从", 1)[1]
         source_text = re.split(r"转|给|到|向|划|拨", after, maxsplit=1)[0]
-        source = next((item for item in mentioned if item.alias in source_text or item.account_last4 in source_text), None)
+        sources = [item for item in mentioned if item.alias in source_text or item.alias.removesuffix("账户") in source_text or item.account_last4 in source_text]
+        source = sources[0] if len(sources) == 1 else None
         if source:
             context["source_account_id"] = source.id
         else:
@@ -668,6 +671,31 @@ def send(db: Session, session: DemoSession, task_id: str, text: str) -> dict:
         if enabled():return send_tools(db,session,task,text)
         from app.agent.dialogue import send as send_dialogue
         return send_dialogue(db, session, task, text)
+    from app.agent.guardrails import has_condition, EXTREME_MARKERS
+    writing = bool(re.search(r'转账|转给|转入|转到|从[^。！？]*转|给[^。！？]*转|冻结|解冻', text))
+    compound_money = re.search(r'元\s*[0-9零〇一二两三四五六七八九十]+\s*(?:角|毛|分)|块\s*[0-9零〇一二两三四五六七八九十]+', text)
+    from app.agent.crossflow import INTENTS, detect
+    if writing and (compound_money or has_condition(text) and not detect(text) and task.intent not in INTENTS):
+        reason = '请用完整数字和最多两位小数明确金额，当前没有准备或执行业务。' if compound_money else '请明确完整条件及支持的比较方式，当前没有准备或执行业务。'
+        return _require_supported_write(db, session, task, text, ('clarification', reason))
+    if not writing and any(word in text for word in EXTREME_MARKERS):
+        _message(db, task, 'user', text)
+        _say(db, task, '请明确统计对象：是单笔交易极值，还是某个消费类别的合计？', 'gathering_info')
+        return view(db, task)
+    # Mock's bounded conditional stories must retain their evidence dependencies
+    # before the generic composite splitter consumes the same sentence.
+    from app.agent.crossflow import INTENTS, detect, send as send_cross
+    cross_intent = task.intent if task.intent in INTENTS else detect(text)
+    if cross_intent and not _cancel_request(text):
+        if task.status in {"completed", "cancelled", "expired", "partially_completed", "failed"}:
+            raise DomainError("INVALID_TASK_STATE", "任务已结束，请创建新任务", 409)
+        if task.intent == 'transfer' and cross_intent == 'conditional_transfer':
+            from app.agent.crossflow import promote_transfer
+            task = promote_transfer(db, session, task)
+        task.intent = cross_intent
+        commit(db)
+        send_cross(db, session, task, text)
+        return view(db, task)
     from app.agent.orchestrator import dispatch as dispatch_composite
     from app.agent.control import begin_request
     request_id = begin_request(db, task.id)

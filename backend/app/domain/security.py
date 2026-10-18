@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -339,6 +340,20 @@ def secured(kind, id_arg):
             except DomainError as error:
                 if owner and error.code in {'CONFIRMATION_INVALID', 'INVALID_CONFIRMATION_TOKEN', 'MFA_INVALID'}:
                     failure(db, owner, error.code)
+                raise
+            except Exception:
+                # Persist outside the rolled-back security transaction. Auditing
+                # must never replace the original business failure if storage fails.
+                if kind == 'proposal' and owner:
+                    try:
+                        from app.domain.operations import _audit, _proposal, _session, _now, PENDING
+                        with atomic_write(db):
+                            session, _ = _session(db, kwargs['session_id'], _now())
+                            proposal = _proposal(db, session, kwargs[id_arg])
+                            if proposal.status == PENDING:
+                                _audit(db, owner, proposal.id, 'execution_error', _now(), 'ROLLED_BACK')
+                    except Exception:
+                        logging.getLogger(__name__).exception('Could not persist confirmation failure audit')
                 raise
         return wrapped
     return decorate

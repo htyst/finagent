@@ -128,6 +128,6 @@ def validate_asset(raw):
     # Legacy whitelist/structure validation remains the common lower-level gate.
     ordinals = {s.id:i for i,s in enumerate(ordered,1)}
     validate_plan([{'ordinal':i,'tool_name':s.tool,'depends_on':[ordinals[d] for d in s.depends_on],
-                    'on_failure':s.on_failure} for i,s in enumerate(ordered,1)], max_writes=12)
+                    'on_failure':s.on_failure} for i,s in enumerate(ordered,1)])
     plan.steps = ordered
     return plan

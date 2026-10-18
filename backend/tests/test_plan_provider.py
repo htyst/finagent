@@ -6,6 +6,9 @@ from app.planning.provider import request_plan,generate,strict_schema,completion
 from app.planning.schema import Plan,PlanInvalid,validate_asset
 from app.domain.errors import DomainError
 from test_neuro import neuro
+from app.agent.service import create
+from app.agent import dynamic_protocol
+from test_dynamic_tools import session, calls
 from test_m4 import demo,login,start,say
 
 @pytest.mark.parametrize('status,code',[(400,'MODEL_BAD_REQUEST'),(401,'MODEL_AUTH_ERROR'),
@@ -73,19 +76,18 @@ def test_official_strict_endpoint(monkeypatch,base):
     monkeypatch.setenv('MODEL_BASE_URL',base)
     assert completion_url()=='https://api.deepseek.com/beta/chat/completions'
 
-def test_trace_records_http_error_without_repair_or_blame(neuro):
-    client,_=neuro
-    headers=login(client)
-    with httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(400,json={'error':{'message':'Invalid schema: minItems not supported','param':'tools'}}))) as http:
-        original=request_plan
-        with patch.dict('os.environ',{'FINAGENT_MODE':'live','MODEL_API_KEY':'sk-test'}),patch('app.planning.provider.request_plan',side_effect=lambda p,f:original(p,f,http)) as mocked:
-            task=start(client,headers,'转账给林晓100元')
-    trace=client.get('/api/debug/trace/'+task['trace_id']).json()['data']
-    assert mocked.call_count==1
-    assert trace['model_error']['http_status']==400
-    assert trace['repair_rounds']==0 and trace['repair_history']==[]
-    assert trace['verification']['violations']==[] and task['proposal'] is None
-    assert 'HTTP 400' in task['messages'][-1]['content'] and '两轮' not in task['messages'][-1]['content']
+def test_live_http_error_does_not_fallback_or_prepare(neuro, monkeypatch):
+    db,_=neuro
+    seen=[]
+    def failed(messages,context):
+        seen.append(messages)
+        raise DomainError('MODEL_BAD_REQUEST','模型请求 HTTP 400',503)
+    monkeypatch.setattr(dynamic_protocol,'step',failed)
+    task=create(db,session(db),'live','转账给林晓100元')
+    assert len(seen)==1 and task['proposal'] is None
+    assert task['status']=='gathering_info'
+    assert '成功' not in task['messages'][-1]['content']
+    assert '已回退' not in task['messages'][-1]['content']
 
 
 def test_empty_clarification_asset_is_valid_but_empty_execution_is_not():
@@ -94,15 +96,13 @@ def test_empty_clarification_asset_is_valid_but_empty_execution_is_not():
     with pytest.raises(PlanInvalid): validate_asset({'steps':[]})
     with pytest.raises(PlanInvalid): validate_asset({'steps':[],'clarification':'   '})
 
-def test_missing_information_is_model_question_not_repair_failure(neuro):
-    client,engine=neuro
-    headers=login(client)
-    raw={'steps':[],'clarification':'林晓不在当前预置收款人中，请选择收款人并说明付款账户。'}
-    with patch.dict('os.environ',{'FINAGENT_MODE':'live'}),patch('app.planning.provider.request_plan',return_value=raw) as mocked:
-        task=start(client,headers,'转账给林晓100元')
-    assert mocked.call_count==1
-    assert task['status']=='gathering_info' and task['proposal'] is None
-    assert task['messages'][-1]['content']==raw['clarification']
-    trace=client.get('/api/debug/trace/'+task['trace_id']).json()['data']
-    assert trace['repair_rounds']==0 and trace['model_error'] is None
-    assert trace['plan']['source']=='model'
+def test_missing_information_is_model_question_not_repair_failure(neuro, monkeypatch):
+    db,_=neuro
+    seen=[]
+    def question(messages,context):
+        seen.append(messages)
+        return calls(('respond',{'text':'请说明付款账户和收款对象。','needs_input':True}))
+    monkeypatch.setattr(dynamic_protocol,'step',question)
+    task=create(db,session(db),'live','转账给林晓100元')
+    assert len(seen)==1 and task['status']=='gathering_info' and task['proposal'] is None
+    assert '付款账户' in task['messages'][-1]['content']

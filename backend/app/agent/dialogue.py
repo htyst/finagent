@@ -287,8 +287,11 @@ def ground_fields(db, task, text, decision, context):
                 parsed.append(amount)
             explicit = amount in parsed
             correction = re.search(r'(?:改成|改为|改到|调整为|调整到)\s*([0-9零〇一二两三四五六七八九十百千万]+(?:[.点][0-9零〇一二两三四五六七八九]+)?)', text)
-            if correction and key == 'amount_yuan' and yuan_minor(correction[1]) != amount:
-                explicit = inherited = False
+            if correction and key == 'amount_yuan':
+                if yuan_minor(correction[1]) == amount:
+                    explicit = True
+                else:
+                    explicit = inherited = False
         elif key in {'source', 'collection_account', 'card', 'target'}:
             rows = cards if key == 'card' else labels + recipients if key == 'target' else labels
             from app.agent.language import _match
@@ -588,7 +591,9 @@ def apply(db, session, task, text, current, decision, evidence):
                 '；旧操作单已失效，没有准备或执行新业务。', 'gathering_info')
             return view(db, task)
         if decision.intent in {'conditional_transfer', 'investigate_card'}:
-            from app.agent.crossflow import send as cross_send
+            from app.agent.crossflow import send as cross_send, promote_transfer
+            if task.intent == 'transfer' and decision.intent == 'conditional_transfer':
+                task = promote_transfer(db, session, task)
             task.intent = decision.intent
             token = SEMANTIC_DISPATCH.set(True)
             try:

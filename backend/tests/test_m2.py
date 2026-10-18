@@ -143,7 +143,7 @@ def test_spending_hand_calculated_refunds_and_evidence_pagination(demo):
     assert data["comparison"]["totals"]["net_minor"] == 80_000
     assert data["comparison"]["delta_minor"] == 40_000
     assert data["comparison"]["percent_change"] == "50.0"
-    assert data["rules_version"] == "spending-v1"
+    assert data["rules_version"] == "spending-v2-cash-and-credit"
     all_evidence = client.get("/api/spending?category=餐饮&evidence_limit=10").json()["data"]["current"]["evidence"]["items"]
     assert {item["transaction_id"] for item in all_evidence} == {"t_food_1000", "t_food_250", "t_refund_50"}
     assert sum(item["signed_minor"] for item in all_evidence) == 120_000
@@ -218,6 +218,8 @@ def test_daily_limit_and_internal_pair_integrity(demo):
 def test_current_negative_net_and_half_up_percentage(demo):
     _client, engine = demo
     with Session(engine) as db:
+        from app.data.card_models import CardControl
+        db.get(CardControl, "c1a").limit_minor = 200_000
         original = post_entry(db, owner_id="u1", account_id="a1c", kind="purchase", direction="debit",
                               amount_minor=200_000, business_at=at(2026, 8, 5), category="餐饮", card_id="c1a")
         post_refund(db, owner_id="u1", original_id=original.id, amount_minor=200_000,

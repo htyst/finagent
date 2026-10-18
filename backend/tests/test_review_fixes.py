@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from test_m4 import demo, login, start, say
 from test_conversation import live_start
 from app.agent.language import Understanding
+from app.agent.dialogue_schema import DialogueTurn
 from app.data.db import get_db
 from app.data.models import AgentTask, Proposal, BusinessResult
 from app.domain.errors import DomainError
@@ -31,13 +32,15 @@ def production_demo(demo):
 def test_condition_reversal_and_read_interruption(production_demo, mode, revision):
     client, engine = production_demo
     headers = login(client)
-    with patch.dict('os.environ', {'FINAGENT_MODE':mode}), patch('app.agent.crossflow.model_check'):
+    with patch.dict('os.environ', {'FINAGENT_MODE':mode}), patch('app.agent.crossflow.model_check'), patch('app.agent.language.interpret', side_effect=lambda p: Understanding(intent='accounts' if '先查' in p['messages'][-1]['content'] else 'conditional_transfer', dialogue=DialogueTurn(behavior='insert_query' if '先查' in p['messages'][-1]['content'] else 'supplement'))):
         task = start(client, headers, STORY)
         original = task['proposal']['id']
         task = say(client, headers, task, '先查一下账户余额')
         assert task['proposal']['id'] == original
         assert '10,000.00' in task['messages'][-1]['content']
-        assert len(task['steps']) == 2
+        assert [step['tool_name'] for step in task['steps']] == (
+            ['summarize_spending', 'prepare_transfer', 'list_accounts'] if mode == 'live'
+            else ['summarize_spending', 'prepare_transfer'])
         task = say(client, headers, task, revision)
     assert task['proposal'] is None
     assert task['status'] == 'completed'
@@ -76,7 +79,7 @@ def test_existing_transfer_accepts_condition_and_revokes_old_token(production_de
         task = start(client, headers, '从活期账户转到储蓄账户100元')
     old = task['proposal']['id']
     token = client.post(f'/api/proposals/{old}/confirmation-token', headers=headers).json()['data']['confirmation_token']
-    with patch('app.agent.crossflow.model_check'):
+    with patch('app.agent.crossflow.model_check'), patch('app.agent.language.interpret', return_value=Understanding(intent='conditional_transfer', follow_up=True, dialogue=DialogueTurn(behavior='supplement'))):
         task = say(client, headers, task, condition)
     assert task['intent'] == 'conditional_transfer' and task['status'] == 'awaiting_confirmation'
     assert task['proposal']['id'] != old

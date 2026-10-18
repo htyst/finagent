@@ -88,7 +88,7 @@ def test_health_and_demo_session_restore(demo):
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
-    assert health.json()["data"] == {"service": "finagent", "phase": "M6"}
+    assert health.json()["data"] == {"service": "finagent", "phase": "P0", "test_only": False}
 
     anonymous = client.get("/api/demo/session")
     assert anonymous.status_code == 401

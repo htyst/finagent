@@ -4,18 +4,26 @@ import httpx
 import pytest
 from sqlalchemy.orm import Session
 from app.agent.language import Understanding, interpret, payload_for
+from app.agent.dialogue_schema import DialogueTurn
 from app.data.models import AgentTask, Proposal, TransferOrder
 from app.domain.errors import DomainError
 from test_m4 import demo, login, start, say, count
 
 
+def semantic_decision(text, decision):
+    behavior = ('confirmation' if text == '确认' else 'cancel' if decision['intent']=='cancel' else
+                ('modify' if '改' in text else 'supplement') if decision.get('follow_up') else
+                'insert_query' if decision['intent']=='accounts' else 'new_task')
+    return Understanding(**decision, dialogue=DialogueTurn(behavior=behavior))
+
+
 def live_start(client, headers, text, decision):
-    with patch.dict('os.environ', {'FINAGENT_MODE': 'live'}), patch('app.agent.language.interpret', return_value=Understanding(**decision)):
+    with patch.dict('os.environ', {'FINAGENT_MODE': 'live'}), patch('app.agent.language.interpret', return_value=semantic_decision(text, decision)):
         return start(client, headers, text)
 
 
 def live_say(client, headers, task, text, decision):
-    with patch('app.agent.language.interpret', return_value=Understanding(**decision)):
+    with patch('app.agent.language.interpret', return_value=semantic_decision(text, decision)):
         return say(client, headers, task, text)
 
 
@@ -65,9 +73,9 @@ def test_live_transfer_ambiguity_revision_read_and_cancel(demo):
     assert '10,000.00' in task['messages'][-1]['content']
     task = live_say(client, headers, task, '改成两百', dict(intent='transfer', amount_yuan='200', follow_up=True))
     assert task['proposal']['id'] != old and task['proposal']['summary']['amount_minor'] == 20000
-    task = say(client, headers, task, '确认')
+    task = live_say(client, headers, task, '确认', dict(intent='reply', reply='请核对页面操作单后确认。'))
     assert task['status'] == 'awaiting_confirmation'
-    task = say(client, headers, task, '算了')
+    task = live_say(client, headers, task, '算了', dict(intent='cancel'))
     assert task['status'] == 'cancelled'
     with Session(engine) as db:
         assert db.get(Proposal, old).status == 'invalidated'
@@ -103,7 +111,9 @@ def test_adapter_rejects_extra_privileges_and_uses_minimal_payload(demo):
     task = live_start(client, headers, '你好', dict(intent='reply', reply='你好，想了解什么？'))
     with Session(engine) as db:
         payload = payload_for(db, db.get(AgentTask, task['id']), task)
-        assert set(payload) == {'demo_date', 'messages', 'pending_operation'}
+        assert set(payload) == {'demo_date', 'messages', 'pending_operation', 'current_time', 'now_utc',
+                                'schedule_time_zone', 'requirement', 'pending_schedule', 'pending_collection',
+                                'pending_subscription', 'pending_birthday', 'birthday_business_now_utc', 'clarification'}
         assert 'csrf' not in json.dumps(payload) and 'accounts' not in payload
     malformed = Understanding(intent='accounts').model_dump() | {'user_id': 'u2'}
     transport = httpx.MockTransport(lambda req: httpx.Response(200, json={'choices': [{'message': {'tool_calls': [{'function': {'name': 'understand_request', 'arguments': json.dumps(malformed)}}]}}]}))
@@ -137,7 +147,7 @@ def test_budget_arithmetic_and_follow_up(demo):
 def test_balance_question_does_not_lose_unfinished_transfer(demo):
     client, _ = demo
     headers = login(client)
-    task = live_start(client, headers, '活期转一百给张三', dict(intent='transfer', source='活期', target='张三', amount_yuan='100'))
+    task = live_start(client, headers, '活期转一百元给张三', dict(intent='transfer', source='活期', target='张三', amount_yuan='100'))
     task = live_say(client, headers, task, '先查余额', dict(intent='accounts'))
     assert task['status'] == 'gathering_info'
     task = live_say(client, headers, task, '3821那个', dict(intent='transfer', target='3821', follow_up=True))
