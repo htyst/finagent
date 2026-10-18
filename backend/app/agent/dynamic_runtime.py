@@ -1,5 +1,6 @@
 """One live tool loop, with durable human checkpoints and no model commit authority."""
 import json,os,re
+from copy import deepcopy
 from datetime import datetime,timezone,timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -10,17 +11,27 @@ from app.agent import dynamic_protocol as protocol,registry
 from app.agent import analysis_workflow as facts
 from app.agent import read_presentation
 from app.agent import runtime_attempts as attempts
+from app.agent import planning_assumptions,execution_graph as graph,checkpoints
 
 
 def enabled():return os.getenv('FINAGENT_AGENT_ENGINE','dynamic').lower()!='legacy'
 def get(task):return json.loads(task.context_json).get('dynamic_runtime')
 def save(task,r):
-    ctx=json.loads(task.context_json);ctx['dynamic_runtime']=r;task.context_json=json.dumps(ctx,ensure_ascii=False)
+    ctx=json.loads(task.context_json)
+    if graph.typed(r):r['plan_version']=task.plan_version
+    from app.agent.trace import event
+    for n in r.get('nodes',[]):
+        fingerprint=[n['status'],list(n.get('result_refs',[])),bool(n.get('invalidated')),n.get('error_code')]
+        if n.get('_trace_state')!=list(fingerprint):
+            event(r,task,'node_state',n);n['_trace_state']=list(fingerprint)
+    checkpoints.checkpoint(r,task,'persist')
+    graph.validate(task,r,ctx.get('dynamic_runtime'));graph.refresh(r)
+    ctx['dynamic_runtime']=r;task.context_json=json.dumps(ctx,ensure_ascii=False)
 
 
 def current_evidence(r):
     stale=set(r.get('stale_evidence',[]))
-    return dict(r,evidence=[e for e in r.get('evidence',[]) if e['source_ref'] not in stale],
+    return dict(r,evidence=[e for e in r.get('evidence',[]) if e['source_ref'] not in stale and e['tool'] not in {'declare_goals','revise_goals','manage_task'}],
         facts=[f for f in r['facts'] if f['source_ref'] not in stale])
 
 
@@ -29,8 +40,30 @@ def invalidate_snapshot(r):
         e['source_ref'] for e in r['evidence'] if e['tool']!='search_knowledge']))
 
 
+def validate_goal_claim(text,r):
+    if not graph.typed(r) or not re.search(r'(?:已|已经).{0,18}取消|取消.{0,6}(?:成功|完成|生效)',text):return
+    active=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),{})
+    selected=set(active.get('goal_ids') or r.get('turn_goal_ids') or [g['id'] for g in r['goals']])
+    actual=any(g['id'] in selected and g.get('user_cancelled') for g in r['goals']) or any(set(n.get('goal_ids',[]))&selected and (n.get('outcome')=='cancelled' or n['status']=='cancelled' or n.get('receipt_refs') and n['name'] in {'prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_merchant_contract_cancel'}) for n in r['nodes'])
+    if not actual:raise DomainError('GOAL_CONTROL_REQUIRED','不能用文字宣布已取消；请先成功调用revise_goals(cancel)，或引用本目标实际取消回执。',409)
+
+
+def cancelled_goal_reply(text,r):
+    """Render control evidence without relaxing the no-data financial guard."""
+    if not graph.typed(r) or not re.search(r'(?:已|已经).{0,18}取消|取消.{0,6}(?:成功|完成|生效)',text):return None
+    active=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),{})
+    selected=set(active.get('goal_ids') or r.get('turn_goal_ids') or [])
+    goals={g['id']:g for g in r['goals']}
+    if selected and all(goals.get(gid,{}).get('user_cancelled') for gid in selected):
+        return '已取消该目标尚未执行的部分。已发生的交易不受此次取消影响，请以固定单和实际回执为准。'
+    return None
+
+
 def render_response(response,r):
     """Only the server substitutes numerical facts into natural model prose."""
+    from app.agent.planning_reply import validate_assertions
+    validate_goal_claim(response.text,r)
+    validate_assertions(response.text,r)
     response=response.model_copy(update={'text':response.text.replace('\\n','\n')})
     selected={f['id']:f for f in r['facts']};used=[]
     def replace(match):
@@ -71,6 +104,10 @@ def render_response(response,r):
             for key in ('period_start','period_end','snapshot_as_of','as_of'):
                 value=data.get(key)
                 verified_date(value)
+            if e['tool']=='financial_planning_basis':
+                due=data.get('upcoming_obligations',{})
+                verified_date(due.get('as_of'));verified_date(due.get('through'))
+                for item in due.get('items',[]):verified_date(item.get('due_date'))
             if e['tool']=='read_credit_cards':
                 # Verify only this query's card identifiers and calendar metadata;
                 # these never establish evidence for amounts or other dates.
@@ -150,7 +187,7 @@ def check(db,session,tid,r,request_id,revision):
     from app.agent.control import assert_request
     session,task=load(db,session,tid);assert_request(db,tid,request_id)
     current=get(task)
-    if not current or current['id']!=r['id'] or task.updated_at_utc!=revision:
+    if not current or current['id']!=r['id'] or task.updated_at_utc!=revision or graph.typed(r) and r['plan_version']!=task.plan_version:
         raise DomainError('STALE_PLAN_RESPONSE','问题或操作状态已变化，迟到结果不再应用',409)
     return task
 
@@ -162,13 +199,19 @@ def context(db,task,r):
     from app.agent.model_budget import ACTIVE
     current=view(db,task);base=payload_for(db,task,current);ctx=context_for(db,task,current)
     for key in ('allowed_read_tools','messages','earlier_summary'):ctx.pop(key,None)
+    progress=graph.public(task)
+    if progress:
+        progress['nodes']=[{k:n.get(k) for k in ('id','name','goal_ids','depends_on','status','error_code','receipt_refs','resource_ref','invalidated','verification_required','next_step')} for n in progress['nodes'] if not n.get('invalidated')][-24:]
     return {k:base[k] for k in ('demo_date','current_time','birthday_business_now_utc') if k in base}|{
-        'dialogue_context':ctx,'tool_budget':config()['tools']-len(r['nodes']),
+        'execution_graph':progress,'dialogue_context':ctx,'tool_budget':config()['tools']-(len(r['nodes'])-r.get('turn_start_node_count',0)),
         'model_budget':{'remaining_calls':(ACTIVE.get() or {}).get('remaining'),
             'guidance':'证据足够就综合回答；余量较少时不再扩展备选情景或重复查询，优先完成当前目标。'},
         'authorization_context':{'subscription_read_completed':any(e['tool'] in {'read_subscriptions','identify_subscriptions'} and not e.get('error') for e in current_evidence(r)['evidence'])},
         'facts':facts.focused_facts(current_evidence(r)['facts']),'completed_operations':r.get('completed_operations',[]),
-        'stale_evidence':r.get('stale_evidence',[])}
+        'stale_evidence':r.get('stale_evidence',[]),'checkpoint':r.get('checkpoint'),
+        'valid_prior_nodes':[{k:n.get(k) for k in ('id','name','arguments','goal_ids','result_refs')} for n in r['nodes'] if n['status']=='succeeded' and not n.get('invalidated') and n.get('policy',{}).get('effect') in {'read','calculate'}][-12:],
+        'analysis_assumption_scope':planning_assumptions.scope(r.get('user_messages',[])),
+        'advice_only':planning_assumptions.advice_only(r['request'])}
 
 
 def observation(r,node,data,error=None,*,record=True):
@@ -206,12 +249,18 @@ def observation(r,node,data,error=None,*,record=True):
         for key in ('current','comparison'):
             if isinstance(data.get(key),dict):result['data'][key]={k:data[key][k] for k in ('period','coverage','totals','delta_minor','percent_change','percent_change_reason') if k in data[key]}
     # API observations are bounded; the complete domain result stays local.
-    if len(json.dumps(result,ensure_ascii=False))>10000:result.pop('data',None);result['excerpt_notice']='完整结果已保存在服务端；金额使用facts，明细可按工具分页。'
+    if len(json.dumps(result,ensure_ascii=False))>(18000 if node['name']=='financial_planning_basis' else 10000):result.pop('data',None);result['excerpt_notice']='完整结果已保存在服务端；金额使用facts，明细可按工具分页。'
+    graph.observed(r,node,result)
     return result
 
 
 def append_result(r,node,result):
-    r['messages'].append({'role':'tool','tool_call_id':node['model_call_id'],'content':json.dumps(result,ensure_ascii=False)})
+    # Chat Completions cannot insert synthetic mid-conversation tool calls.
+    # Across a new user turn, expose the actual receipt as untrusted checkpoint
+    # data; current facts/ownership/domain state stay authoritative.
+    matched=any(any(c.get('id')==node['model_call_id'] for c in m.get('tool_calls',[])) for m in r['messages'])
+    if matched:r['messages'].append({'role':'tool','tool_call_id':node['model_call_id'],'content':json.dumps(result,ensure_ascii=False)})
+    else:r['messages'].append({'role':'user','content':json.dumps({'kind':'server_checkpoint_data_not_user_instruction','observation':result},ensure_ascii=False)})
 
 
 def record_step(db,task,node,result):
@@ -235,6 +284,9 @@ def prepare(db,session,task,r,node):
     from app.agent.dialogue_schema import DialogueTurn,Goal
     from app.agent.service import view
     value=dict(node['arguments']);opctx=value.pop('operation_context',{})
+    from app.agent.planning_assumptions import advice_only
+    if advice_only(r['request']):
+        raise DomainError('ANALYSIS_ONLY','用户当前仅询问建议或明确暂不办理；只能查询、计算和解释，不能准备资金操作单。',422)
     quote=opctx.pop('instruction_quote',None) or r['request']
     if quote not in r['request']:raise DomainError('UNGROUNDED_OPERATION','办理原文没有本轮用户消息支持，不能重放历史办理指令',422)
     canonical,value=protocol.operation_values(node['name'],value)
@@ -250,8 +302,9 @@ def prepare(db,session,task,r,node):
     if current.get('proposal',{} ) and current['proposal']['status']=='executed':
         if r.get('completed_operations') and quote==r.get('last_operation_quote'):
             raise DomainError('EXPLICIT_NEXT_OPERATION_REQUIRED','原操作已完成；下一笔需明确不同的用户指令，未重复准备',409)
-        ctx=json.loads(task.context_json);ctx['last_transfer_proposal_id']=task.proposal_id;task.proposal_id=None
-        task.context_json=json.dumps(ctx,ensure_ascii=False);current=view(db,task)
+        if canonical in {'prepare_transfer','prepare_card_action'}:
+            ctx=json.loads(task.context_json);ctx['last_transfer_proposal_id']=task.proposal_id;task.proposal_id=None
+            task.context_json=json.dumps(ctx,ensure_ascii=False);current=view(db,task)
     from app.agent.servicing_flow import TOOLS as SERVICE_TOOLS,prepare as prepare_service
     if node['name'] in SERVICE_TOOLS:
         from app.agent.servicing_flow import validate_context
@@ -266,7 +319,7 @@ def prepare(db,session,task,r,node):
     readonly=intent in {'wealth_compare','wealth_assessment','budget'}
     turn=DialogueTurn(behavior=opctx.pop('behavior','new_task'),goals=[Goal(text=quote,kind='read' if readonly else 'write')],**opctx)
     decision=Understanding(intent=intent,dialogue=turn,follow_up=turn.behavior!='new_task',**value)
-    result=apply(db,session,task,quote,current,decision,[])
+    result=apply(db,session,task,quote,current,decision,[],validated_new_operation=True)
     if readonly and result['status']=='completed' and not result.get('prerequisites'):
         return None,{'status':'completed','messages':[m['content'] for m in result['messages'][-2:] if m['role']=='assistant'],'steps':result.get('steps',[])[-1:]}
     last=next((m['content'] for m in reversed(result['messages']) if m['role']=='assistant'),'')
@@ -282,13 +335,17 @@ def prepare(db,session,task,r,node):
 
 
 def calculate(r,node):
+    if set(node.get('goal_ids',[])) & set(r.get('revision_pending',[])):
+        raise DomainError('GOAL_REVISION_REQUIRED','原假设已更正，须先成功更新该目标与约束，再重新计算；不能沿用旧预算。',409)
     r=current_evidence(r)
     args=node['arguments']
     c=facts.Calculation.model_validate(args['calculation']) if 'calculation' in args else facts.Calculation.model_validate_json(args['calculation_json'])
     allowed={'sum','subtract','multiply','divide','min','max','mean','funding_check','reserve','runway_check','savings_projection','income_shock','goal_budget','emergency_check','savings_capacity'}
+    allowed.add('obligation_budget')
     if c.operation not in allowed:raise DomainError('INVALID_CALCULATION','未知计算操作',422)
     required=4 if c.operation=='goal_budget' else 3 if c.operation in {'funding_check','income_shock','emergency_check'} else 2 if c.operation in {'subtract','multiply','divide','reserve','runway_check','savings_projection','savings_capacity'} else None
     if required and len(c.inputs)!=required:raise DomainError('INVALID_CALCULATION','计算输入数量不符',422)
+    if c.operation=='obligation_budget' and len(c.inputs) not in (4,5):raise DomainError('INVALID_CALCULATION','应付款情景需要四项输入，可另加明确目标成本',422)
     for op in c.inputs:
         if op.node:
             if op.value is not None or not op.key or op.node not in {f['node'] for f in r['facts']}:raise DomainError('ANALYSIS_REFERENCE','只可引用已返回的事实，不能引用尚未完成的调用',422)
@@ -313,7 +370,22 @@ def calculate(r,node):
         if first.key!='available_liquid' or not (reserve and reserve.get('metric')=='reserve' or second.value is not None and re.search('预留|应急',second.label or '')):
             raise DomainError('ANALYSIS_UNIT','funding_check依次需要available_liquid、reserve调用返回的result、目标成本；不能把单月消费冒充多月预留。',422)
     users=r.get('user_messages',[])
-    return facts.calculate({'title':node['arguments']['title'],'arguments':c.model_dump()},r['facts'],users)
+    target_index=3 if c.operation=='goal_budget' else 2 if c.operation=='funding_check' else 4 if c.operation=='obligation_budget' and len(c.inputs)==5 else None
+    if target_index is not None:
+        target=c.inputs[target_index]
+        if target.value is not None and not target.quote:
+            raise DomainError('ANALYSIS_ASSUMPTION','独立目标成本须来自用户明确预算；未知费用不设演示报价。先测缓冲并追问目标预算。',422)
+        target_fact=next((f for f in r['facts'] if f['node']==target.node and f['key']==target.key),None)
+        if target_fact and target_fact['key'] in {'available_liquid','monthly_expense_mean','monthly_income_mean','monthly_cashflow_mean','monthly_direct_cash_expense_mean','mixed_net_worth','term_principal','snapshot_investments','snapshot_physical_assets'}:
+            raise DomainError('ANALYSIS_UNIT','账户资金、历史收支或资产估值不能冒充独立目标的价格。请取得用户预算或已核验的目标成本。',422)
+        if target_fact and target_fact.get('tool')=='calculate' and any(a['unit']=='yuan' and a['source']!='用户明确参数' for a in target_fact.get('assumptions',[])):
+            raise DomainError('ANALYSIS_ASSUMPTION','派生目标成本包含未由用户提供的金额，不能借汇总计算编造未知价格。',422)
+        if target_fact and target_fact.get('metric') in {'reserve','emergency_buffer','funding_buffer','commitment_buffer'}:
+            raise DomainError('ANALYSIS_UNIT','不能把另一个预留档位或现金余量当作独立目标费用重复扣减。',422)
+    result=facts.calculate({'title':node['arguments']['title'],'arguments':c.model_dump()},r['facts'],users)
+    if c.operation in {'goal_budget','emergency_check','funding_check'}:
+        result['known_dues_not_deducted']=any(f['key']=='upcoming_due_known' and facts.decimal(f['value'])>0 for f in r['facts'])
+    return result
 
 
 def finish(db,task,r,response):
@@ -328,11 +400,12 @@ def finish(db,task,r,response):
         # In this typed answer, provenance comes exclusively from validated
         # active fact IDs. Model-written source strings are redundant claims.
         response=response.model_copy(update={'text':text,'evidence_refs':refs})
+    validate_goal_claim(response.text,r)
     if active['evidence']:
         successful=[e for e in active['evidence'] if not e.get('error')]
-        refs=response.evidence_refs or [e['source_ref'] for e in successful]
+        refs=response.evidence_refs or [e['source_ref'] for e in successful][-12:]
         if not successful:
-            text=safe_explanation(SimpleNamespace(reply=response.text,intent='reply',dialogue=None),[])
+            text=safe_explanation(SimpleNamespace(reply=response.text,intent='reply',dialogue=None),[]) or cancelled_goal_reply(response.text,r)
             if not text:raise DomainError('UNSUPPORTED_ANSWER','未取得数据，不能宣称具体金额或办理成功',422)
         else:text,inserted=render_response(response.model_copy(update={'evidence_refs':refs}),active)
         if any(e['tool'] in {'financial_planning_basis','calculate'} for e in active['evidence']):
@@ -351,10 +424,14 @@ def finish(db,task,r,response):
                 text+='\n\n'+read_presentation.scope_notes(active)
             elif visible:text+='\n\n'+evidence_reply(SimpleNamespace(reply=None,intent='reply',dialogue=DialogueTurn(behavior='insert_query')),visible)
     else:
-        text=safe_explanation(SimpleNamespace(reply=response.text,intent='reply',dialogue=None),[])
+        text=safe_explanation(SimpleNamespace(reply=response.text,intent='reply',dialogue=None),[]) or cancelled_goal_reply(response.text,r)
         if not text:raise DomainError('UNSUPPORTED_ANSWER','回答含未查询的金额或执行断言，请先取证或改为说明未知',422)
+    responding=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),None)
+    if set((responding or {}).get('goal_ids',r.get('turn_goal_ids',[]))) & set(r.get('revision_pending',[])):
+        raise DomainError('GOAL_REVISION_REQUIRED','目标更新尚未成功，不能给出依赖旧约束的结论；先修复revise_goals或说明尚待核对。',409)
+    graph.responded(r,response)
     for n in r['nodes']:
-        if n['name']=='respond' and n['status']=='pending':n['status']='succeeded'
+        if n['name']=='respond' and n['status'] in {'pending','running'}:n['status']='succeeded'
     r['status']='gathering_info' if response.needs_input else 'partially_completed' if any(attempts.unresolved(n) for n in r['nodes']) else 'completed'
     save(task,r);current=view(db,task)
     pending=any(op['status']=='pending_confirmation' for op in current.get('authorization_operations',[]))
@@ -377,6 +454,11 @@ def send(db,session,task,text):
         r={'id':uuid4().hex,'request':text,'nodes':[],'evidence':[],'facts':[],'messages':history,
             'user_messages':[m['content'] for m in history if m['role']=='user'],
             'queue':[],'status':'running','wait':None,'completed_operations':[],'prepared_signatures':{}}
+        previous=get(task)
+        continued=checkpoints.continuation(db,session,task,previous,text,history)
+        if continued:r=continued
+        else:graph.initialize(task,r);r['evidence_version']=checkpoints.version(db,task)
+        r['request_id']=request_id
         save(task,r);revision=task.updated_at_utc;commit(db)
     return run(db,session,task.id,r,request_id,revision)
 
@@ -412,18 +494,36 @@ def run(db,session,tid,r,request_id,revision):
                                 model=protocol.models()[name]
                                 value=model.model_validate_json(call['function']['arguments']).model_dump()
                                 parsed.append((call,name,value))
+                            if any(n=='declare_goals' for _,n,_ in parsed) and ([n for _,n,_ in parsed].count('declare_goals')!=1 or parsed[0][1]!='declare_goals'):raise DomainError('INVALID_TOOL_BATCH','目标声明必须是本批第一个调用且只有一次；后续工具仍按串行执行',422)
                             if any(n=='respond' for _,n,_ in parsed) and len(parsed)>1:raise DomainError('INVALID_TOOL_BATCH','回答须在工具结果返回后单独生成',422)
                         except (ValueError,DomainError) as error:
                             invalid=attempts.validation_feedback(error,model)
-                        dependencies=[n['id'] for n in r['nodes'][-6:]]
+                        candidates=None
+                        if not invalid and parsed and parsed[0][1]=='declare_goals':
+                            try:
+                                preview=deepcopy(r);value=dict(parsed[0][2]);value.pop('execution',None)
+                                graph.declare(preview,value);candidates=preview['goals']
+                            except (DomainError,ValueError) as error:
+                                invalid_id=parsed[0][0]['id'];invalid=attempts.validation_feedback(error,None)
+                        batch_start=len(r['queue'])
                         for call in message['tool_calls']:
-                            r['queue'].append({'id':'s'+str(len(r['nodes'])+len(r['queue'])+1),'model_call_id':call['id'],
+                            node={'id':'s'+str(len(r['nodes'])+len(r['queue'])+1),'model_call_id':call['id'],
                                 'name':call['function']['name'],'arguments':next((v for c,n,v in parsed if c['id']==call['id']),{}),
                                 'title':{'calculate':'精确计算','respond':'整理回答','manage_task':'任务控制'}.get(call['function']['name'],
                                     protocol.DESCRIPTIONS.get(call['function']['name'],registry.DESCRIPTIONS.get(call['function']['name'],'工具调用')).split('：',1)[0].split('。',1)[0][:24]),
-                                'depends_on':dependencies,'status':'pending',
+                                'depends_on':[],'status':'pending',
                                 'invalid_arguments_digest':attempts.invalid_digest(call['function']['arguments']) if invalid and call['id']==invalid_id else None,
-                                'batch_error':invalid if call['id']==invalid_id else {'code':'BATCH_NOT_EXECUTED','message':'同批其他调用校验失败，本调用没有执行；修正后可重新调用。'} if invalid else None})
+                                'batch_error':invalid if call['id']==invalid_id else {'code':'BATCH_NOT_EXECUTED','message':'同批其他调用校验失败，本调用没有执行；修正后可重新调用。'} if invalid else None}
+                            binding=node['arguments'].pop('execution',None)
+                            try:graph.bind(task,r,node,binding,candidates)
+                            except (DomainError,ValueError) as error:
+                                invalid_id=call['id'];invalid=attempts.validation_feedback(error,None);node['batch_error']=invalid;graph.bind(task,r,node,{})
+                            r['queue'].append(node)
+                        if invalid:
+                            for node in r['queue'][batch_start:]:
+                                node['batch_error']=invalid if node['model_call_id']==invalid_id else {'code':'BATCH_NOT_EXECUTED','message':'同批其他调用校验失败，本调用没有执行；修正后可重新调用。'}
+                                node['depends_on']=[];node['dependency_sources']={}
+                                node['goal_ids']=[] if node['name']=='declare_goals' else [g['id'] for g in r.get('goals',[])]
                         save(task,r);commit(db)
                 with atomic_write(db):
                     task=check(db,session,tid,r,request_id,revision)
@@ -431,15 +531,23 @@ def run(db,session,tid,r,request_id,revision):
                     node=r['queue'].pop(0);r['nodes'].append(node);used_tools+=1
                     name,args=node['name'],node['arguments']
                     try:
+                        graph.start(r,node)
                         if name!='respond' and len(attempts.prior_rejections(r,node))>=2:
                             raise DomainError('TOOL_RETRY_EXHAUSTED','相同工具和参数已经连续失败，停止重复执行；请修正已指出的字段，或说明缺项并请求人工处理。',409)
                         if node.get('batch_error'):raise DomainError(node['batch_error']['code'],node['batch_error']['message'],422)
+                        if name=='declare_goals':
+                            data=graph.declare(r,args)
+                            result=observation(r,node,data);append_result(r,node,result);save(task,r);commit(db);continue
+                        if name=='revise_goals':
+                            data=checkpoints.revise(db,session,task,r,args)
+                            result=observation(r,node,data);append_result(r,node,result);save(task,r);revision=task.updated_at_utc;commit(db);continue
                         if name=='respond':return finish(db,task,r,protocol.Respond.model_validate(args))
                         if name in protocol.OPERATIONS:
                             wait,result=prepare(db,session,task,r,node)
                             if wait is None:
                                 obs=observation(r,node,result);append_result(r,node,obs);save(task,r);revision=task.updated_at_utc;commit(db);continue
                             node['status']='awaiting_confirmation' if wait['kind'] in {'authorization','subscription_precondition'} else 'pending'
+                            graph.waiting(task,r,node,wait,result)
                             r['wait']=wait;r['status']='awaiting_confirmation' if wait['kind']!='input' else 'gathering_info'
                             save(task,r);commit(db);return view(db,task)
                         if name=='calculate':data=calculate(r,node)
@@ -460,7 +568,7 @@ def run(db,session,tid,r,request_id,revision):
                                 original=next(n for n in r['nodes'] if duplicate['source_ref'].endswith(':'+n['id']))
                                 result={'call_id':original['id'],'status':'completed','reused':True,'source_ref':duplicate['source_ref'],'data':duplicate['data'],
                                     'facts':[f for f in r['facts'] if f['source_ref']==duplicate['source_ref']]}
-                                node['status']='succeeded';node['reused_from']=original['id'];attempts.recovered(r,node)
+                                node['status']='succeeded';node['reused_from']=original['id'];graph.observed(r,node,result);attempts.recovered(r,node)
                                 append_result(r,node,result);save(task,r);commit(db);continue
                             data=registry.execute(db,session_id=session.id,owner_id=session.owner_id,name=name,arguments=args,agent_task_id=tid)
                         result=observation(r,node,data);record_step(db,task,node,data);append_result(r,node,result)
@@ -473,8 +581,11 @@ def run(db,session,tid,r,request_id,revision):
                             stage_subscription_access(task,r['request'],[{'tool':name,'query':args,'error':{'code':code}}])
                             ctx=json.loads(task.context_json);pending=ctx['pending_subscription_query'];pending['runtime_id']=r['id'];task.context_json=json.dumps(ctx,ensure_ascii=False)
                             r['wait']={'kind':'subscription_query','node_id':node['id'],'pending_id':pending['id'],'plan_version':task.plan_version,'dataset_version':task.dataset_version,'expires_at':(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat()}
-                            node['status']='awaiting_confirmation';r['status']='awaiting_confirmation';save(task,r)
+                            node['status']='awaiting_confirmation';node['next_step']='请在页面确认本人订阅查询范围；该授权不包含取消代扣。';r['status']='awaiting_confirmation';save(task,r)
                             _say(db,task,'这项工具需要先确认本人订阅查询范围。请在下面手动确认；确认后继续刚才的分析，不会取消或扣款。','gathering_info');return view(db,task)
+                        if name=='revise_goals' and args.get('action')=='update':
+                            owned={g['id'] for g in r.get('goals',[])}
+                            r['revision_pending']=list(dict.fromkeys(r.get('revision_pending',[])+[gid for gid in args.get('goal_ids',[]) if gid in owned]))
                         error={'code':code,'message':message}
                         if node.get('batch_error'):error.update(node['batch_error'])
                         node['error_code']=code
@@ -486,8 +597,8 @@ def run(db,session,tid,r,request_id,revision):
                 session,task=load(db,session,tid)
                 try:assert_request(db,tid,request_id)
                 except DomainError:return view(db,task)
-                if get(task).get('id')!=r['id'] or task.updated_at_utc!=revision:return view(db,task)
-                r['status']='partially_completed' if r['evidence'] else 'gathering_info';save(task,r)
+                if get(task).get('id')!=r['id'] or task.updated_at_utc!=revision or graph.typed(r) and r['plan_version']!=task.plan_version:return view(db,task)
+                r['status']='partially_completed' if r['evidence'] else 'gathering_info';r['failure_classification']=error.code;save(task,r)
                 text=read_presentation.fallback(current_evidence(r),error.code)
                 _say(db,task,text,r['status']);return view(db,task)
 
@@ -515,6 +626,7 @@ def after_input(db,session,tid,result):
                 dataset_version=task.dataset_version,expires_at=(datetime.now(timezone.utc)+timedelta(minutes=15)).isoformat())
             r['wait']=wait;r['status']='awaiting_confirmation' if wait['kind']!='input' else 'gathering_info'
             node=next(n for n in r['nodes'] if n['id']==wait['node_id']);node['status']='awaiting_confirmation' if wait['kind']!='input' else 'pending'
+            graph.waiting(task,r,node,wait,result)
             save(task,r);commit(db);return view(db,task)
     return run(db,session,tid,r,request_id,revision)
 
@@ -555,22 +667,35 @@ def queue_authorization(background,db,session,tid,kind,rid,action_id,result,*,ca
     if wait.get('kind')!='authorization' or wait.get('action_id')!=action_id:return result
     from sqlalchemy.orm import sessionmaker
     factory=sessionmaker(bind=db.get_bind(),expire_on_commit=False)
+    runtime_id=r['id']
     with atomic_write(db):
+        # A duplicate confirmation can wait behind the original follow-up.
+        # Never write the pre-lock JSON over completed or newer task state.
+        session,task=load(db,session,tid);r=get(task);wait=(r or {}).get('wait') or {}
+        if (not r or r['id']!=runtime_id or wait.get('kind')!='authorization'
+                or wait.get('action_id')!=action_id or wait.get('resource_kind')!=kind
+                or wait.get('resource_id')!=rid or wait.get('plan_version')!=task.plan_version
+                or wait.get('dataset_version')!=task.dataset_version):return view(db,task)
+        from app.agent.control import assert_running
+        try:assert_running(db,tid)
+        except DomainError as error:
+            if error.code=='TASK_PAUSED':return view(db,task)
+            raise
         r['status']='running';save(task,r);task.status='running_readonly';commit(db)
-    background.add_task(_authorized_background,factory,session.id,tid,r['id'],kind,rid,action_id,cancelled)
+    background.add_task(_authorized_background,factory,session.id,tid,r['id'],kind,rid,action_id,cancelled,expected_request_id=r.get('request_id'))
     current=view(db,task)
     # Release the request session's read transaction before a background writer.
     db.rollback()
     return current
 
 
-def _authorized_background(factory,sid,tid,runtime_id,kind,rid,action_id,cancelled=False):
+def _authorized_background(factory,sid,tid,runtime_id,kind,rid,action_id,cancelled=False,*,expected_request_id=None):
     from app.data.models import DemoSession
     from app.agent.service import _task,view,_say
     with factory() as db:
         try:
             session=db.get(DemoSession,sid);task=_task(db,session,tid);r=get(task)
-            if not r or r['id']!=runtime_id:return
+            if not r or r['id']!=runtime_id or expected_request_id is not None and r.get('request_id')!=expected_request_id:return
             after_authorization(db,session,tid,kind,rid,action_id,view(db,task),cancelled=cancelled)
         except DomainError:
             # Pauses, new questions and expired sessions cannot be overridden by
@@ -592,6 +717,7 @@ def resume_control(db,session,tid,result):
             recovery=(wait['resource_kind'],wait['resource_id'],wait['action_id'])
         else:
             if r['status'] not in {'running','paused','partially_completed'}:return result
+            if graph.typed(r):checkpoints.reconcile(db,session,task,r)
             r['status']='running';save(task,r)
             request_id=begin_request(db,tid);revision=task.updated_at_utc
         commit(db)

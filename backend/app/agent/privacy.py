@@ -3,7 +3,9 @@ import re
 
 SECRET_KEYS = {'confirmation_token', 'code', 'code_hash', 'password', 'secret', 'operator_token', 'approver_token', 'csrf_token', 'api_key', 'model_api_key', 'deepseek_api_key', 'authorization'}
 API_KEY = re.compile(r'\bsk-[A-Za-z0-9_-]{16,}\b')
-AUTH_TEXT = re.compile(r'((?:验证码|短信码|OTP|密码|confirmation_token|operator_token)\s*[:：=]?\s*)[A-Za-z0-9_./+\-=]{4,}', re.I)
+# Labels and ordinary copulas/separators are accepted only for auth-channel
+# protection. Six-digit business amounts without an auth label remain valid.
+AUTH_TEXT = re.compile(r'((?:验证码|短信(?:验证)?码|动态口令|动态码|OTP|密码|confirmation_token|operator_token)\s*(?:(?:是|为|如下|is)\s*)?[:：=]?\s*)(?:[0-9](?:[ \t-]?[0-9]){5}(?![0-9])|[A-Za-z0-9_./+\-=]{4,})', re.I)
 
 
 def scrub_auth(value):
@@ -41,7 +43,7 @@ def model_payload(value, private_values=()):
     find(value)
     def clean(item):
         if isinstance(item, dict):
-            return {key: None if key.lower() in PRIVATE_MODEL_KEYS else clean(child) for key, child in item.items()}
+            return {key: '[已隐藏认证信息]' if key.lower() in SECRET_KEYS else None if key.lower() in PRIVATE_MODEL_KEYS else clean(child) for key, child in item.items()}
         if isinstance(item, list): return [clean(child) for child in item]
         if isinstance(item, str):
             item = scrub_auth(item)

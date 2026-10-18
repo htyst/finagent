@@ -1,0 +1,137 @@
+{
+  "version": "F01-20261017",
+  "review": "工程预期；尚未由独立人员审定自然语言质量",
+  "cases": [
+    {
+      "id": "stable_salary",
+      "cash": "50000",
+      "expense": "5000",
+      "target": "8000",
+      "quote": "预算8000元",
+      "message": "旅游预算8000元",
+      "months": "3",
+      "expected": "27000",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "low_cash",
+      "cash": "280",
+      "expense": "6000",
+      "target": "8000",
+      "quote": "预算8000元",
+      "message": "预算8000元",
+      "months": "3",
+      "expected": "-25720",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "high_assets_low_liquidity",
+      "cash": "2000",
+      "expense": "4000",
+      "target": "8000",
+      "quote": "预算8000元",
+      "message": "净资产很高但活期少，预算8000元",
+      "expected": "-10000",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "business_receipts",
+      "operation": "savings_capacity",
+      "target": "4000",
+      "quote": "每月存4000元",
+      "message": "经营回款不是利润，每月存4000元",
+      "expected": "-1000"
+    },
+    {
+      "id": "income_interruption",
+      "operation": "income_shock",
+      "message": "如果完全断收的压力情景",
+      "expected": "-7000"
+    },
+    {
+      "id": "household_business_mix",
+      "operation": "emergency_check",
+      "cash": "30000",
+      "expense": "15000",
+      "scope": "business_and_household",
+      "months": "3",
+      "message": "经营家庭混合支出，压力测算",
+      "expected": "-15000"
+    },
+    {
+      "id": "credit_across_months",
+      "operation": "obligation_budget",
+      "target": "800",
+      "quote": "预算800元",
+      "message": "旧账单已还，新的预算800元",
+      "expected": "6600"
+    },
+    {
+      "id": "refunds",
+      "cash": "5000",
+      "expense": "500",
+      "target": "1000",
+      "quote": "预算1000元",
+      "message": "消费扣退款，预算1000元",
+      "expected": "3500",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "coverage_gap",
+      "operation": "emergency_check",
+      "incomplete": true,
+      "message": "资料缺口，不能把未知当零",
+      "error": "ANALYSIS_INCOMPLETE"
+    },
+    {
+      "id": "multiple_accounts",
+      "cash": "3000",
+      "expense": "1000",
+      "target": "500",
+      "quote": "预算500元",
+      "message": "多账户合计可用现金，预算500元",
+      "expected": "1500",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "multiple_goals",
+      "cash": "15000",
+      "expense": "2000",
+      "target": "8000",
+      "quote": "两项合计8000元",
+      "message": "旅游和装修两项合计8000元，不替我定优先级",
+      "expected": "5000",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "unknown_foreign_cost",
+      "target": "1000",
+      "quote": "1000美元",
+      "message": "目标1000美元，汇率未知",
+      "error": "ANALYSIS_CURRENCY_UNKNOWN",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "wan_scale",
+      "cash": "46223.24",
+      "expense": "7747.83",
+      "months": "3",
+      "target": "300000",
+      "quote": "装修30万元",
+      "message": "装修30万元",
+      "expected": "-277020.25",
+      "operation": "goal_budget"
+    },
+    {
+      "id": "future_large_payment",
+      "operation": "obligation_budget",
+      "cash": "50000",
+      "direct": "5000",
+      "dues": "20000",
+      "target": "8000",
+      "quote": "预算8000元",
+      "message": "未来还有到期付款，旅行预算8000元",
+      "expected": "17000"
+    }
+  ]
+}

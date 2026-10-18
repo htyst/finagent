@@ -11,7 +11,7 @@ from app.domain.operations import _session,_now,_stamp,_canonical,_digest
 from app.domain.ledger import owned_account,post_entry,available_balance,assert_debit_allowed
 from app.domain.money import MAX_MINOR
 LABELS={'apply':'申请虚拟借记卡','limit':'调整单笔交易限额','online_block':'禁止线上消费','online_unblock':'解除线上消费限制','loss':'卡片挂失','unloss':'卡片解挂'}
-RULES='虚拟借记卡为本地测试产品；本人资料和关联账户须核对，授权提交进入审核，单独模拟审批发卡。单笔限额初始1000元，线上/线下分别控制；冻结任一关联卡会暂停该账户全部出账，查询、收款、退款和赎回入账仍可办理；全部关联卡解冻后恢复。挂失卡拒绝消费。挂失不可通过解冻解除，解挂须本人强验证和独立确认，仅解除挂失，其他限制保留；当前不提供补卡。'
+RULES='虚拟借记卡为本地测试产品；本人资料和关联账户须核对，授权提交进入审核，单独模拟审批发卡。单笔限额初始1000元，线上/线下分别控制；冻结任一关联卡会暂停该账户全部出账，查询、收款、退款和赎回入账仍可办理；全部关联卡解冻后恢复。挂失卡拒绝消费。挂失不可通过解冻解除，解挂须本人强验证和独立确认，仅解除挂失，其他限制保留；已挂失的模拟借记卡可通过独立补卡流程、红色验证及固定单确认补发；原卡永久失效、限制保留，不代表真实实体卡配送。'
 def owned_card(db,owner,card_id):
  from app.domain.financial_profile import guard_card
  guard_card(db,owner,card_id)

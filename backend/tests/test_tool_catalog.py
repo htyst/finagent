@@ -19,7 +19,10 @@ def session(db):return db.get(DemoSession,'s1')
 
 def test_catalog_matches_all_actual_tools_and_contains_no_execution_api():
     catalog=tool_catalog.catalog();names=set(protocol.models())
-    assert catalog['tool_count']==62
+    assert catalog['tool_count']==64
+    assert 'declare_goals' in names
+    assert registry.execution_policy('declare_goals')['effect']=='metadata'
+    assert registry.execution_policy('declare_goals')['can_submit'] is False
     assert set().union(*(set(v) for v in catalog['groups'].values()))==names
     assert all(not any(k in n for k in ('execute','confirm','token','verify','password')) for n in names)
     assert 'prepare_card_loss' in names and 'prepare_cancel_bank_mandate' in names

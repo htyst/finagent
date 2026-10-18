@@ -1,4 +1,4 @@
-$projectRoot = Split-Path -Parent $PSScriptRoot
+﻿$projectRoot = Split-Path -Parent $PSScriptRoot
 $directory = Join-Path $projectRoot 'var'
 New-Item -ItemType Directory -Force -Path $directory | Out-Null
 $target = Join-Path $directory 'approver.key'

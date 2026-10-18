@@ -25,4 +25,4 @@ try {
     else { & $node $npmCli install }
     if ($LASTEXITCODE -ne 0) { throw '前端依赖安装失败' }
 } finally { Pop-Location; $env:PATH = $savedNodePath }
-Write-Host '依赖安装完成。首次使用年度案例请运行 .\scripts\import-financial-demo.ps1；已有年度数据库时直接启动，无需重新导入。'
+Write-Host '依赖安装完成。已有年度数据库时直接运行启动器；首次安装年度案例请运行 .\scripts\import-financial-demo.ps1，不要用 reset-demo.ps1 覆盖年度数据。'

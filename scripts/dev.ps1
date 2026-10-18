@@ -11,7 +11,7 @@ if (-not (Test-SupportedPython -Command $python -RequireVenv)) { throw '项目 P
 if (-not (Test-Path -LiteralPath $vite)) { throw '前端依赖缺失，请先运行 .\scripts\setup.ps1' }
 . (Join-Path $PSScriptRoot 'resolve-node.ps1')
 $node = Get-ProjectNode -ProjectRoot $root
-if (-not (Test-Path -LiteralPath (Join-Path $root 'var\finagent.sqlite3'))) { throw '尚未初始化演示数据，请运行 .\scripts\reset-demo.ps1；已有数据时不要重置。' }
+if (-not (Test-Path -LiteralPath (Join-Path $root 'var\finagent.sqlite3'))) { throw '年度演示数据库不存在，请先运行 .\scripts\import-financial-demo.ps1；已有数据时不要重置。' }
 foreach ($port in @(8000,5173)) {
     if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
         throw "端口 $port 已被占用，请先停止之前的开发服务。"

@@ -121,6 +121,8 @@ def view(db: Session, task: AgentTask) -> dict:
     from app.agent.analysis_workflow import public as analysis_public
     from app.agent.dynamic_runtime import public as dynamic_public
     business['analysis_workflow']=dynamic_public(task) or analysis_public(task)
+    from app.agent.execution_graph import public as execution_public
+    business['execution_graph']=execution_public(task,{**business,'proposal':proposal},control)
     return {**business, 'authorization_operations':authorization_operations, 'prerequisites':prerequisites(task,control), 'next_actions':next_actions(task,control), 'control': control, "birthday_details":birthday_details(db,task),"transfer_details":transfer_details(db,task), "id": task.id, "mode": task.mode, "intent": task.intent, "status": status,
             "proposal": proposal, "messages": [{"role": row.role, "content": row.content,
                                                   "created_at_utc": row.created_at_utc} for row in rows],

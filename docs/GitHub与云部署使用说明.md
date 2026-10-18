@@ -1,3 +1,5 @@
+> 更新：当前安装以根目录 README 为准（年度数据用 import-financial-demo.ps1，迁移 head 为 0018_directory）。以下保留 2026-10-16 云部署准备及历史验证；后续合并结果见 [上传与 Actions 验收](GitHub-上传与Actions验收-20261018.md)。
+
 # GitHub 与云端使用
 
 准备日期：2026-10-16。源码仓库为 [htyst/finagent](https://github.com/htyst/finagent)，公开仓库由所有者指定。本次准备源码发布和云部署，未创建付费服务；没有在用户电脑安装 Docker、后台托管服务或内网穿透软件。真实上线仍需云平台账号。

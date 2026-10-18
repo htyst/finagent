@@ -1,5 +1,6 @@
 """Direct LLM tools. Business tools propose fixed forms; no authorization tool exists."""
 import json
+from functools import lru_cache
 from copy import deepcopy
 from typing import Literal
 import httpx
@@ -13,9 +14,9 @@ from app.agent.planning_reply import Synthesis
 
 
 class OperationContext(SemanticModel):
-    instruction_quote: str | None = Field(default=None,max_length=1000)
+    instruction_quote: str | None = Field(default=None,max_length=1000,description='本轮用户明确提出当前这项业务的精确原话片段。多个目标逐项办理时每项引用自己的片段，不能对不同操作重复整段多目标原话；不能引用旧轮已付款指令。')
     behavior: Literal['new_task','supplement','modify','continue'] = 'new_task'
-    conditions: list[str] = Field(default_factory=list,max_length=8,description='用户明确提出的附加条件，保留原话，不改写或补充工具固定条款；没有则为空数组。')
+    conditions: list[str] = Field(default_factory=list,max_length=8,description='用户明确提出的银行业务附加条款，保留原话；先确认/强验证是固有流程，不填入。转后查余额等后续查询是独立goal和执行依赖，不是交易conditions。没有则为空数组。')
     prohibitions: list[str] = Field(default_factory=list,max_length=8,description='用户明确禁止的事项，保留原话，不添加用户未提出的条件。')
     time_requirements: list[str] = Field(default_factory=list,max_length=8,description='用户实际提出的时间要求原话；没有则为空数组，不编造未来时点。')
 
@@ -78,8 +79,8 @@ for name,(_,fields) in OPERATIONS.items():
 class Respond(SemanticModel):
     text: str = Field(default='',max_length=2500)
     synthesis: Synthesis | None = Field(default=None,description='针对个人目标的财务分析优先用此结构，省略text；普通问答、交易回执用text。')
-    evidence_refs: list[str] = Field(default_factory=list,max_length=24)
-    needs_input: bool = False
+    evidence_refs: list[str] = Field(default_factory=list,max_length=24,description='仅填写工具返回的source_ref（call:运行ID:s1），不能填事实ID如f1。text中的{{f1}}会自动关联证据，通常此数组可留空。')
+    needs_input: bool = Field(default=False,description='只有完成当前明确目标还缺关键资料时为true。普通问候已经回应，或回答后邀请用户提出新需求，均为false；缺预算/对象等妨碍当前目标时才为true。')
 
     @model_validator(mode='after')
     def has_answer(self):
@@ -93,7 +94,7 @@ class TaskControl(SemanticModel):
 
 
 class Expression(SemanticModel):
-    operation: Literal['sum','subtract','multiply','divide','min','max','mean','funding_check','reserve','runway_check','savings_projection','income_shock','goal_budget','emergency_check','savings_capacity'] = Field(description='goal_budget：已知独立支出成本；emergency_check：无目标成本或断收缓冲；savings_capacity：[monthly_cashflow_mean,月储蓄目标]。储蓄不是新增消费，不能用goal_budget扣作费用，未知成本不能填零。')
+    operation: Literal['sum','subtract','multiply','divide','min','max','mean','funding_check','reserve','runway_check','savings_projection','income_shock','goal_budget','emergency_check','savings_capacity','obligation_budget'] = Field(description='goal_budget：已知独立支出成本；emergency_check：无目标成本或断收缓冲；savings_capacity：[monthly_cashflow_mean,月储蓄目标]。储蓄不是新增消费，不能用goal_budget扣作费用，未知成本不能填零。')
     inputs: list[Operand] = Field(min_length=1,max_length=8)
 
 
@@ -102,13 +103,21 @@ class CalculationArgs(SemanticModel):
     calculation: Expression
 
 
+@lru_cache(maxsize=1)
 def models():
     from app.agent.dialogue import READ_TOOLS
-    return {**{n:registry.TOOL_MODELS[n] for n in sorted(READ_TOOLS)},**BUSINESS_MODELS,
-            'calculate':CalculationArgs,'respond':Respond,'manage_task':TaskControl}
+    from app.agent.execution_graph import ExecutionBinding,DeclareGoals
+    from app.agent.checkpoints import ReviseGoals
+    existing={**{n:registry.TOOL_MODELS[n] for n in sorted(READ_TOOLS)},**BUSINESS_MODELS,
+              'calculate':CalculationArgs,'respond':Respond,'manage_task':TaskControl,'declare_goals':DeclareGoals,'revise_goals':ReviseGoals}
+    return {name:create_model(model.__name__+'Execution',__base__=model,
+        execution=(ExecutionBinding | None,Field(default=None,description='可选目标与真实前置调用关联；不包含权限或完成状态。简单问题无需声明复杂计划。')))
+        for name,model in existing.items()}
 
 
 DESCRIPTIONS={
+ 'revise_goals':'跨轮修改、取消或继续已存在的目标。用当前执行图goal_ids和本轮用户原话；预算/期限等约束用key/value/quote，服务端使相关计算和未执行操作失效，保留查询与真实回执。插问新增目标用declare_goals新ID，回答只关联本轮目标；不能把旧金额当新办理指令。',
+ 'declare_goals':'仅在一轮有多个独立目标时声明完整目标及用户原话；可在查询后明确目标，必须在准备业务操作前声明；一个查询可服务多个目标。简单问题不需要此工具，不能自报完成、权限或交易成功。',
  'read_subscriptions':'查询本人订阅和扣费，须先由本人确认查询范围。可用subscription_id精确筛选；没有merchant参数，不知道编号时省略筛选先查合同列表。按start/end、status、limit/offset分页；查询不代表同意取消。',
  'prepare_card_replacement':'补发已经挂失的本人模拟借记卡。card为用户明确的尾号或名称，只准备红色强验证固定单；确认后本地补发，原卡永久失效，限制保留、账户资金不变，不迁移代扣。不是信用卡补发或真实实体卡配送。',
  'prepare_credit_limit_change':'申请本人信用卡授信额度调整，card为用户明确的卡尾号，amount_yuan为申请新总额度而非增量。红色强验证后只提交申请，须独立审批；模型不能审批或保证获批。与单笔交易限额不同。',
@@ -139,7 +148,7 @@ DESCRIPTIONS={
  'prepare_birthday_cancel':'准备取消整个生日安排。',
  'prepare_birthday_cancel_item':'准备取消尚未完成的生日商品部分，保留的商品不能当成取消对象。',
  'prepare_birthday_retry':'准备重试失败且未付的生日商品，不能重付已成功部分。',
- 'calculate':'精确计算。calculation={operation,inputs:[操作数,...]}。已知独立支出用goal_budget：[available_liquid,monthly_expense_mean,预留月数,成本]；成本未知或断收缓冲用emergency_check：[available_liquid,monthly_expense_mean,月数]，不填零成本。月储蓄用savings_capacity：[monthly_cashflow_mean,目标金额]，储蓄不是消费。引用操作数={node:已完成call_id,key:其facts.key}；常量={value:十进制字符串,unit:yuan或number,label:用途,quote:可选用户原文}。结果key=result，预留需求key=reserve_required。也支持一般算术、reserve、funding_check等。',
+ 'calculate':'应付款现金情景可用obligation_budget：[available_liquid,monthly_direct_cash_expense_mean,月数,upcoming_due_known,可选明确成本]，避免还款与消费重扣；不可用负债余额替代已知应付款。精确计算。calculation={operation,inputs:[操作数,...]}。已知独立支出用goal_budget：[available_liquid,monthly_expense_mean,预留月数,成本]；成本未知或断收缓冲用emergency_check：[available_liquid,monthly_expense_mean,月数]，不填零成本。月储蓄用savings_capacity：[monthly_cashflow_mean,目标金额]，储蓄不是消费。引用操作数={node:已完成call_id,key:其facts.key}；常量={value:十进制字符串,unit:yuan或number,label:用途,quote:可选用户原文}。结果key=result，预留需求key=reserve_required。也支持一般算术、reserve、funding_check等。',
  'respond':'完成当前回答。针对个人目标的财务分析优先用synthesis（goal、conclusion、reasons、scenarios、questions），省略text；普通问答或回执用text。要点的fact_ids引用本轮事实，情景还须引用calculate结果；准确数字用{{f1}}占位。总共最多八项依据、三个原因、两个情景和两个必要追问。缺少完成当前目标所需信息时needs_input=true。',
  'manage_task':'仅在用户明确要求时暂停、恢复、取消当前未执行任务或请求人工接管。instruction_quote必须是用户原文；聊天确认不能执行付款。',
  'compare_wealth_products':'按用户明确预算和用款期限读取并比较模拟产品。缺少有效风险评估时工具展示问卷，由用户填写；不申购。',
@@ -148,7 +157,13 @@ DESCRIPTIONS={
 }
 
 
-SYSTEM='''needs_input仅表示完成用户当前目标仍缺必要信息，可选的后续建议或询问不算缺资料。用户明确不办的事项，不要完成后再反复推问是否办理。回执和合同编号已在操作单展示，除非用户询问，无需在答复重复长编号。
+SYSTEM='''
+目标台账：多个独立目标用declare_goals逐项记录用户原话，最好在查询前声明；若先查询再明确目标，已有证据保留，回答时用真实事实引用关联，不重写执行依赖，再在工具的execution.goal_ids关联目标；一个查询可以关联多个目标。简单问候或单一查询无需拆计划。execution.depends_on只写真正依赖的本轮调用ID，不把前后顺序当依赖；calculate中的node引用、respond的事实引用由服务端自动关联。查询、计算、办理是不同节点，完成取决于返回证据或真实回执，模型不能设置目标完成、权限或授权。execution_graph给出本轮实际状态；未完成的目标须说明原因和继续入口，不以一个成功查询宣称全部目标完成。
+F01补充规则：个人规划底稿还提供upcoming_obligations和直接现金支出事实。逐项区分已支付、未支付、下一期快照及未知，不把欠款余额视为到期款；已还款不再扣。obligation_budget输入[available_liquid,monthly_direct_cash_expense_mean,预留月数,upcoming_due_known]，只有用户明确成本才加第五项；只用于可见已知应付款，不与原goal_budget、现金流出或信用卡消费叠加。其口径不含未出账信用卡消费及未记录义务，不能据正余量保证全部开支够用。数据不足时先补查，不能拿零补未知。
+用户更正预算、期限或目标后，analysis_assumption_scope内对应维度的旧参数失效；未修改且原话明确的其他条件保留；使用更正后的局部原文，不用包含旧值的整句。目标成本不能自定演示价格，外币没有核验汇率时询问人民币总预算。预留期限可做明确标注的少量演示假设。
+多目标以calculate.sum汇总同时实施成本，或分成两个替代情景；用户未选择优先级时不替用户锁钱。收入波动使用底稿最低/最高净现金流及income_shock计算，经营回款不等于利润或自由收入；不把已有净现金流再扣历史还款。必要性和可压缩比例无证据时未知，不建议固定削减百分比。
+synthesis.actions最多两个可行行动，不能表示已办理；questions最多两个，只问影响决策的未知成本、期限、预留或未记录义务，不重复索要已查到的余额与月均消费。
+needs_input仅表示完成用户当前目标仍缺必要信息，可选的后续建议或询问不算缺资料。用户明确不办的事项，不要完成后再反复推问是否办理。回执和合同编号已在操作单展示，除非用户询问，无需在答复重复长编号。
 目标预算未定时，先说明如何规划和能核对的现金状况，不能先肯定“现金能支撑这趟旅行/目标”再追问成本。缺口用gap_required的正数事实；result为负时称“余量为负”，不要写“还差负数”。明确“30万元”须按300000元核算，不能丢掉万字或只计算预留就声称已经核算完整目标。月均净现金流已包含所记录的经营流出，不能再次减进货才称真正结余。
 每月储蓄、存钱、攒钱目标用calculate.savings_capacity，inputs=[monthly_cashflow_mean,月储蓄目标金额]。储蓄是资金保留或内部划转，不是新增消费，不用goal_budget从当前活期再扣一次证明缺口。需要看现有现金安全垫可另用emergency_check，但它与每月新增储蓄能力是两项判断。decision_context显示has_business_expenses=true时，月均消费含经营支出，不能全部叫“生活费”；先说明经营周转和家庭开销口径，不能把进货都当家庭必要消费，也不能重复从已扣经营支出的净现金流再减进货。
 只有已知独立目标成本才用calculate的goal_budget，一次核算可用活期扣除生活费预留与目标成本：inputs依次为available_liquid、monthly_expense_mean、预留月数（number）、目标成本（yuan）。目标预算未知、断收或回款延迟时用emergency_check，inputs为available_liquid、monthly_expense_mean、压力期月数，不填任何目标成本；结果仅测算现有现金减该期生活费，不计未来收入和未知应付款。两者返回result，生活费需求事实key=reserve_required。已有底稿足够时，一次计算后及时综合回答，不必拆成多次调用。用户只说部分回款延迟不等于全部收入为零，完全断收须标为压力测试假设，不伪造用户收入保留比例。
@@ -182,9 +197,12 @@ calculate优先使用经济含义明确的goal_budget和emergency_check；确需
 '''
 
 
+SYSTEM += '\n跨轮目标和约束以execution_graph及checkpoint为准。用户改预算/期限必须先成功revise_goals(update)再重算，失败时修复quote/value，不得绕过更新直接回答。value可规范化8000，quote必须逐字复制本轮原话八千。先办理再查询等顺序目标用declare_goals拆开，operation_context.conditions只保留银行业务条款，不填授权步骤或后续查询。新消息不丢弃原待办：修改用revise_goals(update)，补充后继续用continue；插入独立查询用declare_goals新增唯一ID并只回答该目标，说明原任务继续入口。已完成目标不重复办理。复用valid_prior_nodes中的有效查询；失效节点及其facts不可引用。预算或期限改变先update后重算。结果待核实不自动重复付款。\n'
+
+
 def catalog():
     from app.agent.model_client import configuration
-    strict=configuration().strict_tools
+    strict=configuration(require_key=False).strict_tools
     def clean(node):
         if isinstance(node,dict):
             node.pop('default',None)
@@ -195,7 +213,9 @@ def catalog():
         elif isinstance(node,list):
             for value in node:clean(value)
     result=[]
+    from app.agent.tool_contracts import COMPATIBILITY_ONLY
     for name,model in models().items():
+        if name in COMPATIBILITY_ONLY:continue
         schema=model.model_json_schema();clean(schema)
         result.append({'type':'function','function':{'name':name,'description':DESCRIPTIONS.get(name,registry.DESCRIPTIONS.get(name,name)),'parameters':schema}})
     return result

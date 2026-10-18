@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const output=path.join(root,'var/local-startup-20261017');
+const base='http://127.0.0.1:5173';
+await mkdir(output,{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:960}});
+const page=await context.newPage();
+const passed=[],errors=[],serverErrors=[],writes=[];
+page.on('pageerror',error=>errors.push(error.message));
+page.on('response',response=>{if(response.url().startsWith(base+'/api/')&&response.status()>=500)serverErrors.push({path:new URL(response.url()).pathname,status:response.status()});});
+page.on('request',request=>{if(request.url().startsWith(base+'/api/')&&request.method()!=='GET')writes.push({path:new URL(request.url()).pathname,method:request.method()});});
+const read=async url=>{const response=await context.request.get(base+url);assert.equal(response.status(),200,url);return (await response.json()).data;};
+let report;
+try{
+  await page.goto(base,{waitUntil:'domcontentloaded'});
+  await page.locator('#user option').nth(20).waitFor({state:'attached',timeout:30000});
+  const info=await read('/api/demo/info');
+  assert.equal(info.mode,'live');assert.equal(info.seed_version,'demo-financial-v2');assert.equal(info.model.configured,true);
+  passed.push('frontend-proxy-live-mode-and-model-config');
+  const users=await read('/api/demo/users');assert.equal(users.length,20);passed.push('twenty-annual-demo-users');
+  assert.equal((await context.request.get(base+'/api/accounts')).status(),401);passed.push('account-query-requires-session');
+  await page.locator('#user').selectOption('u1');
+  await page.locator('#agent-message').waitFor({timeout:30000});
+  const accounts=await read('/api/accounts');assert(accounts.length>0);passed.push('user-selection-and-account-read');
+  await page.screenshot({path:path.join(output,'assistant.png'),fullPage:true});
+  await page.evaluate(()=>{location.hash='assets/profile';});
+  await page.getByRole('heading',{name:'我的完整金融档案',exact:true}).waitFor({timeout:30000});
+  const profile=await read('/api/financial-profile');assert.equal(profile.available,true);assert(profile.cards.length>0);assert.equal(typeof profile.balances.net_worth_minor,'number');
+  passed.push('annual-financial-profile-renders');
+  await page.screenshot({path:path.join(output,'financial-profile.png'),fullPage:true});
+  assert.equal((await context.request.get(base+'/api/financial-profile/subscriptions')).status(),403);passed.push('subscription-yellow-authorization-preserved');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByRole('heading',{name:'我的完整金融档案',exact:true}).waitFor({timeout:30000});passed.push('refresh-restores-session-and-profile');
+  await page.evaluate(()=>{location.hash='assistant';});
+  await page.locator('#agent-message').waitFor();
+  assert.equal(errors.length,0,JSON.stringify(errors));assert.equal(serverErrors.length,0,JSON.stringify(serverErrors));
+  assert(writes.every(r=>r.path==='/api/demo/session'),JSON.stringify(writes));passed.push('no-page-runtime-errors-or-server-errors');
+  report={date:'2026-10-17',status:'passed',base,mode:info.mode,dataset_version:info.dataset_version,passed,errors,serverErrors,writes,model_connection_tested:false,financial_writes:0};
+}catch(error){
+  report={date:'2026-10-17',status:'failed',passed,errors,serverErrors,error:String(error)};
+  throw error;
+}finally{
+  if(report)await writeFile(path.join(output,'browser.json'),JSON.stringify(report,null,2),'utf8');
+  await browser.close();
+  if(report)console.log(JSON.stringify(report));
+}

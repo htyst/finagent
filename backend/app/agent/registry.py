@@ -358,3 +358,35 @@ def execute(db: Session, *, session_id: str, owner_id: str, name: str, arguments
         card_id = args.pop("card_id")
         return prepare_card_action(db, session_id=session_id, card_id=card_id, agent_task_id=agent_task_id, **args)
     return get_task(db, session_id=session_id, task_id=args["task_id"])
+
+
+def execution_policy(name,arguments=None):
+    """Trusted descriptive metadata only; security.policy remains authoritative.
+
+    The model cannot supply effects/risk. A prepare node never has submit power.
+    Dynamic floors are deliberately not final authorization decisions.
+    """
+    from app.agent.dialogue import READ_TOOLS
+    from app.agent.dynamic_protocol import OPERATIONS,operation_values
+    from app.domain.security import FIXED_RED_ACTIONS
+    args=arguments or {}
+    effect='rejected';floor='deny';rule='unregistered'
+    if name in READ_TOOLS:
+        effect='read';floor='green';rule='owned_read'
+        if name in {'read_subscriptions','identify_subscriptions'} or name=='read_financial_history' and args.get('table') in {'auto_debit_mandates','subscription_billing_events'}:
+            floor='yellow';rule='subscription_scope_confirmation'
+    elif name in OPERATIONS:
+        base,args=operation_values(name,args)
+        if base in {'compare_wealth_products','plan_budget','request_risk_assessment'}:
+            effect='read' if base!='plan_budget' else 'calculate';floor='green';rule='domain_input_or_read'
+        else:
+            effect='prepare';floor='yellow';rule='server_domain_policy'
+            action={'prepare_card_replacement':'replace_card','prepare_credit_limit_change':'credit_limit','prepare_wealth_buy':'buy'}.get(base,args.get('action'))
+            if action in FIXED_RED_ACTIONS:floor='red'
+            elif base in {'prepare_transfer','prepare_schedule'}:floor='dynamic';rule='owner_daily_total_shanghai_including_this_at_submit'
+            elif base=='prepare_card_management' and action=='limit':floor='dynamic';rule='domain_current_controls'
+    elif name=='calculate':effect='calculate';floor='green';rule='validated_facts'
+    elif name=='respond':effect='answer';floor='none';rule='validated_evidence'
+    elif name in {'declare_goals','revise_goals'}:effect='metadata';floor='none';rule='user_grounded_goals'
+    elif name=='manage_task':effect='control';floor='none';rule='explicit_user_control'
+    return dict(effect=effect,risk_floor=floor,risk_policy=rule,policy_version='g01-tool-policy-v1',can_submit=False)

@@ -497,7 +497,7 @@ def evidence_reply(decision, evidence):
     return text or '暂时没有足够证据形成结论，请补充要查询的范围或对象。'
 
 
-def apply(db, session, task, text, current, decision, evidence):
+def apply(db, session, task, text, current, decision, evidence, *, validated_new_operation=False):
     from app.agent.service import _say, view, _apply_live_decision, cancel
     turn = decision.dialogue
     context = remember(task, text, decision)
@@ -550,7 +550,9 @@ def apply(db, session, task, text, current, decision, evidence):
             setattr(decision, key, None)
         task.context_json = json.dumps(context, ensure_ascii=False)
     if decision.intent in WRITE_INTENTS:
-        if isinstance(current.get('proposal'), dict) and current['proposal']['status'] == 'executed':
+        # Only the dynamic executor may reach this after its distinct instruction
+        # and replay guards; ordinary/legacy modifications remain rejected.
+        if not validated_new_operation and isinstance(current.get('proposal'), dict) and current['proposal']['status'] == 'executed':
             _say(db, task, '原操作已执行，不能修改或撤回原回执。如需另一笔业务，请明确新建；本次没有重复提交。', 'completed')
             return view(db, task)
         if turn and len([g for g in turn.goals if g.kind == 'write']) > 1:

@@ -37,7 +37,7 @@ def binding(db, session, task, kind, rid):
 def describe(db, session, task, kind, rid):
     _,identifier=binding(db,session,task,kind,rid)
     operation=security.describe(db,session.id,kind,rid)
-    return {**operation,'action_id':identifier,
+    return {**operation,'plan_version':task.plan_version,'terms_sha256':security.digest(operation.get('terms',{})),'action_id':identifier,
             'authorization_path':f'/api/tasks/{task.id}/authorizations/{kind}/{rid}',
             'label':LABELS.get(operation['action'],'办理操作')}
 

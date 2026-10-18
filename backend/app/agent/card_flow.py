@@ -65,15 +65,18 @@ def dispatch(db,session,task,text, *, decision_hint=None):
   if task.stop_requested or latest.get('card_request_version')!=version:return view(db,task)
   if kind=='status':
    data=portfolio(db,session.id);labels={'pending_confirmation':'待确认，未办理','submitted':'审核中，尚未发卡','issued':'已发卡','executed':'已办理','cancelled':'已取消','invalidated':'已失效','expired':'已过期'}
-   reply='卡片：'+('；'.join(r['alias']+' '+r['mask']+'：'+('已挂失' if r['lost'] else '已冻结' if r['status']=='frozen' else '正常')+f"，单笔限额{r['limit_minor']/100:.2f}元，线上消费"+('允许' if r['online_enabled'] else '禁止')+'，线下消费'+('禁止' if r['lost'] or r['status']!='active' else '可用，仍受单笔限额约束') for r in data['cards']) or '暂无')+'。\n申请与办理记录：'+('；'.join(r['label']+' '+r['id']+'：'+labels[r['status']] for r in data['requests']) or '暂无')+'。挂失不能通过解冻解除；解挂需单独强验证和页面确认，其他限制保留；当前不支持补卡。'
+   reply='卡片：'+('；'.join(r['alias']+' '+r['mask']+'：'+('已挂失' if r['lost'] else '已冻结' if r['status']=='frozen' else '正常')+f"，单笔限额{r['limit_minor']/100:.2f}元，线上消费"+('允许' if r['online_enabled'] else '禁止')+'，线下消费'+('禁止' if r['lost'] or r['status']!='active' else '可用，仍受单笔限额约束') for r in data['cards']) or '暂无')+'。\n申请与办理记录：'+('；'.join(r['label']+' '+r['id']+'：'+labels[r['status']] for r in data['requests']) or '暂无')+'。挂失不能通过解冻解除；解挂需单独强验证和页面确认，其他限制保留；已挂失模拟借记卡可单独申请补发并完成强验证；原卡永久失效，不代表实体配送。'
    _record_step(db,task,'read_card_management',{},data);task.intent='card_management_status';_say(db,task,reply,'completed');return view(db,task)
   invalidate_task(db,task)
   from app.domain.wealth import invalidate_task_order
   invalidate_task_order(db,task)
   # Moving to another card write invalidates previous credentials, including shared freeze proposals.
   if task.proposal_id:
+   from app.data.models import Proposal
    from app.domain.operations import invalidate_agent_proposal
-   invalidate_agent_proposal(db,session_id=session.id,proposal_id=task.proposal_id);task.proposal_id=None
+   previous_proposal=db.get(Proposal,task.proposal_id)
+   if previous_proposal and previous_proposal.status!='executed':
+    invalidate_agent_proposal(db,session_id=session.id,proposal_id=task.proposal_id);task.proposal_id=None
   latest['card_kind']=kind;latest['card_slots']=values;task.context_json=_dump(latest);task.intent='card_management'
   try:
    kwargs=dict(session_id=session.id,kind=kind,agent_task_id=task.id)

@@ -1,4 +1,4 @@
-param([string]$ChallengeId = '')
+﻿param([string]$ChallengeId = '')
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $outbox = Join-Path $projectRoot 'var\auth-simulator'
 if ($ChallengeId -and $ChallengeId -notmatch '^[a-f0-9]{32}$') { throw 'Invalid challenge ID' }

@@ -21,6 +21,7 @@ from app.data.security_models import SecurityAuthorization, SecurityChallenge, S
 from app.domain.clock import SHANGHAI
 from app.domain.errors import DomainError
 
+FIXED_RED_ACTIONS = frozenset({'buy', 'replace_card', 'credit_limit', 'loss', 'unloss', 'unfreeze', 'online_unblock', 'limit_increase'})
 POLICY_VERSION = 'p0-2026-10-14-v1'
 FAILURE_LIMIT = 5
 LOCK_MINUTES = 15
@@ -83,7 +84,7 @@ def daily_total(db, owner):
 
 def policy(db, owner, action, amount=0):
     total = daily_total(db, owner) if action in {'transfer', 'schedule'} else None
-    red = (action in {'buy', 'replace_card', 'credit_limit', 'loss', 'unloss', 'unfreeze', 'online_unblock', 'limit_increase'} or
+    red = (action in FIXED_RED_ACTIONS or
            (total is not None and total + amount > 100000))
     return {'level': 'red' if red else 'yellow', 'required': '模拟短信验证码＋页面确认' if red else '明确页面确认',
             'action': action, 'amount_minor': amount, 'daily_total_minor': total,

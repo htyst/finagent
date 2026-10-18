@@ -98,9 +98,11 @@ def calculate(node, facts, user_messages):
         else:
             value=decimal(operand.value)
             if operand.quote:
+                from app.agent.planning_assumptions import validate_quote
+                grounded_quote=validate_quote(operand,user_messages)
                 from app.agent.requirements import yuan_minor
                 quoted_values=[]
-                quoted=re.sub(r'(?<=\d),(?=\d{3}(?:\D|$))','',operand.quote)
+                quoted=re.sub(r'(?<=\d),(?=\d{3}(?:\D|$))','',grounded_quote)
                 for number in re.findall(r'[0-9]+(?:\.[0-9]+)?(?:\s*[万亿])?|[零〇一二两三四五六七八九十百千万亿]+',quoted):
                     try:
                         scaled=re.fullmatch(r'([0-9]+(?:\.[0-9]+)?)\s*([万亿])',number)
@@ -148,6 +150,14 @@ def calculate(node, facts, user_messages):
         if op=='goal_budget':
             metric='funding_buffer';verdict='positive_buffer' if result>=0 else 'funding_gap';reported_numbers=[numbers[0],reserve,target]
         else:metric='emergency_buffer';label='当前活期减所列期间合计消费后的余量（含经营，未计其他现金流）' if input_scopes[1]=='business_and_household' else '当前活期减所列期间生活费后的现金余量（未计其他现金流）'
+    elif op=='obligation_budget':
+        expected=['yuan','yuan','number','yuan']+(['yuan'] if len(numbers)==5 else [])
+        if len(numbers) not in (4,5) or units!=expected or input_keys[:2]!=['available_liquid','monthly_direct_cash_expense_mean'] or input_keys[3]!='upcoming_due_known' or any(n<0 for n in numbers) or numbers[2]>120:
+            raise DomainError('ANALYSIS_UNIT','应付款情景须使用可用活期、直接现金净消费、月数、已核实近期应付款；不能使用含还款的对外现金流、全部信用卡消费或负债余额重复扣减。',422)
+        reserve=numbers[1]*numbers[2];target=numbers[4] if len(numbers)==5 else Decimal(0)
+        unit='yuan';result=numbers[0]-reserve-numbers[3]-target
+        metric='commitment_buffer';label='直接现金消费预留、已知近期应付款及所列目标后的现金余量（有限口径）'
+        supporting=[dict(key='reserve_required',label='直接现金净消费预留（不含信用卡消费及还款）',value=str(reserve.quantize(Decimal('.01'),rounding=ROUND_HALF_UP)),unit='yuan')]
     elif op=='funding_check':
         if units!=['yuan','yuan','yuan'] or any(n<0 for n in numbers):raise DomainError('ANALYSIS_UNIT','目标测算须按可用现金、预留额、目标成本传入三个非负金额',422)
         unit='yuan';result=numbers[0]-numbers[1]-numbers[2];metric='funding_buffer'
@@ -179,7 +189,8 @@ def calculate(node, facts, user_messages):
             'expense_scope':'business_and_household' if 'business_and_household' in input_scopes else None,
             'funding_scope':('仅按当前可用现金扣除独立的'+('经营与家庭合计消费预留' if 'business_and_household' in input_scopes else '生活费预留')+'及目标成本，未计未来收入；正数代表目标已列支且所列预留仍完整保留，未知其他应付款另行核对') if verdict else None,
             'supporting_facts':supporting,
-            'assumptions':list({json.dumps(a,sort_keys=True):a for a in assumptions}.values()),'sources':list(dict.fromkeys(sources))}
+            'assumptions':list({json.dumps(a,sort_keys=True):a for a in assumptions}.values()),'sources':list(dict.fromkeys(sources)),
+            'scope_note':'未来已知账单与直接现金消费分列；到期款只覆盖底稿所列近期范围，与预留月数不同；不含尚未出账的信用卡消费或未记录义务，不代表建议花费上限。' if op=='obligation_budget' else None}
 
 
 LABELS={'available_minor':'可用余额','demand_minor':'活期余额','term_minor':'定期本金','net_minor':'净消费',
@@ -364,7 +375,7 @@ def compose_evidence(item):
         result['data']['contracts']=[{k:c[k] for k in fields if k in c} for c in data.get('contracts',[])[:12]]
         result['protected_query_completed']=not bool(item.get('error'))
     elif len(json.dumps(data,ensure_ascii=False))<=5000:result['data']=data
-    elif item['tool']=='financial_planning_basis':result['data']={k:data[k] for k in ('period_start','period_end','coverage','snapshot_as_of','limitations','decision_context') if k in data}
+    elif item['tool']=='financial_planning_basis':result['data']={k:data[k] for k in ('period_start','period_end','coverage','snapshot_as_of','limitations','decision_context','upcoming_obligations') if k in data}
     else:result['excerpt_notice']='详细数据已保存在服务端，金额仅使用facts目录；本轮未提供的细节不能推断。'
     return result
 

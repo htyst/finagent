@@ -29,6 +29,9 @@ def task_audit(db, session, task_id):
         'dialogue': {key: context.get('dialogue_memory', {}).get(key) for key in
             ('version', 'last_behavior', 'missing_fields', 'fields', 'conditions', 'prohibitions', 'time_requirements', 'last_budget')},
         'resources': resources,
+        'execution_graph':current.get('execution_graph'),
+        'correlation_events':context.get('dynamic_runtime',{}).get('events',[]),
+        'authorization_links':[dict(task_id=task.id,plan_version=task.plan_version,action_id=action,resource_ref=ref) for action,ref in context.get('authorization_receipts',{}).items()],
         'steps': [{'ordinal': s.ordinal, 'plan_version': s.plan_version, 'tool': s.tool_name,
             'status': s.status, 'result_ref': s.result_ref,
             'parameters_sha256': hashlib.sha256(s.args_json.encode()).hexdigest(),
@@ -36,5 +39,5 @@ def task_audit(db, session, task_id):
             'created_at_utc': s.created_at_utc} for s in steps],
         'proposal_events': [{'id': e.id, 'event': e.event, 'code': e.detail_code,
             'proposal_id': e.proposal_id, 'created_at_utc': e.created_at_utc} for e in events],
-        'limitations': ['任务ID可关联步骤和业务资源；非转账业务及worker审计尚未全部传播同一trace_id',
+        'limitations': ['模型调用、目标、节点和固定单回执按任务关联；领域及worker保留资源ID，未接入第三方端到端trace协议',
                         '不导出模型内部思维链、原始聊天、认证材料和收货资料']})

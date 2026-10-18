@@ -1,4 +1,4 @@
-function Get-ProjectNode {
+﻿function Get-ProjectNode {
     param([Parameter(Mandatory)][string]$ProjectRoot)
     $tools = Join-Path $ProjectRoot 'var\tools'
     $candidates = @(Get-ChildItem -LiteralPath $tools -Directory -ErrorAction SilentlyContinue |

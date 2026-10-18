@@ -19,6 +19,7 @@ function Operation({workspace:w,operation:o}:{workspace:AgentWorkspace;operation
       {(o.amount_minor>0||o.action==='transfer')&&<p>金额／预算 <strong className="proposal-amount">{money(o.amount_minor)}</strong></p>}
       <div className="authorization-key-terms"><Terms value={keyTerms(o)}/></div>
       {proposal&&<ConditionDetails condition={proposal.summary.condition} validation={proposal.validation}/>}
+      <p className="caption">计划版本 {o.plan_version??w.task?.plan_version} · 固定单 {o.resource_id.slice(-8)}</p>
       <details><summary>核对完整固定条款</summary><Terms value={o.terms}/></details>
       {pending&&<><p className="caption">本单有效至 {local(o.expires_at)}。确认只适用于这份固定单，修改信息后需要重新核对。</p>
         {o.blocked_reason&&<p className="coverage-warning" role="status">{o.blocked_reason}</p>}

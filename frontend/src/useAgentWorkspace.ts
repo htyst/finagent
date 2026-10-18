@@ -1,3 +1,4 @@
+import type {ExecutionGraph} from './executionGraph';
 import { useEffect,useRef,useState } from 'react';
 import { api,ApiError } from './api';
 import type { SecurityOperation } from './api';
@@ -9,7 +10,7 @@ export type Proposal = { id: string; task_id: string; kind: string; status: stri
   summary: { action: string; source?: { alias: string; mask: string }; target?: { alias: string; mask: string; phone_mask?: string | null; bank_name?: string; account_number?: string };
     card?: { alias: string; mask: string }; amount_minor?: number; impact: string; condition?: Condition }; validation?: Validation | null;
   receipt?: { order_id?: string; committed_at_utc?: string; message: string; amount_minor?: number; source_balance_minor?: number; recipient_credit_minor?: number; recipient_credit_id?: string; card_status?: string } | null };
-export type AuthorizationOperation=SecurityOperation & {action_id:string;authorization_path:string;label:string;status:string;expires_at:string;can_confirm:boolean;blocked_reason:string|null;receipt:Record<string,unknown>|null};
+export type AuthorizationOperation=SecurityOperation & {plan_version?:number;terms_sha256?:string;action_id:string;authorization_path:string;label:string;status:string;expires_at:string;can_confirm:boolean;blocked_reason:string|null;receipt:Record<string,unknown>|null};
 export type Prerequisite={kind:'risk_assessment';pending_id:string;label:string;effect:string;questions:Array<{label:string;options:string[]}>};
 type OutgoingMessage={id:number;text:string;newTask:boolean;taskId?:string;afterCount:number;status:'sending'|'uncertain'|'failed'};
 function delivered(task:AgentTask|null|undefined,pending:OutgoingMessage){
@@ -19,6 +20,7 @@ function delivered(task:AgentTask|null|undefined,pending:OutgoingMessage){
 export type AgentTask = { service_request?: {id:string;kind:string} | null; birthday_details?: BirthdayDetails | null; transfer_details?: TransferDetails | null; wealth_order?: { id: string } | null; card_request?: { id: string } | null; subscription_request?: { id: string } | null; birthday_request?: { id: string } | null; id: string; mode: string; intent: string | null; status: string; proposal: Proposal | null;
   messages: Array<{ role: string; content: string }>;
   requested_outcomes?: Array<string | {text: string; kind?: string}>;
+  execution_graph?:ExecutionGraph | null;
   analysis_workflow?: {id:string;objective:string;status:string;read_only:boolean;nodes:Array<{id:string;title:string;name:string;status:string;depends_on:string[]}>} | null;
   next_actions?: Array<{kind:string;pending_id:string;label:string;scope:string;effect:string}>;
   authorization_operations?:AuthorizationOperation[];prerequisites?:Prerequisite[];
@@ -31,6 +33,8 @@ export type AgentTask = { service_request?: {id:string;kind:string} | null; birt
 
 export function useAgentWorkspace(onChanged: () => Promise<void>, revision: number) {
   const { task, setTask, busy, setBusy, loading, syncError, updatedAt, refresh, retry } = useTaskSync<AgentTask>('/api/agent/tasks/current', onChanged, revision);
+  const [forceNew,setForceNew]=useState(false);
+  function startNewConversation(){if(busy)return;setForceNew(true);setInput('');setError('');setNotice('已开始新对话，原任务及回执保留在服务端，可按任务ID查询。');}
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -47,7 +51,10 @@ export function useAgentWorkspace(onChanged: () => Promise<void>, revision: numb
     if (!message || unavailable) return;
     if(/^\d{6}$/.test(message)||/(?:验证码|动态码|短信码|OTP|密码|confirmation_token|operator_token)\s*[:：=]?\s*[A-Za-z0-9_./+\-=]{4,}/i.test(message)){setError('认证信息请只输入独立安全窗口，此消息未发送。');return;}
     if (!setBusy(true)) return; setError(''); setNotice('');
-    const active = task && !['completed', 'partially_completed', 'cancelled', 'expired', 'failed', 'scheduled', 'collecting'].includes(task.status);
+    // A completed answer/payment still belongs to this conversation. Keep
+    // receipt and reference context until explicit New conversation; terminated
+    // or expired tasks require a fresh task and cannot be implicitly replayed.
+    const active = !forceNew && task && !['cancelled','expired'].includes(task.status);
     const pending:OutgoingMessage={id:++outgoingId.current,text:message,newTask:!active,taskId:task?.id,afterCount:task?.messages.length??0,status:'sending'};
     setOutgoing(pending);setInput('');
     let acknowledged=false;
@@ -55,7 +62,7 @@ export function useAgentWorkspace(onChanged: () => Promise<void>, revision: numb
       const result = active
         ? await write<AgentTask>(`/api/tasks/${task.id}/messages`, { message })
         : await write<AgentTask>('/api/tasks', { message });
-      acknowledged=true;setTask(result);setOutgoing(null);
+      acknowledged=true;setForceNew(false);setTask(result);setOutgoing(null);
       await onChanged();
     } catch (err) {
       if(!acknowledged){
@@ -158,6 +165,6 @@ export function useAgentWorkspace(onChanged: () => Promise<void>, revision: numb
     catch(e){try{await refresh(task.id);}catch{/* Read-only state recovery. */}setError(e instanceof Error?e.message:'订阅查询未完成，请重试');}
     finally{setBusy(false);}
   }
-  return { task, outgoing, input, setInput, error, notice, busy, loading, syncError, updatedAt, unavailable, retry, sendMessage, submitDetails, confirm, confirmAuthorization, cancelAuthorization, submitAssessment, taskAction, confirmSubscriptionQuery };
+  return { task:forceNew?null:task, startNewConversation, outgoing, input, setInput, error, notice, busy, loading, syncError, updatedAt, unavailable, retry, sendMessage, submitDetails, confirm, confirmAuthorization, cancelAuthorization, submitAssessment, taskAction, confirmSubscriptionQuery };
 }
 export type AgentWorkspace = ReturnType<typeof useAgentWorkspace>;

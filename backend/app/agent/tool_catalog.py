@@ -22,9 +22,15 @@ def catalog():
       '卡片管理':['prepare_card_replacement','prepare_credit_limit_change','read_credit_cards','list_cards','read_card_management','prepare_card_loss','prepare_card_unloss','prepare_card_freeze','prepare_card_unfreeze','prepare_virtual_card_application','prepare_card_limit_change','prepare_online_payment_block','prepare_online_payment_unblock','prepare_card_action','prepare_card_management'],
       '订阅代扣':['prepare_merchant_contract_cancel','read_subscriptions','identify_subscriptions','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_renewal_reminder','prepare_subscription_reminder'],
       '生日联动':['read_birthdays','read_birthday_offers','prepare_birthday_create','prepare_birthday_change','prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_birthday_retry'],
-      '通用支持':['read_service_requests','read_tool_catalog','search_knowledge','read_agent_status','plan_budget','calculate','respond','manage_task']}
+      '通用支持':['read_service_requests','read_tool_catalog','search_knowledge','read_agent_status','plan_budget','calculate','respond','manage_task','declare_goals','revise_goals']}
     assert set().union(*(set(v) for v in groups.values()))==names
-    return {'tool_count':len(names),'groups':groups,'permissions':{
+    from app.agent.tool_contracts import COMPATIBILITY_ONLY
+    generated={'model_tool_count':len(names-COMPATIBILITY_ONLY),
+        'model_visible_groups':{k:[n for n in v if n not in COMPATIBILITY_ONLY] for k,v in groups.items()},
+        'compatibility_only':sorted(names&COMPATIBILITY_ONLY),
+        'aliases':{n:dict(base=v[0],fixed_arguments=v[1]) for n,v in p.ALIASES.items()},
+        'contract_export':'scripts/export-tool-contracts.py'}
+    return {**generated,'tool_count':len(names),'groups':groups,'permissions':{
         'green':'本人普通查询和分析自动执行；不等于可以读取他人或受保护订阅',
         'yellow':'订阅查询、提醒、代扣解除、虚拟卡申请、小额转账等须本人页面确认',
         'red':'挂失、解挂、补卡、授信调额申请、解冻、恢复线上支付、提高交易限额、理财申购以及日累计超1000元转账须独立模拟短信验证及确认',

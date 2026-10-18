@@ -9,12 +9,12 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_DIRS = {'.git', '.agents', '.codex', '.aws', '.venv', '.deps', 'node_modules',
                  'var', 'dist', 'build', '__pycache__', '.pytest_cache', 'test-results', 'playwright-report'}
-SOURCE_DIRS = {'backend', 'frontend', 'scripts', 'docs', 'deploy', 'datasets', '.github'}
+SOURCE_DIRS = {'backend', 'frontend', 'scripts', 'docs', 'deploy', 'datasets', '.github', 'evals'}
 ROOT_FILES = {'README.md', '.env.example', '.gitignore', '.dockerignore', 'compose.yaml',
-              '.gitattributes', 'Dockerfile.backend', 'Dockerfile.frontend', 'Dockerfile.cloud'}
+              '.gitattributes', 'Dockerfile.backend', 'Dockerfile.frontend', 'Dockerfile.cloud', 'render.yaml'}
 LAUNCHERS = {'FinAgent.exe', 'FinAgent-Mock.exe', 'FinAgent-Live.exe'}
 SUFFIXES = {'.py', '.toml', '.ini', '.lock', '.txt', '.md', '.json', '.ts', '.tsx', '.js',
-            '.cjs', '.mjs', '.css', '.html', '.svg', '.ico', '.png', '.ps1', '.cs', '.conf', '.yaml', '.yml', '.xml', '.csv'}
+            '.cjs', '.mjs', '.css', '.html', '.svg', '.ico', '.png', '.ps1', '.cs', '.conf', '.yaml', '.yml', '.xml', '.csv', '.jsonl', '.sh'}
 REQUIRED = {'backend/tests/test_security.py', 'backend/tests/test_background.py',
             'backend/tests/test_migrations.py', 'backend/migrations/versions/0013_security.py',
             'backend/requirements.lock', 'frontend/package-lock.json',
@@ -53,7 +53,7 @@ def source_paths(*, include_launchers=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', default='FinAgent-P0-candidate-20261015.zip')
+    parser.add_argument('--name', default='FinAgent-source-candidate.zip')
     parser.add_argument('--include-launchers', action='store_true',
                         help='Include the three root Windows launchers; build them first if missing')
     args = parser.parse_args()
