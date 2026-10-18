@@ -10,7 +10,7 @@
 
 - 安装 Git 和受支持的 Python，安装时启用 Python Launcher，或准备好 Python 解释器的实际路径。
 - 没有 Node 时，可使用下面的项目内安装脚本；不要求全局安装 Node。
-- macOS、Linux 和 Docker 的首次安装尚未完成本轮验证。`compose.yaml` 保留为 Mock 部署候选配置；不要把它当作已验收的 Live 云部署。
+- GitHub 的 Linux 环境已通过完整后端、前端和 `Dockerfile.cloud` 启动验证；macOS、Linux 原生完整浏览器安装与 `compose.yaml` 仍未逐项验收，不代表 Live 公网部署已经上线。
 
 ## 2. 拉取源码并找到应用根目录
 
@@ -165,7 +165,7 @@ Mock 使用本地规则，适合先验证安装与界面；Live 才使用 DeepSe
 
 本次合并与验证见 [上传与 Actions 验收](docs/GitHub-上传与Actions验收-20261018.md)。
 
-建议以本目录作为仓库应用根目录，保留 README、backend、frontend、scripts、datasets、docs、依赖锁文件和迁移。 `.gitignore` 排除本机 `.env`、运行数据库、认证收件箱、依赖目录、日志、缓存和生成的 EXE；不要强制添加这些文件。
+建议以本目录作为仓库应用根目录，保留 README、backend、frontend、scripts、datasets、docs、依赖锁文件和迁移。 `.gitignore` 排除本机 `.env`、运行数据库、认证收件箱、依赖目录、日志、缓存和其他生成物；原仓库三份指定启动器作为明确例外保留。不要强制添加私密或运行文件。
 
 发布前运行 `check-github-readiness.py`，再用 `git status`／`git diff --cached` 核对真实待提交内容。若已有远端历史，先克隆远端到新目录再合并本次源码，保留原分支与历史，不使用强推覆盖。
 

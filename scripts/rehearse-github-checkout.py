@@ -48,7 +48,7 @@ def main():
   command('imported-data-regression',[py,'-B','-m','pytest','backend/tests/test_financial_import.py','-q','-p','no:cacheprovider','--junitxml='+str(out/'imported-data.xml')],clone,240)
   with closing(sqlite3.connect(clone/'var/finagent.sqlite3')) as db:
    report['database']=dict(users=db.execute('select count(*) from users').fetchone()[0],transactions=db.execute('select count(*) from transactions').fetchone()[0],migration=db.execute('select version_num from alembic_version').fetchone()[0]);expected_version=db.execute('select dataset_version from demo_settings').fetchone()[0]
-  assert report['database']==dict(users=20,transactions=25471,migration='0017_servicing')
+  assert report['database']==dict(users=20,transactions=25471,migration='0018_directory')
   service_log=(out/'dev.log').open('w',encoding='utf-8')
   process=subprocess.Popen(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(clone/'scripts/dev.ps1'),'-Mode','mock'],cwd=clone,env=env,stdout=service_log,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW)
   report['services_stopped']=False;dump()
