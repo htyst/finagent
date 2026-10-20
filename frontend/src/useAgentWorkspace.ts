@@ -165,6 +165,11 @@ export function useAgentWorkspace(onChanged: () => Promise<void>, revision: numb
     catch(e){try{await refresh(task.id);}catch{/* Read-only state recovery. */}setError(e instanceof Error?e.message:'订阅查询未完成，请重试');}
     finally{setBusy(false);}
   }
-  return { task:forceNew?null:task, startNewConversation, outgoing, input, setInput, error, notice, busy, loading, syncError, updatedAt, unavailable, retry, sendMessage, submitDetails, confirm, confirmAuthorization, cancelAuthorization, submitAssessment, taskAction, confirmSubscriptionQuery };
+  async function openTask(id:string){
+    if(unavailable||!setBusy(true))throw Error('当前任务正在处理或同步，请稍后再打开历史任务。');
+    try{await refresh(id);setForceNew(false);setOutgoing(null);setInput('');setError('');}
+    finally{setBusy(false);}
+  }
+  return { task:forceNew?null:task, startNewConversation, openTask, outgoing, input, setInput, error, notice, busy, loading, syncError, updatedAt, unavailable, retry, sendMessage, submitDetails, confirm, confirmAuthorization, cancelAuthorization, submitAssessment, taskAction, confirmSubscriptionQuery };
 }
 export type AgentWorkspace = ReturnType<typeof useAgentWorkspace>;

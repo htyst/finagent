@@ -193,7 +193,7 @@ def calculate(node, facts, user_messages):
             'scope_note':'未来已知账单与直接现金消费分列；到期款只覆盖底稿所列近期范围，与预留月数不同；不含尚未出账的信用卡消费或未记录义务，不代表建议花费上限。' if op=='obligation_budget' else None}
 
 
-LABELS={'available_minor':'可用余额','demand_minor':'活期余额','term_minor':'定期本金','net_minor':'净消费',
+LABELS={'available_minor':'可用余额','balance_minor':'账面余额','available_balance_minor':'可用余额','reserved_minor':'已预留资金','remaining_minor':'剩余金额','amount_minor':'金额','current_price_minor':'每期合同价','demand_minor':'活期余额','term_minor':'定期本金','net_minor':'净消费',
         'income_minor':'已入账收入','net_cashflow_minor':'净现金流','purchase_minor':'消费','refund_minor':'退款',
         'outflow_minor':'现金流出','inflow_minor':'现金流入','liabilities_snapshot_minor':'导入快照负债',
         'net_worth_minor':'净资产','monthly_equivalent_minor':'订阅折月费用'}
@@ -208,6 +208,7 @@ def facts_from(node, data):
         result=[{'key':k,'label':label,'value':str(Decimal(s[k])/100),'unit':'yuan'} for k,label in [('auto_renew_monthly_minor','已确认自动续费合同折月费用'),('paid_total_minor','查询期内订阅实付总额')] if k in s]
         for i,c in enumerate(data.get('contracts',[])[:12]):
             result.append({'key':'contract_'+str(i),'label':c['service_name']+'每期合同价（'+c.get('billing_cycle','')+'）','value':str(Decimal(c['current_price_minor'])/100),'unit':'yuan'})
+        result += [dict(key=k,label=label,value=str(s[k]),unit='number') for k,label in [('contract_count','订阅合同数量'),('auto_renew_contract_count','开启续费合同数量'),('paid_attempt_count','成功扣费笔数'),('failed_attempt_count','失败扣费笔数')] if k in s]
         return result
     result=[]
     if isinstance(data,list) and node['name'] in {'list_accounts','list_cards'}:
@@ -220,7 +221,7 @@ def facts_from(node, data):
             for key,value in item.items():
                 p=(path+'.' if path else '')+key
                 if key.endswith('_minor') and isinstance(value,int) and not isinstance(value,bool):
-                    result.append({'key':p,'label':(prefix+'：' if prefix else '')+LABELS.get(key,key)+'（'+p+'）','value':str(Decimal(value)/100),'unit':'yuan'})
+                    result.append({'key':p,'label':(prefix+'：' if prefix else '')+LABELS.get(key,'金额')+'（'+p+'）','value':str(Decimal(value)/100),'unit':'yuan'})
                 elif key not in {'evidence','accounts','cards','billing_events','positions','imported_positions'}:walk(value,p,prefix)
         elif isinstance(item,list):
             for i,row in enumerate(item[:12]):walk(row,path+'.'+str(i),label)
@@ -280,6 +281,90 @@ def unsupported_affordability_claim(text,*,personal=False):
     return False
 
 
+CN_NUMERAL=r'[零〇一二两三四五六七八九十百千万亿]+'
+# Assertions that stay forbidden regardless of how well the numbers check out.
+MONEY_ASSERTION=re.compile(r'保证收益|百分之|(?:已经|已)(?:成功)?(?:转账|扣款|冻结|解冻|挂失|撤销|申购|赎回)'
+    r'|(?:确认|确定)[^。；\n]{0,6}盗刷|(?:免|绕过|跳过)[^。；\n]{0,6}(?:确认|授权|验证)')
+
+
+def _date_fragments(value):
+    """Partial renderings of one verified date: 09-24, 9月24日, 2026年9月24日, 2026, ..."""
+    match=re.fullmatch(r'(\d{4})-(\d{2})-(\d{2})',value) if isinstance(value,str) else None
+    if not match:return set()
+    year,month,day=map(int,match.groups())
+    return {value,f'{year}年{month}月{day}日',f'{year}年{month:02d}月{day:02d}日',
+        f'{month}月{day}日',f'{month:02d}月{day:02d}日',f'{month}-{day:02d}',f'{month:02d}-{day:02d}',str(year)}
+
+
+def _verified_number_forms(runtime):
+    """Every numeric rendering the server can actually back with a fact."""
+    allowed=set()
+    for f in runtime.get('facts',[]):
+        try:value=decimal(f['value'])
+        except (InvalidOperation,TypeError,ValueError):continue
+        if f.get('unit')=='yuan':
+            allowed.update({f'{value:,.2f}',f'{value:.2f}',format(value.normalize(),'f')})
+            if value==value.to_integral_value():allowed.update({str(int(value)),f'{int(value):,}'})
+        else:
+            allowed.add(format(value.normalize(),'f'))
+            if value==value.to_integral_value():allowed.add(str(int(value)))
+    return allowed
+
+
+def _period_fragments(period):
+    """Fragments of a DateRange dict the server itself returned."""
+    from datetime import date, timedelta
+    if not isinstance(period,dict):return set()
+    forms=set()
+    for key in ('start_date','end_date'):
+        forms|=_date_fragments(period.get(key))
+    end=period.get('end_exclusive_date')
+    if isinstance(end,str):
+        try:forms|=_date_fragments((date.fromisoformat(end)-timedelta(days=1)).isoformat())
+        except ValueError:pass
+    return forms
+
+
+def _verified_date_forms(runtime):
+    """Every rendering of a date the server actually queried or returned."""
+    forms=set()
+    for e in runtime.get('evidence',[]):
+        for value in (e.get('query') or {}).values():forms|=_date_fragments(value)
+        data=e.get('data') if isinstance(e.get('data'),dict) else {}
+        for key in ('period_start','period_end','snapshot_as_of','as_of'):forms|=_date_fragments(data.get(key))
+        # The tool's own period and its computed comparison window are server-derived
+        # facts; rejecting them forced the model to describe a trend without dates.
+        forms|=_period_fragments(data.get('period'))
+        forms|=_period_fragments((data.get('comparison') or {}).get('period'))
+    return forms
+
+
+def _user_number_forms(runtime):
+    """Numbers and durations the user said themselves may be echoed back verbatim."""
+    allowed=set()
+    for text in [runtime.get('request') or '']+list(runtime.get('user_messages') or []):
+        if not isinstance(text,str):continue
+        allowed.update(re.findall(r'[0-9]+(?:[.,][0-9]+)*',text))
+        allowed.update(re.findall(CN_NUMERAL,text))
+        # "最近三个月" is the user's own span, not a fabricated quantity.
+        allowed.update(re.findall(CN_NUMERAL+r'(?:万元|元|块钱|成|%|个月)',text))
+    return allowed
+
+
+def unverified_claims(prose,runtime):
+    """Numeric fragments in the answer that no fact, verified date or user word supports."""
+    allowed=_verified_number_forms(runtime)|_user_number_forms(runtime)
+    # Verified dates are removed whole, so a stray "24" cannot ride on "9-24".
+    scrub=prose
+    for form in sorted(_verified_date_forms(runtime),key=len,reverse=True):scrub=scrub.replace(form,' ')
+    found=[]
+    for token in re.finditer(r'[0-9]+(?:[.,][0-9]+)*',scrub):
+        if token.group() not in allowed:found.append(token.group())
+    for token in re.finditer(CN_NUMERAL+r'(?:万元|元|块钱|成|%|个月)',prose):
+        if token.group() not in allowed:found.append(token.group())
+    return list(dict.fromkeys(found))
+
+
 def render(answer,runtime):
     text=answer.answer_template.replace('\\n','\n')
     refs={e['source_ref'] for e in runtime['evidence'] if not e.get('error')}
@@ -303,9 +388,13 @@ def render(answer,runtime):
         raise DomainError('ANALYSIS_ANSWER_INVALID','资金方向解释反了：服务端测算为正向余量，不能宣称已知目标有缺口；只需说明未来应付款尚待核对',422)
     if verdicts=={'funding_gap'} and re.search(r'资金充足|完全够用|轻松负担|预算充裕',prose):
         raise DomainError('ANALYSIS_ANSWER_INVALID','资金方向解释反了：服务端测算有资金缺口',422)
-    if re.search(r'[0-9{}]|[零〇一二两三四五六七八九十百千万亿]+(?:元|万元|个月|成|%)|百分之|保证收益|(?:已经|已)(?:成功)?(?:转账|扣款|冻结|解冻|挂失|撤销|申购|赎回)|(?:确认|确定).*盗刷|(?:免|绕过|跳过).*(?:确认|授权|验证)',prose):
-        fragments=re.findall(r'[0-9]+(?:\.[0-9]+)?|[零〇一二两三四五六七八九十百千万亿]+(?:元|万元|个月|成|%)',prose)
-        raise DomainError('ANALYSIS_ANSWER_INVALID','回答含未经校验的数字或业务断言'+('：'+ '、'.join(fragments[:8]) if fragments else ''),422)
+    if MONEY_ASSERTION.search(prose):
+        raise DomainError('ANALYSIS_ANSWER_INVALID','回答含未经允许的业务断言',422)
+    # Traceability replaces a blanket digit ban: an exact verified value or a number
+    # the user said themselves passes, anything the server cannot back still fails.
+    fragments=unverified_claims(prose,runtime)
+    if fragments:
+        raise DomainError('ANALYSIS_ANSWER_INVALID','回答含未经校验的数字或业务断言：'+'、'.join(fragments[:8]),422)
     return text
 
 

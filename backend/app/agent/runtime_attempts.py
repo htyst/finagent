@@ -5,9 +5,11 @@ from pydantic import ValidationError
 
 REPAIRABLE={'EXECUTION_GRAPH_INVALID','INVALID_ARGUMENTS','INVALID_TOOL_BATCH','BATCH_NOT_EXECUTED','ANALYSIS_ANSWER_INVALID',
     'UNSUPPORTED_ANSWER','ANALYSIS_REFERENCE','INVALID_CALCULATION','ANALYSIS_UNIT',
+    'ANALYSIS_STALE_ASSUMPTION','SUBSCRIPTION_SELECTION_MISMATCH',
     'ANALYSIS_ASSUMPTION','ANALYSIS_STALE_ASSUMPTION','ANALYSIS_CURRENCY_UNKNOWN','ANALYSIS_REDUNDANT_QUESTION','ANALYSIS_ONLY','ANALYSIS_FOCUS','ANALYSIS_JUDGMENT','OPERATION_NOT_PREPARED','TOOL_RETRY_EXHAUSTED'}
 # These may be recovered only by the very same validated request succeeding.
-RETRYABLE={'GOAL_REVISION_REQUIRED','READ_REJECTED','MODEL_UNAVAILABLE','RESOURCE_UNRESOLVED'}
+RETRYABLE={'GOAL_REVISION_REQUIRED','READ_REJECTED','MODEL_UNAVAILABLE','RESOURCE_UNRESOLVED',
+    'INTERRUPTED_READ','MODEL_NETWORK','MODEL_TIMEOUT','READ_TIMEOUT'}
 
 
 def signature(node):
@@ -43,7 +45,9 @@ def recovered(r,node):
     key=signature(node)
     for old in r['nodes']:
         if old is not node and old.get('status')=='failed' and signature(old)==key:
-            if old.get('error_code') in REPAIRABLE|RETRYABLE:
+            # A changed dataset or permission scope cannot repair an old read.
+            same_scope=all(old.get(k)==node.get(k) for k in ('owner_id','session_id','dataset_version','plan_version'))
+            if same_scope and not old.get('invalidated') and old.get('error_code') in REPAIRABLE|RETRYABLE:
                 old['recovered_by']=node['id']
 
 

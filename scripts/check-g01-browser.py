@@ -1,5 +1,5 @@
 """Run the actual G01 UI with a clearly isolated model substitute, no provider API."""
-import json,os,socket,subprocess,sys,time
+import json,os,socket,subprocess,sys,time,shutil
 from pathlib import Path
 from uuid import uuid4
 import httpx
@@ -7,6 +7,9 @@ ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/os.getenv('FINAGENT_REVIEW_DIR
 def port():
  with socket.socket() as sock:sock.bind(('127.0.0.1',0));return sock.getsockname()[1]
 a,b=port(),port();node=ROOT/'var/tools/node-v24.22.0-win-x64/node.exe'
+if not node.is_file():
+ node=shutil.which('node')
+ if not node:raise SystemExit('Node is required')
 env=dict(os.environ,PYTHONPATH=str(ROOT/'backend'),PYTHONDONTWRITEBYTECODE='1',PYTHONIOENCODING='utf-8',FINAGENT_DB_PATH=str(RUN/'bank.sqlite3'),FINAGENT_MODE='live',FINAGENT_AGENT_ENGINE='dynamic',FINAGENT_G01_BROWSER_FIXTURE='1',FINAGENT_SCHEDULER_ENABLED='0',FINAGENT_SUBSCRIPTIONS_ENABLED='0',FINAGENT_BIRTHDAYS_ENABLED='0',FINAGENT_ALLOWED_ORIGIN=f'http://127.0.0.1:{b}',FINAGENT_API_PROXY_TARGET=f'http://127.0.0.1:{a}',FINAGENT_E2E_BASE_URL=f'http://127.0.0.1:{b}',FINAGENT_E2E_OUTPUT=str(RUN))
 processes=[];report=dict(output=str(RUN),mode='Edge+model_substitute+real_domain',passed=False)
 import hashlib

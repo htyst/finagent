@@ -59,7 +59,7 @@ def merchant_stopped(db,auth):
     return bool(row and row.owner_id==auth.owner_id)
 
 
-def basis(db,session,kind,subject_id):
+def basis(db,session,kind,subject_id,selection_basis=None):
     from app.domain.financial_profile import metadata
     if kind=='replace_card':
         from app.domain.card_management import owned_card,controls
@@ -91,7 +91,8 @@ def basis(db,session,kind,subject_id):
         if current.get('status') in {'cancelled','expired','terminated'}:
             raise DomainError('INVALID_CONTRACT_STATE','合同已终止或到期，请核对原合同',409)
         end=current.get('access_end_date') or None
-        return dict(contract_id=subject_id,merchant=current['service_name'],access_end_date=end,access_period_state=access_period(end),
+        basis_line={'selection_basis':selection_basis} if selection_basis else {}
+        return dict(contract_id=subject_id,merchant=current['service_name'],access_end_date=end,access_period_state=access_period(end),**basis_line,
             access_note='权益截止日期来自导入快照；已过期权益不会恢复或延长，不承诺当前仍可用',
             source_digest=_digest(_canonical(raw)),provider='local_merchant_simulator',
             impact='取消本地模拟商户下一期续订，保留原权益截止日期；不退款、不提前终止本期权益，也不撤销独立银行代扣授权')
@@ -123,14 +124,14 @@ def ensure_no_pending(db,sid,except_task=None):
 
 
 @security.preparing
-def prepare(db,*,session_id,kind,subject_id,amount_minor=None,agent_task_id=None):
+def prepare(db,*,session_id,kind,subject_id,amount_minor=None,agent_task_id=None,selection_basis=None):
     instant=_now()
     with atomic_write(db):
         session,_=_session(db,session_id,instant)
         if agent_task_id:
             task=db.get(AgentTask,agent_task_id)
             if not task or task.session_id!=session.id or task.owner_id!=session.owner_id:raise DomainError('RESOURCE_NOT_FOUND','任务不存在',404)
-        source=basis(db,session,kind,subject_id)
+        source=basis(db,session,kind,subject_id,selection_basis)
         if kind=='credit_limit':
             used=max(source['outstanding_minor'],source['credit_limit_minor']-source['available_credit_minor'],0)
             if type(amount_minor) is not int or not used<=amount_minor<=MAX_CREDIT_MINOR or amount_minor<=0:

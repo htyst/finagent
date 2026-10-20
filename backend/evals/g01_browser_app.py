@@ -10,12 +10,22 @@ if 'TEST-ONLY' not in Path(os.environ.get('FINAGENT_DB_PATH','')).resolve().part
     raise RuntimeError('G01 model substitute requires explicit TEST-ONLY environment')
 CASES={'先从活期账户转100元到储蓄账户，再申请虚拟卡，申请人为本人，关联活期账户':'forms','测试长回复布局':'long','预算改成八千元':'revision','你好':'greeting','查询本人余额':'balance','分析旅行是否可行，预算待定':'missing','查余额，并分析预算待定的旅行':'multiple','测试余额读取失败':'failure','从活期账户转100元到储蓄账户':'authorization'}
 requests={}
+CASES['创建五日只读复查草稿']='review'
+CASES['测试回答校验恢复']='answer_repair'
 def call(name,args=None):return {'role':'assistant','content':None,'tool_calls':[{'id':uuid4().hex,'type':'function','function':{'name':name,'arguments':json.dumps(args or {},ensure_ascii=False)}}]}
 def model(messages,context):
     g=context['execution_graph'];rid=g['runtime_id']
     text=next((m['content'] for m in reversed(messages) if m['role']=='user' and m['content'] in CASES),'')
     if rid not in requests or requests[rid]['text']!=text:requests[rid]={'text':text,'start':len(g['nodes'])}
     kind=CASES.get(text);nodes=g['nodes'][requests[rid]['start']:]
+    if kind=='answer_repair':
+        if not nodes:return call('list_accounts')
+        if not any(n['name']=='respond' for n in nodes):return call('respond',dict(text='余额为999999.99元。'))
+        return call('respond',dict(text='本人账户已核对，请以查询结果为准。'))
+    if kind=='review':
+        from datetime import datetime,timedelta,timezone
+        now=datetime.now(timezone.utc)
+        return call('prepare_review_plan',dict(title='五日余额复查',run_at=(now+timedelta(days=1)).isoformat(),end_at=(now+timedelta(days=31)).isoformat(),interval_days=5,target_yuan='5000',instruction_quote=text))
     if kind=='long':return {'role':'assistant','content':'这是隔离浏览器的长回复布局样例，不是业务结果。\n\n'+('可展开任务详情查看实际状态，涉及资金和卡片的办理仍需独立固定单授权。\n'*60)}
     if kind=='forms':
         if not nodes:return call('declare_goals',dict(goals=[dict(id='pay',text='从活期账户转100元到储蓄账户',quote='从活期账户转100元到储蓄账户',kind='operation'),dict(id='card',text='申请虚拟卡',quote='申请虚拟卡',kind='operation')]))

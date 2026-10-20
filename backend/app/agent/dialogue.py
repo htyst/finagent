@@ -486,7 +486,8 @@ def evidence_reply(decision, evidence):
                 factual.append('原操作单状态：' + proposal['status'] + '。' +
                     (receipt['message'] + '。回执编号：' + str(receipt.get('order_id', proposal['id'])) if receipt else '未取得成功回执，不重新发起交易。'))
             else:
-                factual.append('服务端任务状态：' + data['status'] + '，未重新发起交易。')
+                label={'running_readonly':'正在查询或整理结果','running':'正在处理','completed':'本轮处理完成','cancelled':'任务已取消','paused':'任务已暂停','handoff':'等待人工接管','gathering_info':'等待补充资料','awaiting_confirmation':'等待本人确认'}.get(data['status'],'请查看任务进度')
+                factual.append('任务进度：' + label + '，未重新发起交易。')
         elif not explanation:
             factual.append('已读取' + registry.DESCRIPTIONS[item['tool']] + '详情以服务端业务区域为准。')
     text = '\n'.join(factual)

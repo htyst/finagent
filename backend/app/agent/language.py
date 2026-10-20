@@ -475,13 +475,24 @@ def resolve(db, task, decision: Understanding, context, *, text=""):
         return None, {}, "从哪个账户付款？可选：" + "、".join(f"{row.alias}（尾号{row.account_last4}）" for row in accounts) + "。"
     if len(own_target) + len(other_target) != 1:
         choices = own_target + other_target
-        if choices:
-            return None, {}, "找到多个匹配的收款对象，你要转给哪一位？请选尾号：" + "、".join(row.account_last4 for row in choices) + "。"
-        if slots.get("target_note"):
-            return None, {}, "未找到这个已保存备注。新收款人无需预先收录，请填写户名、开户银行和完整收款账号。"
-        if phone_reference(slots.get("target", ""))[0]:
-            return None, {}, "未找到对应的已保存收款人。新收款人无需预先收录，请在下方填写户名、开户银行和完整收款账号。"
-        return None, {}, "请明确收款目标。新收款人可在下方填写户名、开户银行和完整收款账号，无需预先收录。"
+        # "第一个" answers the question this same function just asked, so the ordinal
+        # must map onto exactly the order used in that question.
+        ordinal = re.fullmatch(r'\s*(?:选)?\s*(?:第)?\s*([一二三四五六七八九十]|[1-9])\s*(?:个|项|位)?\s*(?:吧|呢|啊)?\s*[。！!，,、\s]*', text)
+        if ordinal and choices:
+            from app.agent.requirements import yuan_minor
+            index = int((yuan_minor(ordinal[1]) or 0) / 100)
+            if 1 <= index <= len(choices):
+                picked = choices[index - 1]
+                own_target = [picked] if picked in own_target else []
+                other_target = [picked] if picked in other_target else []
+        if len(own_target) + len(other_target) != 1:
+            if choices:
+                return None, {}, "找到多个匹配的收款对象，你要转给哪一位？请选尾号：" + "、".join(row.account_last4 for row in choices) + "。"
+            if slots.get("target_note"):
+                return None, {}, "未找到这个已保存备注。新收款人无需预先收录，请填写户名、开户银行和完整收款账号。"
+            if phone_reference(slots.get("target", ""))[0]:
+                return None, {}, "未找到对应的已保存收款人。新收款人无需预先收录，请在下方填写户名、开户银行和完整收款账号。"
+            return None, {}, "请明确收款目标。新收款人可在下方填写户名、开户银行和完整收款账号，无需预先收录。"
     if not slots.get("amount_yuan"):
         return None, {}, "这笔打算转多少元？"
     amount = int(Decimal(slots["amount_yuan"]) * 100)

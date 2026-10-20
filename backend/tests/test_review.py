@@ -78,7 +78,7 @@ def test_upgrade_cli_preserves_old_database_and_is_repeatable(monkeypatch):
             with Session(engine) as db:
                 assert db.get(DemoSetting, 1).dataset_version == version
                 assert db.execute(text("SELECT id, balance_minor FROM accounts ORDER BY id")).all() == balances
-                assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0018_directory"
+                assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0019_workflow_orchestration"
                 assert db.execute(text("SELECT count(*) FROM agent_tasks")).scalar() == 0
         finally:
             engine.dispose()

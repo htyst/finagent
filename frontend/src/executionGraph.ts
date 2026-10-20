@@ -3,3 +3,16 @@ export type ExecutionGoal={id:string;text:string;kind:string;status:string;evide
 export type ExecutionNode={id:string;task_id:string;plan_version:number;name:string;title:string;goal_ids:string[];depends_on:string[];result_refs:string[];receipt_refs:string[];status:string;attempts:number;domain_status?:string;error_code?:string;invalidated?:boolean;invalidation_reason?:string;verification_required?:boolean;recovered_by?:string;next_step?:string;policy:{effect:string;risk_floor:string;risk_policy:string;can_submit:false}};
 export type ExecutionGraph={schema_version:string;task_id:string;runtime_id:string;plan_version:number;status:string;serial:true;goals:ExecutionGoal[];nodes:ExecutionNode[]};
 export const executionStates:Record<string,string>={completed:'已完成',partially_completed:'部分完成',waiting_verification:'结果待核实',waiting_input:'待补充',waiting_authorization:'待页面授权',failed:'失败，可处理后继续',cancelled:'已取消',paused:'已暂停',pending:'待处理',running:'执行中'};
+
+export function isAnswerNode(node:ExecutionNode){return node.name==='respond'||node.policy?.effect==='answer';}
+export function answerAttemptState(nodes:ExecutionNode[],node:ExecutionNode):'adjusted'|'needs_adjustment'|'historical'{
+  if(node.invalidated)return 'historical';
+  if(node.verification_required)return 'needs_adjustment';
+  const successful=(candidate:ExecutionNode)=>isAnswerNode(candidate)&&['completed','succeeded'].includes(candidate.status)&&!candidate.invalidated;
+  if(node.recovered_by&&nodes.some(candidate=>candidate.id===node.recovered_by&&successful(candidate)))return 'adjusted';
+  const index=nodes.findIndex(candidate=>candidate.id===node.id);
+  const goals=node.goal_ids??[];
+  if(goals.length&&node.plan_version!==undefined&&nodes.slice(index+1).some(candidate=>successful(candidate)
+    &&candidate.plan_version===node.plan_version&&goals.every(id=>candidate.goal_ids?.includes(id))))return 'adjusted';
+  return 'needs_adjustment';
+}

@@ -14,21 +14,25 @@ export function useTaskSync<T extends TaskState>(path: string, onChanged: () => 
   const [updatedAt, setUpdatedAt] = useState('');
   const state = useRef({ mounted: false, sequence: 0, writing: false, task: null as T | null });
   const changed = useRef(onChanged);
+  const selectedId = useRef<string | undefined>(undefined);
   changed.current = onChanged;
   const setTask = useCallback((value: T | null) => {
     if (!state.current.mounted) return;
     state.current.sequence++;
     state.current.task = value;
+    selectedId.current = value?.id;
     updateTask(value); setSyncError(''); setLoading(false);
     setUpdatedAt(new Date().toLocaleTimeString('zh-CN'));
   }, []);
   const refresh = useCallback(async (id?: string) => {
     const sequence = ++state.current.sequence;
     try {
-      const value = await api<T | null>(id ? `/api/tasks/${id}` : path);
+      const selected = id ?? selectedId.current;
+      const value = await api<T | null>(selected ? `/api/tasks/${selected}` : path);
       if (!state.current.mounted || sequence !== state.current.sequence) return value;
       const different = state.current.task && signature(value) !== signature(state.current.task);
       state.current.task = value;
+      selectedId.current = value?.id;
       updateTask(value); setSyncError(''); setLoading(false);
       setUpdatedAt(new Date().toLocaleTimeString('zh-CN'));
       if (different) void changed.current().catch(() => { /* Account refresh has its own notice. */ });

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Barrier
 
 import pytest
@@ -230,7 +230,8 @@ def test_session_switch_and_reset_invalidate_proposals(demo):
     assert client.get(f"/api/proposals/{old['id']}").status_code == 404
     with Session(engine) as db:
         assert db.get(Proposal, old["id"]).status == "invalidated"
-        assert db.get(DemoSession, old_session) is None
+        # Persist historical session identity for jobs/audit, but revoke access.
+        assert datetime.fromisoformat(db.get(DemoSession, old_session).expires_at_utc) <= datetime.now(timezone.utc)
     assert client.post("/api/demo/session", json={"user_id": "u1"}).status_code == 200
     headers = {"Origin": "http://testserver", "X-FinAgent-CSRF": client.get("/api/demo/csrf").json()["data"]["csrf_token"]}
     fresh = prepare(client, headers)

@@ -37,19 +37,27 @@ async def lifespan(application):
     worker = None
     subscription_worker = None
     birthday_worker = None
+    workflow_worker = None
+    legacy_workers = False
+    if get_db not in application.dependency_overrides:
+        legacy_workers = not inspect(engine).has_table('workflow_jobs')
     try:
         # Test fixtures override the database dependency and drive their own isolated clocks/workers.
-        if os.getenv('FINAGENT_SCHEDULER_ENABLED', '1') != '0' and get_db not in application.dependency_overrides:
+        if legacy_workers and os.getenv('FINAGENT_SCHEDULER_ENABLED', '1') != '0' and get_db not in application.dependency_overrides:
             if inspect(engine).has_table('scheduled_transfers'):
                 worker = start_schedule_worker(SessionLocal, interval_seconds=1)
-        if os.getenv("FINAGENT_SUBSCRIPTIONS_ENABLED","1") != "0" and get_db not in application.dependency_overrides:
+        if legacy_workers and os.getenv("FINAGENT_SUBSCRIPTIONS_ENABLED","1") != "0" and get_db not in application.dependency_overrides:
             if inspect(engine).has_table("subscription_authorizations"):
                 from app.domain.subscriptions import start_subscription_worker, guarded_subscription_clock
                 subscription_worker=start_subscription_worker(SessionLocal,interval_seconds=1,clock=guarded_subscription_clock(SessionLocal))
-        if os.getenv("FINAGENT_BIRTHDAYS_ENABLED", "1") != "0" and get_db not in application.dependency_overrides:
+        if legacy_workers and os.getenv("FINAGENT_BIRTHDAYS_ENABLED", "1") != "0" and get_db not in application.dependency_overrides:
             if inspect(engine).has_table("birthday_plans"):
                 from app.domain.birthdays import start_birthday_worker, guarded_birthday_clock
                 birthday_worker = start_birthday_worker(SessionLocal, interval_seconds=1, clock=guarded_birthday_clock(SessionLocal))
+        if get_db not in application.dependency_overrides:
+            if inspect(engine).has_table('workflow_jobs'):
+                from app.domain.workflows import WorkflowWorker
+                workflow_worker = WorkflowWorker(SessionLocal).start()
         yield
     finally:
         if worker is not None:
@@ -58,6 +66,8 @@ async def lifespan(application):
             subscription_worker.stop()
         if birthday_worker is not None:
             birthday_worker.stop()
+        if workflow_worker is not None:
+            workflow_worker.stop()
 
 
 app = FastAPI(title="FinAgent Demo API", version="0.2.0", lifespan=lifespan)
@@ -206,7 +216,9 @@ def select_demo_user(payload: SelectUser, response: Response, request: Request, 
             old = db.get(DemoSession, old_id)
             if old:
                 invalidate_session_proposals(db, old_id, instant)
-                db.delete(old)
+                # Historical jobs reference this session for ownership and audit.
+                # Retire its authority without deleting the referenced record.
+                old.expires_at_utc = instant.isoformat()
         session_id = uuid4().hex
         expires_at = (instant + timedelta(hours=8)).isoformat(timespec="seconds")
         db.add(DemoSession(id=session_id, owner_id=user.id, dataset_version=setting.dataset_version,
@@ -571,3 +583,5 @@ register_control_routes(app, get_db, require_demo_session, require_write_protect
 
 from app.api.directory import register_routes as register_directory_routes
 register_directory_routes(app, get_db, require_demo_session, require_write_protection, envelope)
+from app.api.workflows import register_routes as register_workflow_routes
+register_workflow_routes(app, get_db, require_demo_session, require_write_protection, envelope)

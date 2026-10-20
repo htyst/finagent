@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/os.getenv('FINAGENT_REVIEW_DIR
 files=[*sorted((ROOT/'backend/app').rglob('*.py')),*sorted((ROOT/'backend/tests').glob('test_*.py'))]
 manifest={p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 (OUT/'backend-tested-source.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8');version=hashlib.sha256(json.dumps(manifest,sort_keys=True).encode()).hexdigest()
-env=dict(os.environ,PYTHONPATH=str(ROOT/'backend'),PYTHONIOENCODING='utf-8',PYTHONDONTWRITEBYTECODE='1',FINAGENT_IMPORT_TEST_DB=str(ROOT/'var/TEST-ONLY/f01-20261017/baseline.sqlite3'),FINAGENT_SCHEDULER_ENABLED='0',FINAGENT_SUBSCRIPTIONS_ENABLED='0',FINAGENT_BIRTHDAYS_ENABLED='0')
+env=dict(os.environ,PYTHONPATH=str(ROOT/'backend'),PYTHONIOENCODING='utf-8',PYTHONDONTWRITEBYTECODE='1',FINAGENT_IMPORT_TEST_DB=str(ROOT/'var/TEST-ONLY/f01-20261017/baseline.sqlite3'),FINAGENT_SCHEDULER_ENABLED='0',FINAGENT_SUBSCRIPTIONS_ENABLED='0',FINAGENT_BIRTHDAYS_ENABLED='0',FINAGENT_WORKFLOWS_ENABLED='0')
 subprocess.run([sys.executable,'-B',str(ROOT/'scripts/prepare-test-data.py'),'--target',env['FINAGENT_IMPORT_TEST_DB']],cwd=ROOT,env=env,check=True,timeout=300)
 started=time.perf_counter();xml=OUT/'backend-full.xml'
 with (OUT/'backend-full.log').open('w',encoding='utf-8') as log:

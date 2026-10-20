@@ -141,7 +141,7 @@ def test_contract_generation_matches_real_schema_and_compatibility():
     c=tool_contracts.generate();entries={v['name']:v for v in c['tools']}
     visible={v['function']['name'] for v in p.catalog()}
     assert set(entries)==set(p.models()) and visible=={n for n,e in entries.items() if e['model_visible']}
-    assert c['model_tool_count']<c['tool_count']==64
+    assert c['model_tool_count']<c['tool_count']==65
     for n in entries:
         assert entries[n]['input_schema']==p.models()[n].model_json_schema()
         assert entries[n]['risk_policy']==registry.execution_policy(n)

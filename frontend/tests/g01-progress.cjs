@@ -22,3 +22,28 @@ test('corrected rejected attempt stays visible without a false completion label'
 
 test('invalidated result remains visible as historical, never current completed evidence',()=>{const g=graph();g.nodes=[{id:'s1',title:'旧预算计算',status:'completed',depends_on:[],invalidated:true}];assert(html(g).includes('已失效（保留记录）'));});
 test('unknown outcome explicitly waits verification',()=>{assert(html(graph('waiting_verification')).includes('结果待核实'));});
+
+function answer(id,status,goal='g1',version=2){return {id,name:'respond',title:'整理回答',status,goal_ids:[goal],plan_version:version,depends_on:[],policy:{effect:'answer'}};}
+test('answer retries are separate from actual tool records',()=>{
+ const g=graph('completed');g.nodes=[{id:'s1',name:'list_accounts',title:'读取账户',status:'completed',depends_on:[]}, {...answer('s2','failed'),error_code:'ANALYSIS_ANSWER_INVALID'},answer('s3','completed')];
+ const result=html(g),tools=result.match(/<details[^>]*data-testid="execution-tools"[\s\S]*?<\/details>/)[0];
+ assert(tools.includes('读取账户'));assert(!tools.includes('整理回答'));assert(result.includes('回答已重新生成'));assert(result.includes('ANALYSIS_ANSWER_INVALID'));assert(!result.includes('data-testid="answer-adjustments" open'));
+});
+test('unresolved answer rejection is never labelled corrected',()=>{
+ const g=graph('waiting_input');g.nodes=[{...answer('s1','failed'),error_code:'ANALYSIS_REFERENCE'}];const result=html(g);assert(result.includes('回答仍待调整'));assert(!result.includes('回答已重新生成'));
+});
+test('a successful answer to another goal does not repair the first',()=>{
+ const g=graph('waiting_input');g.nodes=[answer('s1','failed'),answer('s2','completed','other')];assert(!html(g).includes('回答已重新生成'));
+});
+test('a later plan version does not silently repair an older answer',()=>{
+ const g=graph('waiting_input');g.nodes=[answer('s1','failed'),answer('s2','completed','g1',3)];assert(!html(g).includes('回答已重新生成'));
+});
+test('invalidated answer is preserved as history',()=>{
+ const g=graph();g.nodes=[{...answer('s1','failed'),invalidated:true},answer('s2','completed')];assert(html(g).includes('历史回答（已失效）'));assert(!html(g).includes('回答已重新生成'));
+});
+test('invalidated successful answer is not presented as current validation',()=>{
+ const g=graph();g.nodes=[answer('s1','failed'),{...answer('s2','completed'),invalidated:true}];const result=html(g);assert(result.includes('历史回答（已失效）'));assert(!result.includes('回答通过校验'));assert(!result.includes('回答已重新生成'));
+});
+test('real read failure remains a visible business failure',()=>{
+ const g=graph('failed');g.nodes=[{id:'s1',name:'list_accounts',title:'读取账户',status:'failed',depends_on:[],error_code:'READ_TIMEOUT'}];const result=html(g);assert(result.includes('失败，可处理后继续'));assert(result.includes('READ_TIMEOUT'));assert(!result.includes('回答调整记录'));
+});

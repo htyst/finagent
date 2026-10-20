@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, inspect
 from sqlalchemy.orm import Session
 
 from app.data.models import (Account, AgentMessage, AgentStep, AgentTask, AuditEvent, BusinessResult, Card, CardActionOrder, DataCoverage,
@@ -39,6 +39,12 @@ def iso_utc(day: date, hour: int = 12, minute: int = 0) -> str:
 def reset_demo(db: Session, demo_date: date = date(2026, 9, 24)) -> str:
     """Rebuild only the caller's selected project database, inside one transaction."""
     from app.data.financial_models import FinancialDatasetRow, FinancialDatasetImport,FinancialEvent
+    from app.data.workflow_models import WorkflowReviewRun, WorkflowReview, WorkflowJob
+    # Explicit reset/import also clears child orchestration records, while old
+    # schema migration fixtures may legitimately not have these additive tables.
+    for model in (WorkflowReviewRun, WorkflowReview, WorkflowJob):
+        if inspect(db.get_bind()).has_table(model.__tablename__):
+            db.execute(delete(model))
     db.execute(delete(FinancialEvent))
     db.execute(delete(FinancialDatasetRow))
     db.execute(delete(FinancialDatasetImport))

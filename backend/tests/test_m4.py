@@ -206,6 +206,6 @@ def test_migrations_record_revision_and_preserve_existing_data(tmp_path, monkeyp
         reset_demo(db)
     migrate()
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0018_directory"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0019_workflow_orchestration"
         assert connection.execute(text("SELECT count(*) FROM accounts")).scalar() == 6
     engine.dispose()

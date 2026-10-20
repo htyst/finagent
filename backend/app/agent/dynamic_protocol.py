@@ -85,6 +85,9 @@ class Respond(SemanticModel):
     @model_validator(mode='after')
     def has_answer(self):
         if not self.text.strip() and self.synthesis is None:raise ValueError('需要回答内容或财务分析')
+        import re
+        if re.search(r'(?:请(?:你|您)?(?:告诉我|补充)|还需要(?:你|您)(?:给出|提供)|需要(?:你|您)确认)[^。\n]{0,35}(?:预算|日期|金额|收款人|取消哪|哪几项|哪一项)',self.text):
+            self.needs_input=True
         return self
 
 
@@ -108,14 +111,16 @@ def models():
     from app.agent.dialogue import READ_TOOLS
     from app.agent.execution_graph import ExecutionBinding,DeclareGoals
     from app.agent.checkpoints import ReviseGoals
+    from app.agent.workflow_plans import ReviewDraft
     existing={**{n:registry.TOOL_MODELS[n] for n in sorted(READ_TOOLS)},**BUSINESS_MODELS,
-              'calculate':CalculationArgs,'respond':Respond,'manage_task':TaskControl,'declare_goals':DeclareGoals,'revise_goals':ReviseGoals}
+              'calculate':CalculationArgs,'respond':Respond,'manage_task':TaskControl,'declare_goals':DeclareGoals,'revise_goals':ReviseGoals,'prepare_review_plan':ReviewDraft}
     return {name:create_model(model.__name__+'Execution',__base__=model,
         execution=(ExecutionBinding | None,Field(default=None,description='可选目标与真实前置调用关联；不包含权限或完成状态。简单问题无需声明复杂计划。')))
         for name,model in existing.items()}
 
 
 DESCRIPTIONS={
+ 'prepare_review_plan':'准备定期只读余额复查草稿：明确首次ISO时间及授权截止（带时区），间隔0为一次、1至90天为周期，可给人民币参考额target_yuan。使用服务端当前时间，不用历史账本日期排未来任务。只保存草稿，用户在联动计划页面确认后才调度；结果在页面查询，不承诺站外通知。不转账、不锁款、不读取订阅合同。',
  'revise_goals':'跨轮修改、取消或继续已存在的目标。用当前执行图goal_ids和本轮用户原话；预算/期限等约束用key/value/quote，服务端使相关计算和未执行操作失效，保留查询与真实回执。插问新增目标用declare_goals新ID，回答只关联本轮目标；不能把旧金额当新办理指令。',
  'declare_goals':'仅在一轮有多个独立目标时声明完整目标及用户原话；可在查询后明确目标，必须在准备业务操作前声明；一个查询可服务多个目标。简单问题不需要此工具，不能自报完成、权限或交易成功。',
  'read_subscriptions':'查询本人订阅和扣费，须先由本人确认查询范围。可用subscription_id精确筛选；没有merchant参数，不知道编号时省略筛选先查合同列表。按start/end、status、limit/offset分页；查询不代表同意取消。',
@@ -198,6 +203,8 @@ calculate优先使用经济含义明确的goal_budget和emergency_check；确需
 
 
 SYSTEM += '\n跨轮目标和约束以execution_graph及checkpoint为准。用户改预算/期限必须先成功revise_goals(update)再重算，失败时修复quote/value，不得绕过更新直接回答。value可规范化8000，quote必须逐字复制本轮原话八千。先办理再查询等顺序目标用declare_goals拆开，operation_context.conditions只保留银行业务条款，不填授权步骤或后续查询。新消息不丢弃原待办：修改用revise_goals(update)，补充后继续用continue；插入独立查询用declare_goals新增唯一ID并只回答该目标，说明原任务继续入口。已完成目标不重复办理。复用valid_prior_nodes中的有效查询；失效节点及其facts不可引用。预算或期限改变先update后重算。结果待核实不自动重复付款。\n'
+SYSTEM += '\n取消订阅是业务目标，不能调用manage_task(cancel)或revise_goals(cancel)来冒充完成业务。用户说“确认取消”是继续准备原订阅取消单，不是放弃目标，也不是签发执行授权。用户明确要求取消最贵一项时，prepare_merchant_contract_cancel可核对仍在续费的唯一最高价合同，merchant可省略；付款周期不同或并列时工具会要求澄清，不要选已关闭续费的高价合同。不因校验拒绝而让用户放弃目标或复述整条命令。准备成功后展示固定条款，仍须页面确认。解释失败时用普通中文说明缺项，不向用户展示内部错误码。\n'
+SYSTEM += '\n用户明确要求先扣近期已知应付款时，必须用obligation_budget或明确扣减的计算完成该条件，不以“尚未扣除”的说明替代。合同日期用查询返回的完整日期，不能填金额facts占位符；订阅是否必要未知时先追问用户选择，不必测算全部取消的情景。\n'
 
 
 def catalog():
@@ -206,6 +213,7 @@ def catalog():
     def clean(node):
         if isinstance(node,dict):
             node.pop('default',None)
+            node.pop('title',None) # schema display titles duplicate property names
             if node.get('type')=='object':
                 node['additionalProperties']=False
                 if strict:node['required']=list(node.get('properties',{}))

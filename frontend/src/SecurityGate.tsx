@@ -33,7 +33,7 @@ function SimulatedSMSPopup({ sms, onClose, onFill }: { sms: SimulatedSMS; onClos
 const labels: Record<string, string> = {
   replace_card:'补发模拟借记卡',credit_limit:'申请信用卡授信调整',cancel_contract:'取消会员下期续订',unloss:'解除挂失',
   requested_limit_minor:'申请的新授信总额度',credit_limit_minor:'当前授信总额度',available_credit_minor:'档案可用额度',outstanding_minor:'档案欠款',
-  access_period_state:'档案权益期限状态',access_note:'权益说明',expired:'已过截止日',within_recorded_end_date:'尚未超过档案截止日',access_end_date:'权益截止日期',provider:'办理方',local_merchant_simulator:'本地模拟商户',subject_id:'办理对象编号',
+  access_period_state:'档案权益期限状态',access_note:'权益说明',expired:'已过截止日',within_recorded_end_date:'尚未超过档案截止日',access_end_date:'权益截止日期',provider:'办理方',local_merchant_simulator:'本地模拟商户',subject_id:'办理对象编号',selection_basis:'选择依据',
   transfer: '转账', schedule: '预约转账', buy: '理财申购', redeem: '理财赎回', loss: '卡片挂失',
   freeze: '临时冻结', unfreeze: '卡片解冻', apply: '虚拟卡申请', limit_increase: '提高交易限额',
   limit_decrease: '降低交易限额', online_block: '禁止线上交易', online_unblock: '恢复线上交易',
@@ -79,7 +79,7 @@ export function keyTerms(operation: SecurityOperation): Record<string, unknown> 
     }
     return result;
   }
-  const result=Object.fromEntries(Object.entries(operation.terms).filter(([key]) => ['requested_limit_minor','credit_limit_minor','access_end_date','impact','target_binding','card_mask','account_alias','account_mask','product_name','execute_at_utc','recipient','recipient_name','merchant','limit_minor','fire_at_utc','next_charge_at_utc','birthday_date','delivery_date'].includes(key)));
+  const result=Object.fromEntries(Object.entries(operation.terms).filter(([key]) => ['requested_limit_minor','credit_limit_minor','access_end_date','impact','target_binding','card_mask','account_alias','account_mask','product_name','execute_at_utc','recipient','recipient_name','merchant','limit_minor','fire_at_utc','next_charge_at_utc','birthday_date','delivery_date','selection_basis'].includes(key)));
   for(const key of ['account','product']){
     const value=operation.terms[key];
     if(value&&typeof value==='object'&&!Array.isArray(value)){

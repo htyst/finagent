@@ -59,14 +59,30 @@ def prepare(db,session,task,name,args,text,*,modify=False):
         negative_text=negative_text.replace(harmless,'')
     if re.search(r'不要|不需要|不想|别帮|不是要|不是让|不补卡|别补卡|别取消|不取消|不调整|不调额|先不申请|怎么|如何|假设|举例|如果|只有|超过.*才|明天|下周|下个?月|月底|等到|(?:每天|每月).{0,6}(?:帮|给|申请|调|提|补|取消)|[?？]',negative_text):
         raise DomainError('UNGROUNDED_OPERATION','请明确本次办理意图；未准备或执行业务',422)
-    intent={'replace_card':r'补卡|补发|补办|补(?:一下|一张|新的|新)?(?:银行卡|借记卡|卡)|换.{0,4}新卡','credit_limit':r'授信|提额|降额|额度.{0,12}(?:调|提|降|改)|(?:调|提|降|改).{0,12}额度',
-        'cancel_contract':r'(?:取消|关闭|停止|退订).{0,60}(?:会员|合同|订阅|续订)|不再续订'}
-    if not continuing and not re.search(intent[kind],text):
+    intent={'replace_card':r'补卡|补发|补办|补(?:一下|一张|新的|新)?(?:银行卡|借记卡|卡)|换.{0,4}新卡','credit_limit':r'授信|提额|降额|额度.{0,12}(?:调|提|降|改)|(?:调|提|降|改).{0,12}额度'}
+    if kind=='cancel_contract':
+        # Object-first phrasing ("把最贵的订阅取消") is ordinary Chinese; a verb-first
+        # regex silently rejected it and left most_expensive() unreachable.
+        from app.agent.subscription_selection import CANCEL_VERB,cancels_subscription
+        # Naming a merchant that matches a real contract is its own grounding: the
+        # name is verified against the owned contracts further down.
+        named=bool(args.get('merchant')) and normalized(args['merchant']) in normalized(text)
+        triggered=cancels_subscription(text) or (named and bool(re.search(CANCEL_VERB,text)))
+        relative_intent=triggered and bool(re.search(r'最贵|价格最高|费用最高',text))
+    else:
+        triggered=bool(re.search(intent[kind],text))
+        relative_intent=False
+    if not continuing and not triggered and not relative_intent:
         raise DomainError('UNGROUNDED_OPERATION','这项办理缺少明确用户指令，请先核对意图',422)
     if kind=='cancel_contract':security.assert_subscription_access(db,session.id)
     choices=rows(db,session.owner_id,'subscriptions') if kind=='cancel_contract' else rows(db,session.owner_id,'cards') if kind=='credit_limit' else [
         dict(id=c.id,alias=c.alias,card_last4=c.card_last4) for c in db.scalars(select(Card).where(Card.owner_id==session.owner_id))]
     if kind=='credit_limit':choices=[c for c in choices if c.get('card_type')=='credit']
+    relative=None
+    if kind=='cancel_contract':
+        from app.agent.subscription_selection import most_expensive
+        choices=[servicing.contract_projection(db,session.owner_id,c) for c in choices]
+        relative=most_expensive(choices,text)
     if kind=='credit_limit' and not prior and not ctx.get('service_request_id') and re.search('继续|接着',text):
         # Some old conversations asked a missing-field question without invoking
         # prepare. Recover only a uniquely named card from an explicit *user*
@@ -95,15 +111,35 @@ def prepare(db,session,task,name,args,text,*,modify=False):
             field=='card' and c.get('card_last4') and re.fullmatch(r'(?:尾号\s*|\*\*)?'+re.escape(c['card_last4']),reference)]
         if len(matched)!=1:raise DomainError('RESOURCE_UNRESOLVED','对象不唯一或不属于本人，请提供本人卡尾号或订阅编号',422)
         chosen=matched[0]
-        if not mentioned(chosen) and not (continuing and prior.get('subject_id')==identifier(chosen)):
+        if relative and identifier(chosen)!=identifier(relative):
+            raise DomainError('SUBSCRIPTION_SELECTION_MISMATCH','用户要求最贵且仍在自动续费的一项，已核对唯一对象为'+relative['service_name']+'（'+identifier(relative)+'）；关闭续费的合同不能作为新取消对象。',422)
+        if not mentioned(chosen) and not (continuing and prior.get('subject_id')==identifier(chosen)) and not relative:
             raise DomainError('UNGROUNDED_OPERATION','工具中的对象未得到用户明确内容支持',422)
         explicit_ids=[c for c in candidates if identifier(c) in text]
         if len(candidates)>1 and not (len(explicit_ids)==1 and identifier(explicit_ids[0])==identifier(chosen)):
             raise DomainError('RESOURCE_UNRESOLVED','本轮涉及多个对象，请明确唯一卡尾号或合同编号',422)
         candidates=[chosen]
+    elif relative:
+        candidates=[relative]
     elif not candidates and continuing and prior.get('subject_id'):
         candidates=[c for c in choices if identifier(c)==prior['subject_id']]
     subject_id=identifier(candidates[0]) if len(candidates)==1 else None
+    # Show the user WHY this contract was chosen; the card must let them verify the
+    # reference ("the most expensive one"), not just the action.
+    selection_basis=None
+    if kind=='cancel_contract' and relative is not None and subject_id:
+        renewing=[c for c in choices if str(c.get('auto_renew_enabled')).lower() in {'true','1'}
+            and c.get('status') not in {'cancelled','canceled','expired','terminated','paused','non_renewing'}]
+        monthly=bool(re.search(r'折月|月均|每月费用',text))
+        amount_minor_chosen=relative.get('current_price_minor')
+        try:price_hint='%.2f 元/月' % (int(amount_minor_chosen)/100)
+        except (TypeError,ValueError):price_hint=''
+        excluded=[c for c in choices if c is not relative and str(c.get('auto_renew_enabled')).lower() not in {'true','1'}]
+        excluded_names='、'.join(f"{normalized(c.get('service_name'))}（已关闭续费）" for c in excluded if c.get('service_name'))
+        parts=[f"依据：你要求最贵的一项；在仍开启续费的 {len(renewing)} 项中，{normalized(relative.get('service_name'))} 折月价{price_hint}为最高"]
+        if excluded_names:parts.append('已排除：'+excluded_names)
+        parts.append('口径：按折月费用比较' if monthly else '口径：按每期价格比较')
+        selection_basis='；'.join(parts)
     amount=prior.get('amount_minor') if continuing else None
     if kind=='credit_limit' and args.get('amount_yuan') is not None:
         proposed=yuan_minor(args['amount_yuan']);stated={yuan_minor(m[1]) for m in MONEY.finditer(text)}
@@ -126,7 +162,8 @@ def prepare(db,session,task,name,args,text,*,modify=False):
         if increase and not decrease and amount<=current or decrease and not increase and amount>=current:
             raise DomainError('CREDIT_DIRECTION_MISMATCH','申请的新总额度与本轮提额或降额方向不一致；请明确新的总额度，不要填写增减金额',422)
     result=servicing.prepare(db,session_id=session.id,kind=kind,subject_id=subject_id,
-        amount_minor=amount if kind=='credit_limit' else None,agent_task_id=task.id)
+        amount_minor=amount if kind=='credit_limit' else None,agent_task_id=task.id,
+        selection_basis=selection_basis)
     ctx=json.loads(task.context_json);ctx['service_request_id']=result['id'];ctx['service_draft']['incomplete']=False
     task.context_json=json.dumps(ctx,ensure_ascii=False)
     _record_step(db,task,name,{'subject_id':subject_id},{'service_request':result})

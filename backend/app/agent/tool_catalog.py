@@ -21,7 +21,7 @@ def catalog():
       '理财操作':['read_wealth','read_wealth_products','read_risk_assessment','read_investment_performance','request_risk_assessment','compare_wealth_products','prepare_wealth_buy','prepare_wealth_redeem'],
       '卡片管理':['prepare_card_replacement','prepare_credit_limit_change','read_credit_cards','list_cards','read_card_management','prepare_card_loss','prepare_card_unloss','prepare_card_freeze','prepare_card_unfreeze','prepare_virtual_card_application','prepare_card_limit_change','prepare_online_payment_block','prepare_online_payment_unblock','prepare_card_action','prepare_card_management'],
       '订阅代扣':['prepare_merchant_contract_cancel','read_subscriptions','identify_subscriptions','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_renewal_reminder','prepare_subscription_reminder'],
-      '生日联动':['read_birthdays','read_birthday_offers','prepare_birthday_create','prepare_birthday_change','prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_birthday_retry'],
+      '跨场景联动':['prepare_review_plan','read_birthdays','read_birthday_offers','prepare_birthday_create','prepare_birthday_change','prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_birthday_retry'],
       '通用支持':['read_service_requests','read_tool_catalog','search_knowledge','read_agent_status','plan_budget','calculate','respond','manage_task','declare_goals','revise_goals']}
     assert set().union(*(set(v) for v in groups.values()))==names
     from app.agent.tool_contracts import COMPATIBILITY_ONLY
@@ -40,7 +40,8 @@ def catalog():
           '解挂须独立强验证和固定单确认；仅解除挂失，冻结与支付限制保留；模拟借记卡补发须强验证，原卡永久失效；密码修改暂未实现',
           '单笔交易限额与信用卡授信额度分开；调额须本人强验证提交及独立模拟审批',
           '导入欠款、基金等仍为只读快照；授信可在本地审批后单独调整，不开放信用卡消费或基金交易',
-          '生日安排复用当前专用流程；通用关系人、资金预留与通用DAG调度留待后续扩展']}
+          '可准备只读人民币余额复查草稿，在联动计划页面显式同意范围及期限后定期检查，结果保存在页面；不代表站外消息已送达',
+          '生日安排仅支持当前月，复用当前专用流程；通用关系人和通用资金预留留待后续扩展']}
 
 
 def read(db,session_id,name,args):

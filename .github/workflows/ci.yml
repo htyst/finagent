@@ -15,6 +15,7 @@ jobs:
       FINAGENT_SCHEDULER_ENABLED: "0"
       FINAGENT_SUBSCRIPTIONS_ENABLED: "0"
       FINAGENT_BIRTHDAYS_ENABLED: "0"
+      FINAGENT_WORKFLOWS_ENABLED: "0"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -60,6 +61,7 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:18080/api/health
+          docker exec finagent-ci python -c "import sqlite3; db=sqlite3.connect('file:/app/var/finagent.sqlite3?mode=ro',uri=True); assert db.execute('select version_num from alembic_version').fetchone()[0] == '0019_workflow_orchestration'; db.close()"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/)" = 401
           curl -fsS -u guest:TEST-ONLY-cloud-ci-password http://127.0.0.1:18080/ | head -c 200
           docker exec finagent-ci python -c "from pathlib import Path; Path('/app/var/ci-persistence.txt').write_text('TEST-ONLY')"
@@ -69,4 +71,5 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:18080/api/health
+          docker exec finagent-ci python -c "import sqlite3; db=sqlite3.connect('file:/app/var/finagent.sqlite3?mode=ro',uri=True); assert db.execute('select version_num from alembic_version').fetchone()[0] == '0019_workflow_orchestration'; db.close()"
           docker exec finagent-ci python -c "from pathlib import Path; assert Path('/app/var/ci-persistence.txt').read_text() == 'TEST-ONLY'"

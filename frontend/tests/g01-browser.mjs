@@ -9,33 +9,41 @@ const browser=await chromium.launch({channel:'msedge',headless:true});const cont
 page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(25000);
 async function current(){return (await(await context.request.get(base+'/api/agent/tasks/current')).json()).data;}
 async function chat(text,fresh=true){
+ if(new URL(page.url()).hash!=='#assistant'){await page.goto(base+'/#assistant');await page.locator('#agent-message').waitFor();}
  if(fresh&&await page.locator('#assistant').getByRole('button',{name:'新对话',exact:true}).count())await page.locator('#assistant').getByRole('button',{name:'新对话',exact:true}).click();
  await page.locator('#agent-message').fill(text);
  const response=page.waitForResponse(r=>r.request().method()==='POST'&&/\/api\/tasks(?:\/[^/]+\/messages)?$/.test(new URL(r.url()).pathname));
  await page.locator('#assistant').getByRole('button',{name:'发送',exact:true}).click();assert.equal((await response).status(),200);
- await page.getByRole('region',{name:'任务目标进度'}).waitFor();
+ await page.locator('[data-testid=outgoing-message]').waitFor({state:'detached'});
+ assert.equal(await page.getByRole('region',{name:'任务目标进度'}).count(),0);
+ assert.equal(await page.locator('.desktop-context,.context-toggle').count(),0);
  const s=await current();traces.push({user:text,graph:s.execution_graph});return s;
 }
+async function inspect(){await page.goto(base+'/#tasks/current');const progress=page.getByRole('region',{name:'任务目标进度'});await progress.waitFor();return progress;}
 try{
  assert.equal((await(await context.request.get(base+'/api/health')).json()).data.test_only,true);
  await page.goto(base);await page.locator('#user').selectOption('u1');await page.locator('#agent-message').waitFor();
  let s=await chat('你好');assert.equal(s.execution_graph.nodes.length,0);assert.equal(s.execution_graph.goals[0].status,'completed');checks.push('问候没有强制工具计划');
  s=await chat('查询本人余额');assert.equal(s.execution_graph.status,'completed');checks.push('真实余额查询和完成状态');
- s=await chat('分析旅行是否可行，预算待定');assert.equal(s.execution_graph.goals[0].status,'waiting_input');await page.getByRole('region',{name:'任务目标进度'}).getByText('待补充',{exact:true}).first().waitFor();checks.push('分析缺预算显示待补充');
+ s=await chat('分析旅行是否可行，预算待定');assert.equal(s.execution_graph.goals[0].status,'waiting_input');await (await inspect()).getByText('待补充',{exact:true}).first().waitFor();checks.push('分析缺预算显示待补充');
  const oldId=s.id,oldVersion=s.plan_version;s=await chat('预算改成八千元',false);assert.equal(s.id,oldId);assert(s.plan_version>oldVersion);assert.equal(s.execution_graph.goals[0].constraints[0].value,'八千');checks.push('同一任务跨轮改预算且保留查询');
  s=await chat('查余额，并分析预算待定的旅行');assert.deepEqual(s.execution_graph.goals.map(g=>g.status),['completed','waiting_input']);checks.push('共享查询与多目标部分完成');
- await page.screenshot({path:path.join(out,'multiple-desktop.png'),fullPage:true});
+ const chatBox=await page.locator('.conversation-panel').boundingBox(),workspaceBox=await page.locator('#assistant').boundingBox();assert(chatBox.width>workspaceBox.width*.9);checks.push('对话页无进展面板或任务抽屉且占满可用宽度');
+ await page.screenshot({path:path.join(out,'chat-desktop.png'),fullPage:true});
+ await inspect();await page.screenshot({path:path.join(out,'multiple-desktop.png'),fullPage:true});
  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(300);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));await page.getByRole('region',{name:'任务目标进度'}).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'multiple-mobile.png'),fullPage:true});checks.push('390窄屏无页面横向溢出');
  await page.setViewportSize({width:1440,height:1000});
- s=await chat('测试余额读取失败');assert.equal(s.execution_graph.goals[0].status,'failed');checks.push('工具失败保持未完成');
+ s=await chat('测试余额读取失败');assert.equal(s.execution_graph.goals[0].status,'failed');await (await inspect()).getByText('失败，可处理后继续',{exact:true}).first().waitFor();checks.push('真实工具失败在任务中心保持未完成');
+ await page.getByRole('button',{name:'取消任务',exact:true}).click();await page.getByRole('region',{name:'任务目标进度'}).getByText('已取消',{exact:true}).first().waitFor();assert.equal((await current()).execution_graph.goals[0].status,'cancelled');checks.push('任务中心保留取消任务入口并更新服务端目标');
+ s=await chat('测试回答校验恢复');assert(s.execution_graph.nodes.some(n=>n.name==='respond'&&n.status==='failed'));await inspect();const tools=page.getByTestId('execution-tools');await tools.locator('summary').click();assert(!(await tools.textContent()).includes('整理回答'));const adjustments=page.getByTestId('answer-adjustments');assert.equal(await adjustments.getAttribute('open'),null);await adjustments.locator('summary').click();await adjustments.getByText('回答已重新生成',{exact:true}).waitFor();await page.screenshot({path:path.join(out,'answer-adjustments.png'),fullPage:true});checks.push('回答校验重试单独折叠且已调整状态有真实成功回答支持');
  s=await chat('从活期账户转100元到储蓄账户');assert.equal(s.execution_graph.goals[0].status,'waiting_authorization');
- await page.getByRole('region',{name:'任务目标进度'}).getByText('待页面授权',{exact:true}).first().waitFor();checks.push('固定单待授权不显示完成');
+ await (await inspect()).getByText('待页面授权',{exact:true}).first().waitFor();await page.goto(base+'/#assistant');checks.push('固定单待授权不显示完成');
  await page.locator('#assistant').getByRole('button',{name:'核对并继续',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.waitFor();await dialog.getByRole('button',{name:'确认条款并执行',exact:true}).click();await dialog.waitFor({state:'hidden'});
  for(let i=0;i<70;i++){s=await current();if(s.execution_graph.goals[0].receipt_refs.length)break;await page.waitForTimeout(100);}
  assert.equal(s.execution_graph.goals[0].status,'completed');assert.equal(s.execution_graph.goals[0].receipt_refs.length,1);checks.push('页面授权后同节点展示真实回执');
  await page.reload();await page.locator('#agent-message').waitFor();s=await current();assert.equal(s.execution_graph.goals[0].receipt_refs.length,1);// Refresh normally restores the current workspace directly. Open the saved task only if landing is active.
- await page.waitForFunction(()=>document.querySelector('#assistant .continue-task')||document.querySelector('[aria-label="任务目标进度"]'));if(await page.locator('#assistant .continue-task').count())await page.locator('#assistant .continue-task').click();await page.getByRole('region',{name:'任务目标进度'}).waitFor();await page.locator('.conversation-authorizations .receipt').first().waitFor();checks.push('刷新后恢复页面并展示持久回执');
+ if(await page.locator('#assistant .continue-task').count())await page.locator('#assistant .continue-task').click();await page.locator('.conversation-authorizations .receipt').first().waitFor();assert.equal(await page.getByRole('region',{name:'任务目标进度'}).count(),0);checks.push('刷新恢复正常对话与持久回执，不恢复进展面板');
  await page.screenshot({path:path.join(out,'receipt-desktop.png'),fullPage:true});
  const paidTaskId=s.id;s=await chat('查询本人余额',false);assert.equal(s.id,paidTaskId);assert(s.authorization_operations.some(o=>o.receipt));assert.equal(s.execution_graph.nodes.filter(n=>n.policy.effect==='prepare').length,1);checks.push('付款完成后追问沿用同任务和回执，不准备重复转账');
  s=await chat('先从活期账户转100元到储蓄账户，再申请虚拟卡，申请人为本人，关联活期账户');

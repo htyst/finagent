@@ -264,3 +264,4 @@ from app.data import card_models as _card_models
 from app.data import subscription_models as _subscription_models
 from app.data import birthday_models as _birthday_models
 from app.data import financial_models as _financial_models
+from app.data import workflow_models as _workflow_models

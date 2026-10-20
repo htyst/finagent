@@ -71,6 +71,8 @@ class NodeContract(SemanticModel):
     verification_required: bool = False
     recovered_by: str | None = None
     recovery_reason: str | None = None
+    failure_policy: dict | None = None
+    blocked_by: list[str] = Field(default_factory=list,max_length=64)
 
 class GraphContract(SemanticModel):
     schema_version: Literal['g01-v1']
@@ -106,8 +108,16 @@ def declare(r,args):
     prior_turn=r.get('turn_start_node_count',0)
     if any(n.get('policy',{}).get('effect')=='prepare' for n in r['nodes'][prior_turn:]):reject('已有业务操作节点，不能用重新声明覆盖已有目标或回执')
     if not prior_turn and any(not g.get('implicit') for g in r['goals']):reject('目标已经声明，请使用有效目标ID；本阶段不在同轮覆盖目标定义')
+    renamed={}
     if prior_turn:
-        if any(g['id'] in {old['id'] for old in r['goals']} for g in proposed):reject('新增目标ID已存在；修改已有目标请用revise_goals')
+        # Reused model-chosen IDs are a naming mistake, not an intent to overwrite.
+        # Renaming keeps the user's instruction alive and hands the real IDs back.
+        used={old['id'] for old in r['goals']}
+        for g in proposed:
+            if g['id'] in used:
+                hint=g['id'];index=1
+                while f'g{index}' in used:index+=1
+                g['id']=f'g{index}';used.add(g['id']);renamed[hint]=g['id']
         if len(r['goals'])+len(proposed)>8:reject('当前目标达到上限，请完成已有目标或新建任务')
         r['goals'] += [dict(g,status='pending',implicit=False) for g in proposed]
         r['turn_goal_ids']=[g['id'] for g in proposed]
@@ -116,7 +126,12 @@ def declare(r,args):
     # observations remain unassigned until an answer actually cites them.
     if not prior_turn:
         for n in r['nodes']:n['goal_ids']=[]
-    return {'goals':[dict(g) for g in r['goals']],'next':'分别关联goal_ids；共享查询可关联多个目标，完成状态由后端证据判定。'}
+    result={'goals':[dict(g) for g in r['goals']],'next':'分别关联goal_ids；共享查询可关联多个目标，完成状态由后端证据判定。'}
+    if renamed:
+        result['renamed_goal_ids']=renamed
+        result['next']=('目标ID已由服务端重新分配：'+'、'.join(f'{k}→{v}' for k,v in renamed.items())
+            +'。请用返回的id绑定goal_ids，不要继续使用旧ID。'+result['next'])
+    return result
 
 def references(r,name,args):
     """Only explicit typed references; no edges invented from chronological proximity."""
@@ -164,13 +179,28 @@ def bind(task,r,node,binding,candidates=None):
     for goal in r['goals']:
         if goal['id'] not in goals:continue
         if policy['effect']=='prepare':goal['kind']='operation'
-        elif goal.get('implicit') and goal['kind']!='operation' and policy['effect']=='read':goal['kind']='analysis' if node['name']=='financial_planning_basis' else 'query'
+        elif goal.get('implicit') and goal['kind'] not in {'operation','analysis'} and policy['effect']=='read':goal['kind']='analysis' if node['name']=='financial_planning_basis' else 'query'
         elif goal.get('implicit') and node['name']=='calculate':goal['kind']='analysis'
+
+def next_ready(r):
+    """Select an actual ready node; queue order alone is not a dependency check.
+
+    Independent work may proceed while another queued node is blocked. When no
+    work is ready, return a blocked node so the usual observation protocol can
+    report the dependency failure instead of spinning or silently succeeding.
+    """
+    prior={n['id']:n for n in r['nodes']}
+    for i,node in enumerate(r['queue']):
+        if node['name']=='respond' or all(d in prior and prior[d]['status']=='succeeded' and not prior[d].get('invalidated') for d in node.get('depends_on',[])):
+            return r['queue'].pop(i)
+    return r['queue'].pop(0)
+
 
 def start(r,node):
     if not typed(r):return
     prior={n['id']:n for n in r['nodes']}
-    if node['name']!='respond' and any((prior[d]['status']!='succeeded' or prior[d].get('invalidated')) for d in node['depends_on']):
+    node['blocked_by']=[d for d in node['depends_on'] if d not in prior or prior[d]['status']!='succeeded' or prior[d].get('invalidated')]
+    if node['name']!='respond' and node['blocked_by']:
         raise DomainError('DEPENDENCY_NOT_READY','真实前置调用未成功，当前节点没有执行；请先处理失败或缺失条件。',409)
     node['attempts']=1+sum(n['name']==node['name'] and n['arguments']==node['arguments'] for n in r['nodes'] if n['id']!=node['id'])
     node['status']='running'
@@ -226,7 +256,9 @@ def responded(r,response):
     def support(nid):
         n=by_id[nid]
         if n.get('policy',{}).get('effect') in {'read','calculate'} and n['status']=='succeeded':
-            n['goal_ids']=list(dict.fromkeys(n['goal_ids']+ids))
+            # An answer citing several goals must not reassign every calculation
+            # to all of them. Explicit ownership survives presentation.
+            if not n['goal_ids']:n['goal_ids']=list(ids)
             for dep in n['depends_on']:support(dep)
     if nodes:
         for dep in nodes[-1]['depends_on']:support(dep)
@@ -243,9 +275,13 @@ def refresh(r):
     if not typed(r):return
     for goal in r['goals']:
         linked=[n for n in r['nodes'] if goal['id'] in n.get('goal_ids',[]) and n['name'] not in {'declare_goals','revise_goals','respond','manage_task'} and not n.get('invalidated')]
-        writes=[n for n in linked if n['policy']['effect']=='prepare']
+        # Rejected arguments never created a business operation that could have
+        # a receipt. Keep failed attempts in the audit, but do not require a
+        # fictitious receipt for them after the corrected operation completes.
+        writes=[n for n in linked if n['policy']['effect']=='prepare' and (n['status']!='failed' or n.get('resource_ref'))]
         success=[n for n in linked if n['status']=='succeeded' and n.get('result_refs') and not n.get('recovered_by')]
-        failures=[n for n in linked if n['status']=='failed' and not n.get('recovered_by')]
+        from app.agent.runtime_attempts import unresolved
+        failures=[n for n in linked if unresolved(n)]
         wait=[n for n in linked if n['status']=='awaiting_confirmation']
         cancelled=[n for n in linked if n.get('outcome')=='cancelled' or n['status']=='cancelled']
         goal['evidence_refs']=list(dict.fromkeys(ref for n in success for ref in n.get('result_refs',[]) if ref not in r.get('stale_evidence',[])))
@@ -254,16 +290,17 @@ def refresh(r):
         elif any(n.get('verification_required') for n in linked):status='waiting_verification'
         elif writes and all(n.get('receipt_refs') and n.get('outcome')!='cancelled' for n in writes):status='completed'
         elif cancelled and (not writes or all(n in cancelled or n.get('receipt_refs') for n in writes)):status='cancelled'
-        elif wait:status='waiting_authorization'
-        elif not writes and success and (goal['kind']=='query' or goal.get('answer_observed')) and not goal.get('needs_input') and goal.get('evidence_refs') and not failures:status='completed'
         elif r.get('status')=='cancelled':status='cancelled'
-        elif r.get('status') in {'paused','superseded'}:status='paused' if r['status']=='paused' else 'cancelled'
-        elif goal['kind']=='query' and success and goal.get('evidence_refs') and not failures:status='completed'
+        elif r.get('status') in {'paused','superseded'} and goal.get('status')!='completed':status='paused' if r['status']=='paused' else 'cancelled'
+        elif wait:status='waiting_authorization'
+        elif r.get('failure_classification'):status='failed' if failures else 'waiting_input'
+        elif not writes and success and goal['kind']!='operation' and (goal['kind']=='query' or goal.get('answer_observed')) and not goal.get('needs_input') and goal.get('evidence_refs') and not failures:status='completed'
+        elif goal['kind']=='query' and success and goal.get('evidence_refs') and not failures and (not goal.get('needs_input') or not goal.get('implicit')):status='completed'
         elif failures:status='failed'
         elif goal.get('needs_input') or any(n['status']=='pending' and n.get('waiting_for')=='input' for n in linked):status='waiting_input'
         elif writes:status='pending'
         elif goal['kind']=='answer' and goal.get('answer_observed'):status='completed'
-        elif success and (goal['kind']=='query' or goal.get('answer_observed')) and goal.get('evidence_refs'):status='completed'
+        elif success and goal['kind']!='operation' and (goal['kind']=='query' or goal.get('answer_observed')) and goal.get('evidence_refs'):status='completed'
         elif r['status']=='running':status='running'
         else:status='pending'
         goal['status']=status
@@ -343,11 +380,14 @@ def public(task,business=None,control=None):
                 n['result_refs']=list(dict.fromkeys(n.get('result_refs',[])+n['receipt_refs']))
                 n['completion_basis']='domain_receipt'
             elif record.get('status') in {'cancelled','expired','invalidated'}:n['outcome']='cancelled';n['status']='cancelled'
-    if control and control.get('state') in {'terminated','paused','handoff'}:r['status']='cancelled' if control['state']=='terminated' else 'paused'
+    if task.stop_requested or control and control.get('state') in {'terminated','paused','handoff'}:
+        r['status']='cancelled' if task.stop_requested or control['state']=='terminated' else 'paused'
+        for n in r['nodes']:
+            if n['status'] in {'pending','running','awaiting_confirmation'} and not n.get('receipt_refs'):n['status']='cancelled' if r['status']=='cancelled' else n['status']
     refresh(r)
     statuses=[g['status'] for g in r['goals']]
     overall='completed' if all(s=='completed' for s in statuses) else 'partially_completed' if 'completed' in statuses else next((s for s in ['waiting_verification','waiting_authorization','waiting_input','failed','paused','cancelled','running'] if s in statuses),'pending')
-    keys=('id','task_id','plan_version','result_plan_version','name','title','arguments','goal_ids','depends_on','dependency_sources','observed_refs','result_refs','receipt_refs','status','attempts','policy','error_code','resource_ref','domain_status','evaluated_risk','authorization_expires_at','next_step','completion_basis','reused_from','recovered_by','recovery_reason','invalidated','invalidation_reason','verification_required')
+    keys=('id','task_id','plan_version','result_plan_version','name','title','arguments','goal_ids','depends_on','dependency_sources','observed_refs','result_refs','receipt_refs','status','attempts','policy','error_code','resource_ref','domain_status','evaluated_risk','authorization_expires_at','next_step','completion_basis','reused_from','recovered_by','recovery_reason','invalidated','invalidation_reason','verification_required','failure_policy','blocked_by')
     nodes=[{k:n[k] for k in keys if k in n} for n in r['nodes']]
     for n in nodes:
         n['status']='cancelled' if n.get('domain_status') in {'cancelled','expired','invalidated'} else 'waiting_authorization' if n['status']=='awaiting_confirmation' else 'waiting_input' if n['status']=='pending' and next(v for v in r['nodes'] if v['id']==n['id']).get('waiting_for')=='input' else 'completed' if n['status']=='succeeded' else n['status']

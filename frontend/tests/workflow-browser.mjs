@@ -1,0 +1,95 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import path from 'node:path';
+const base=process.env.FINAGENT_E2E_BASE_URL,out=process.env.FINAGENT_E2E_OUTPUT;
+if(!base?.startsWith('http://127.0.0.1:')||!out?.includes('TEST-ONLY'))throw Error('TEST-ONLY environment required');
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
+const checks=[],errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(20000);
+async function data(){return (await(await context.request.get(base+'/api/workflows')).json()).data;}
+async function chat(text,fresh=false){
+  if(fresh)await page.locator('#assistant').getByRole('button',{name:'新对话',exact:true}).click();
+  await page.locator('#agent-message').fill(text);
+  const response=page.waitForResponse(r=>r.request().method()==='POST'&&/\/api\/tasks(?:\/[^/]+\/messages)?$/.test(new URL(r.url()).pathname));
+  await page.locator('#assistant').getByRole('button',{name:'发送',exact:true}).click();
+  const result=await response;assert.equal(result.status(),200);return (await result.json()).data;
+}
+try{
+  await page.goto(base);await page.locator('#user').selectOption('u1');await page.locator('#agent-message').waitFor();
+  const original=await chat('查余额，并分析预算待定的旅行');
+  await chat('你好',true);
+  await page.goto(base+'/#tasks/plans');await page.getByRole('heading',{name:'联动计划与对话历史'}).waitFor();
+  const card=page.locator('.workflow-card').filter({hasText:'分析预算待定的旅行'}).first();await card.waitFor();
+  assert((await data()).plans.length>=2);checks.push('真实任务历史与多目标进度');
+  await card.getByRole('button',{name:'查看任务进展',exact:true}).click();
+  await page.getByRole('region',{name:'任务目标进度'}).waitFor();assert(new URL(page.url()).hash==='#tasks/current');
+  assert.equal(await page.locator('#assistant').count(),0);checks.push('历史任务进展在任务中心打开');
+  await page.goto(base+'/#tasks/plans');await card.waitFor();
+  await card.getByRole('button',{name:'打开对话与固定单'}).click();await page.locator('#agent-message').waitFor();
+  assert.equal(await page.getByRole('region',{name:'任务目标进度'}).count(),0);
+  await page.waitForTimeout(2300);
+  assert((await page.locator('#assistant').textContent()).includes('查余额，并分析预算待定的旅行'));
+  checks.push('历史任务打开后轮询保持所选任务');
+  await page.goto(base+'/#tasks/plans');const current=page.locator('.workflow-card').filter({hasText:'分析预算待定的旅行'}).first();
+  await current.getByRole('button',{name:'设置后续复查'}).click();
+  const form=page.getByRole('region',{name:'设置只读资金复查'});await form.waitFor();
+  assert(await form.getByRole('button',{name:'确认设置复查'}).isDisabled());
+  await form.getByLabel('可用资金参考额（元，可留空）').fill('20000');
+  await form.getByRole('checkbox').check();
+  const endField=form.getByLabel('授权截止');const originalEnd=await endField.inputValue();
+  const earlier=new Date(Date.now()+300000);await endField.fill(new Date(earlier.getTime()-earlier.getTimezoneOffset()*60000).toISOString().slice(0,16));
+  const rejected=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/workflows/reviews'&&r.request().method()==='POST');
+  await form.getByRole('button',{name:'确认设置复查'}).click();assert.equal((await rejected).status(),422);
+  await page.getByRole('alert').getByText('请选择未来时间，复查期限最多一年',{exact:false}).waitFor();
+  assert.equal((await data()).reviews.length,0);checks.push('无效时间被拒绝且刷新不抹除错误');
+  await endField.fill(originalEnd);
+  const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/workflows/reviews'&&r.request().method()==='POST');
+  await form.getByRole('button',{name:'确认设置复查'}).click();assert.equal((await saved).status(),200);
+  await page.getByText('已保存，请以最新计划和回执为准。').waitFor();
+  assert.equal((await data()).reviews.length,1);checks.push('只读范围确认后创建持久复查');
+  await page.reload();await page.getByRole('heading',{name:'后续复查',exact:true}).waitFor();
+  let review=(await data()).reviews[0];assert.equal(review.task_id,original.id);checks.push('刷新恢复复查条款');
+  const reviewCard=page.locator('.workflow-card').filter({hasText:'最近快照'});
+  const result=execFileSync(process.env.FINAGENT_E2E_PYTHON,['-B','-c',
+    'import os;from pathlib import Path;from datetime import datetime;from app.data.db import SessionLocal;from app.domain.workflows import run_due_reviews;assert "TEST-ONLY" in Path(os.environ["FINAGENT_DB_PATH"]).parts;print(len(run_due_reviews(SessionLocal,instant=datetime.fromisoformat(os.environ["WORKFLOW_TEST_AT"]))))'],
+    {env:{...process.env,WORKFLOW_TEST_AT:review.next_run_at_utc},encoding:'utf8'});
+  assert.equal(result.trim(),'1');
+  await page.getByRole('button',{name:'刷新核对',exact:true}).count();
+  await page.reload();await reviewCard.waitFor();checks.push('到期生成独立资金快照');
+  await page.screenshot({path:path.join(out,'plans-desktop.png'),fullPage:true});
+  await reviewCard.getByRole('button',{name:'暂停复查',exact:true}).click();
+  await reviewCard.getByRole('button',{name:'恢复复查',exact:true}).waitFor();
+  await reviewCard.getByRole('button',{name:'恢复复查',exact:true}).click();
+  await reviewCard.getByRole('button',{name:'暂停复查',exact:true}).waitFor();
+  await reviewCard.getByRole('button',{name:'取消后续复查',exact:true}).click();
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('.workflow-card button')).some(e=>e.textContent==='取消后续复查'));
+  assert.equal((await data()).reviews[0].status,'cancelled');checks.push('暂停恢复与取消持久生效');
+  await page.goto(base+'/#assistant');await page.locator('#agent-message').waitFor();
+  await chat('创建五日只读复查草稿',true);
+  await page.goto(base+'/#tasks/plans');await page.getByRole('heading',{name:'待核对的复查草稿',exact:true}).waitFor();
+  assert.equal((await data()).reviews.length,1);assert.equal((await data()).drafts.length,1);checks.push('自然语言只建草稿，不建立调度授权');
+  await page.getByRole('button',{name:'核对草稿与授权范围',exact:true}).click();
+  await form.waitFor();assert.equal(await form.getByLabel('复查间隔').inputValue(),'5');
+  assert.equal(await form.getByLabel('可用资金参考额（元，可留空）').inputValue(),'5000');
+  assert(await form.getByRole('button',{name:'确认设置复查'}).isDisabled());checks.push('模型草稿预填条款且默认未授权');
+  await page.screenshot({path:path.join(out,'review-draft-desktop.png'),fullPage:true});
+  await form.getByRole('checkbox').check();
+  const draftSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/workflows/reviews'&&r.request().method()==='POST');
+  await form.getByRole('button',{name:'确认设置复查'}).click();assert.equal((await draftSaved).status(),200);
+  await page.waitForFunction(()=>!document.querySelector('.workflow-review-form'));
+  assert.equal((await data()).reviews.length,2);assert.equal((await data()).drafts.length,0);checks.push('手动确认后草稿转为持久复查');
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(out,'plans-mobile.png'),fullPage:true});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));checks.push('390px 窄屏无横向溢出');
+  await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'查看生活安排详情'}).click();
+  await page.getByRole('heading',{name:'生日安排',exact:true}).waitFor();checks.push('生日作为联动计划中的生活安排详情保留');
+  await page.goto(base+'/#assets/accounts');await page.getByText('已预留资金',{exact:true}).first().waitFor();checks.push('账户使用通用预留资金口径');
+  await page.locator('#user').selectOption('u2');await page.goto(base+'/#tasks/plans');
+  await page.getByText('暂无计划。从上方示例或智能助手提出一个目标。').waitFor();
+  assert.equal((await data()).reviews.length,0);checks.push('切换用户不显示原用户目标与复查');
+  assert.deepEqual(errors,[]);
+  await writeFile(path.join(out,'browser.json'),JSON.stringify({passed:true,checks,errors},null,2));
+  console.log(JSON.stringify({passed:true,checks}));
+}catch(e){await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});await writeFile(path.join(out,'browser.json'),JSON.stringify({passed:false,checks,errors,error:String(e)},null,2));throw e;}
+finally{await browser.close();}

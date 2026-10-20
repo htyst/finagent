@@ -2,6 +2,7 @@
 import json,os,re
 from copy import deepcopy
 from datetime import datetime,timezone,timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
 from fastapi import HTTPException
@@ -31,8 +32,12 @@ def save(task,r):
 
 def current_evidence(r):
     stale=set(r.get('stale_evidence',[]))
+    cancelled={g['id'] for g in r.get('goals',[]) if g.get('user_cancelled')}
+    for n in r.get('nodes',[]):
+        if n.get('goal_ids') and set(n['goal_ids'])<=cancelled and not n.get('receipt_refs'):
+            stale.update(n.get('result_refs',[]))
     return dict(r,evidence=[e for e in r.get('evidence',[]) if e['source_ref'] not in stale and e['tool'] not in {'declare_goals','revise_goals','manage_task'}],
-        facts=[f for f in r['facts'] if f['source_ref'] not in stale])
+        facts=[f for f in r.get('facts',[]) if f['source_ref'] not in stale])
 
 
 def invalidate_snapshot(r):
@@ -41,22 +46,206 @@ def invalidate_snapshot(r):
 
 
 def validate_goal_claim(text,r):
-    if not graph.typed(r) or not re.search(r'(?:已|已经).{0,18}取消|取消.{0,6}(?:成功|完成|生效)',text):return
+    from app.agent.requirements import yuan_minor
+    for claim in re.finditer(r'([一二两三四五六七八九十\d]+)张(?:固定单|操作单|确认单)[^。；\n]{0,20}待确认',text):
+        if re.search('已完成|已执行|已取消|其中',claim[0]):continue
+        count=yuan_minor(claim[1])
+        actual={tuple(sorted(n['resource_ref'].items())) for n in r.get('nodes',[]) if n.get('resource_ref') and n['status']=='awaiting_confirmation' and not n.get('invalidated')}
+        if count is not None and count//100>len(actual):
+            raise DomainError('OPERATION_NOT_PREPARED','不能把尚未准备的目标说成已生成待确认单；请逐项区分待准备和已准备。',422)
+    from app.agent.cancellation_language import claims
+    cancellations=claims(text)
+    if not graph.typed(r) or not cancellations:return
     active=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),{})
     selected=set(active.get('goal_ids') or r.get('turn_goal_ids') or [g['id'] for g in r['goals']])
-    actual=any(g['id'] in selected and g.get('user_cancelled') for g in r['goals']) or any(set(n.get('goal_ids',[]))&selected and (n.get('outcome')=='cancelled' or n['status']=='cancelled' or n.get('receipt_refs') and n['name'] in {'prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_merchant_contract_cancel'}) for n in r['nodes'])
-    if not actual:raise DomainError('GOAL_CONTROL_REQUIRED','不能用文字宣布已取消；请先成功调用revise_goals(cancel)，或引用本目标实际取消回执。',409)
+    goal_cancelled=any(g['id'] in selected and g.get('user_cancelled') for g in r['goals'])
+    business_receipt=any(set(n.get('goal_ids',[]))&selected and n.get('receipt_refs') and n['name'] in {'prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_merchant_contract_cancel'} for n in r['nodes'])
+    actual=any(set(n.get('goal_ids',[]))&selected and (n.get('outcome')=='cancelled' or n['status']=='cancelled' or n.get('receipt_refs') and n['name'] in {'prepare_birthday_cancel','prepare_birthday_cancel_item','prepare_cancel_bank_mandate','prepare_subscription_revoke','prepare_merchant_contract_cancel'}) for n in r['nodes'])
+    for clause in cancellations:
+        known=False
+        for e in current_evidence(r)['evidence']:
+            if e.get('error') or e['tool'] not in {'read_subscriptions','identify_subscriptions'}:continue
+            data=e.get('raw_data') or e.get('data') or {};data=data.get('confirmed',data)
+            for contract in data.get('contracts',[]):
+                from app.agent.servicing_flow import normalized
+                name=normalized(contract.get('service_name'))
+                if name and name in normalized(clause) and str(contract.get('auto_renew_enabled')).lower() in {'false','0'}:known=True
+        business=bool(re.search('订阅|续费|续订|会员|合同|代扣',clause)) and not re.search('任务|目标|操作单',clause)
+        supported=business_receipt or known if business else actual or goal_cancelled
+        if not supported:
+            raise DomainError('GOAL_CONTROL_REQUIRED','本目标没有取消回执，不能说业务已经取消。请区分历史合同状态、尚未执行与已完成；不要为修正回答而取消用户目标。',409)
+
+
+# Task control is grounded in "stop word + action verb" rather than whole
+# sentences, so ordinary phrasings like "先别转了" / "先不要操作" also work.
+_CONTROL_STOP=r'(?:先别|先不要|先不|暂别|暂不|暂时不|别|不要|不用|停止|停一下|暂停)'
+_CONTROL_ACT=r'(?:转|转账|办|办理|做|操作|付款|扣款|扣钱|推进|动|执行|继续)'
+_CONTROL_POSITIVE={
+    'cancel':r'停止|取消|终止|不办理|不转了|算了|不用了|都不办|全部取消|别办了|不弄了',
+    'pause':_CONTROL_STOP+r'[^。；\n]{0,6}'+_CONTROL_ACT+r'|暂停|等一下|等等|稍等|先缓缓|缓一缓|先放着|先停',
+    'continue':r'继续|恢复|接着办|接着来|接着做|往下办',
+    'handoff':r'转人工|找人工|人工接管|找客服'}
+_CONTROL_NEGATED={name:r'(?:不要|别|不想)\s*(?:(?:帮|替|为)我|再|自动)?\s*(?:'+verbs+')'
+    for name,verbs in {'cancel':'停止|取消|终止','pause':'暂停',
+        'continue':'继续|恢复','handoff':'转人工|找人工|人工接管'}.items()}
+_CONTROL_NON_INSTRUCTION=r'如何|怎么|假设|如果|为什么|是不是'
+
+
+def control_grounded(action,quote,request):
+    """True only when this turn's own words clearly issue the control action."""
+    if action not in _CONTROL_POSITIVE:return False
+    if not quote or quote not in request:return False
+    if not re.search(_CONTROL_POSITIVE[action],quote):return False
+    return not re.search(_CONTROL_NEGATED[action]+'|'+_CONTROL_NON_INSTRUCTION,quote)
 
 
 def cancelled_goal_reply(text,r):
     """Render control evidence without relaxing the no-data financial guard."""
-    if not graph.typed(r) or not re.search(r'(?:已|已经).{0,18}取消|取消.{0,6}(?:成功|完成|生效)',text):return None
+    from app.agent.cancellation_language import claims
+    if not graph.typed(r) or not claims(text):return None
     active=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),{})
     selected=set(active.get('goal_ids') or r.get('turn_goal_ids') or [])
     goals={g['id']:g for g in r['goals']}
     if selected and all(goals.get(gid,{}).get('user_cancelled') for gid in selected):
         return '已取消该目标尚未执行的部分。已发生的交易不受此次取消影响，请以固定单和实际回执为准。'
     return None
+
+
+_PENDING_ORDER_FIELDS=('proposal','wealth_order','card_request','subscription_request',
+    'birthday_request','schedule','collection','service_request')
+_ORDER_LABEL={'proposal':'转账或卡片操作单','wealth_order':'理财申购或赎回单','card_request':'卡片办理单',
+    'subscription_request':'订阅提醒或解除代扣单','birthday_request':'生日安排单','schedule':'预约转账单',
+    'collection':'AA收款单','service_request':'业务办理单'}
+
+
+SELF_ASSET_TOOLS={'list_accounts','list_cards','read_financial_profile','read_financial_history',
+    'read_credit_cards','financial_planning_basis','read_wealth','read_card_management',
+    'read_subscriptions','identify_subscriptions','read_birthdays','list_schedules','list_collections'}
+
+
+PERIOD_TOOLS={'summarize_spending','generate_statement','analyze_finances','list_transactions'}
+PERIOD_WORDS={'上个月':'last_month','上月':'last_month','这个月':'this_month','本月':'this_month',
+    '昨天':'yesterday','今天':'today'}
+_PERIOD_LABEL={'last_month':'上个月','this_month':'这个月','yesterday':'昨天','today':'今天'}
+
+
+def demo_day(db):
+    """The demo calendar day every relative period must resolve against."""
+    from app.data.models import DemoSetting
+    from app.domain.clock import parse_day
+    setting=db.get(DemoSetting,1)
+    if setting is None or not setting.demo_date:return None
+    return parse_day(setting.demo_date)
+
+
+def expected_period(request,demo_date):
+    """(label, start, end) the user's own period words require, on the demo clock."""
+    from app.domain.clock import (DateRange,current_month_range,previous_full_month_range)
+    if not request or demo_date is None:return None
+    words={word for word in re.findall(r'上个月|上月|这个月|本月|昨天|今天',request)}
+    # Two different period words in one turn is a comparison we must not police.
+    if len(words)!=1:return None
+    key=PERIOD_WORDS[next(iter(words))]
+    if key=='this_month':window=current_month_range(demo_date)
+    elif key=='last_month':window=previous_full_month_range(demo_date)
+    elif key=='today':window=DateRange(demo_date,demo_date+timedelta(days=1))
+    else:window=DateRange(demo_date-timedelta(days=1),demo_date)
+    return _PERIOD_LABEL[key],window.start.isoformat(),(window.end_exclusive-timedelta(days=1)).isoformat()
+
+
+def period_mismatch_message(name,args,request,demo_date):
+    """The demo clock decides "this month"; real-time dates silently answer about nothing."""
+    if name not in PERIOD_TOOLS:return None
+    wanted=expected_period(request,demo_date)
+    if not wanted:return None
+    label,start,end=wanted
+    supplied=(args.get('start'),args.get('end'))
+    if supplied==(None,None):
+        # Omitting dates is only safe when the tool default already equals the range.
+        return None if label=='这个月' else (
+            f'用户说的是“{label}”，按演示日期应查询 {start} 至 {end}；'
+            '省略区间会让工具默认查本月，所以请显式按这个区间查询。')
+    if (str(supplied[0]),str(supplied[1]))!=(start,end):
+        return (f'用户说的是“{label}”，按演示日期 {demo_date.isoformat()} 该区间是 {start} 至 {end}，'
+            f'不是 {supplied[0]} 至 {supplied[1]}。请按演示日期修正区间；'
+            '不要把真实当天日期当作账单日期。')
+    return None
+
+
+_NEGATED_STOP=r'(?:不要|别|不想|不用|不需要|暂不|先不)\s*(?:帮我|替我|给我|再|自动)?\s*(?:取消|退订|关闭|停止|解除|挂失)'
+_ACTION_VERB=r'(?:取消|退订|关闭|停止|解除|挂失)'
+
+
+def supersede_stale_prohibitions(prohibitions,request):
+    """Drop an earlier "先别…" once this turn explicitly asks for the same action.
+
+    Prohibitions are meant to constrain the turn that stated them. Keeping them alive
+    forever meant one "先别取消" made every later cancellation impossible. A prohibition
+    is only dropped when the user's own current words request the action and no longer
+    repeat the refusal, so nothing is loosened beyond what the user just asked for.
+    """
+    kept=[]
+    for value in prohibitions or []:
+        if isinstance(value,str) and re.search(_NEGATED_STOP,value) \
+                and re.search(_ACTION_VERB,request or '') and not re.search(_NEGATED_STOP,request or ''):
+            continue
+        kept.append(value)
+    return kept
+
+
+def foreign_subject_message(db,session,request):
+    """Refuse to answer a self-asset read that was actually asked about someone else.
+
+    The tools only ever resolve the session owner, so without this guard the answer
+    silently becomes the user's own data presented as the other person's.
+    """
+    if not request:return None
+    from sqlalchemy import select
+    from app.data.models import Recipient,User
+    owner=db.get(User,session.owner_id)
+    own_name=getattr(owner,'display_name',None) if owner else None
+    if not own_name:return None
+    payees={name for name in db.scalars(select(Recipient.name).where(Recipient.owner_id==session.owner_id)) if name}
+    for user in db.scalars(select(User)):
+        name=getattr(user,'display_name',None)
+        if not name or user.id==session.owner_id or name==own_name or name in payees:continue
+        if name in request:
+            return (f'只能查询你本人（{own_name}）的账户与记录；{name} 不是本会话用户，'
+                '系统不能查询他人账户，也没有返回任何其他人的数据。')
+    return None
+
+
+def pending_orders(state):
+    """Fixed orders this turn actually produced and that still await a human click."""
+    return [(key,state[key]) for key in _PENDING_ORDER_FIELDS
+        if isinstance(state.get(key),dict) and state[key].get('status')=='pending_confirmation']
+
+
+def unfinished_operations(r):
+    return [g for g in r.get('goals',[]) if g.get('kind')=='operation'
+        and g.get('status') not in {'completed','cancelled','failed'}]
+
+
+def closing_text(state,r,visible):
+    """Speak honestly when the loop stops: prepared, still missing, or merely answered."""
+    details=''
+    if visible:
+        from app.agent.dialogue import evidence_reply
+        from app.agent.dialogue_schema import DialogueTurn
+        details='独立查询已完成：\n'+evidence_reply(SimpleNamespace(reply=None,intent='reply',
+            dialogue=DialogueTurn(behavior='insert_query')),visible)
+    orders=pending_orders(state)
+    if orders:
+        labels=list(dict.fromkeys(_ORDER_LABEL[key] for key,_ in orders))
+        return ('已准备'+'、'.join(labels)+'，尚未执行。请在页面核对条款后手动确认；'
+            '聊天里的“确认”不会生效，也不会自动扣款。'+('\n\n'+details if details else ''))
+    if unfinished_operations(r):
+        # No fixed form exists yet: never let a green read read as "the business is
+        # being handled", and always ask for the one object or term that is missing.
+        return ((details+'\n\n' if details else '')
+            +'这次还没有生成办理固定单。请补充要办理的具体对象或条款（例如卡片尾号、收款人、金额、日期），'
+            '我再准备固定单；在你页面确认之前不会有任何扣款或状态变更。')
+    return details or None
 
 
 def render_response(response,r):
@@ -70,8 +259,16 @@ def render_response(response,r):
         f=selected.get(match[1])
         if not f:raise DomainError('ANALYSIS_REFERENCE','回答引用了未返回或已过期的事实，请重新查询',422)
         suffix=response.text[match.end():]
+        prefix=response.text[max(0,match.start()-16):match.start()]
+        if f['unit']=='yuan' and re.search(r'(?:日期|截止|到期|还款日|下次扣费日|权益至)\s*[:：]?\s*$',prefix):
+            raise DomainError('ANALYSIS_UNIT','金额事实不能当作合同日期；请引用工具返回的完整日期。',422)
         if f['unit']=='yuan' and re.match(r'\s*(?:笔|次|个月|天|人|%)',suffix) or f['unit']=='number' and re.match(r'\s*(?:万元|元)',suffix):
             raise DomainError('ANALYSIS_UNIT','引用事实的单位与文字不符；笔数须引用笔数事实，金额须引用金额事实',422)
+        # A count fact dropped in without its unit renders as a bare number
+        # ("、32，"); require the model to write the unit next to the placeholder.
+        if f['unit']!='yuan' and re.search(r'笔|次|份|项|条',f.get('label') or '') \
+                and not re.match(r'\s*(?:笔|次|份|项|条|%|个月|天|人)',suffix):
+            raise DomainError('ANALYSIS_UNIT','引用笔数事实时必须紧跟单位，例如“{{'+match[1]+'}} 笔”；否则会出现没有单位的裸数字',422)
         used.append(f);value=facts.decimal(f['value'])
         return (f'{value:,.2f}' if re.match(r'\s*元',suffix) else f'{value:,.2f} 元') if f['unit']=='yuan' else format(value.normalize(),'f')
     text=re.sub(r'\{\{(f[0-9]+)\}\}',replace,response.text)
@@ -84,26 +281,60 @@ def render_response(response,r):
     prose=re.sub(r'(-?[0-9][0-9,]*(?:\.[0-9]+)?)\s*(万元|元)',checked_money,prose)
     months={facts.decimal(f['value']) for f in r['facts'] if f['unit']=='number' and ('月' in f['label'] or f['key']=='complete_months')}
     prose=re.sub(r'([0-9]+(?:\.[0-9]+)?)\s*个?(?:完整)?月',lambda m:'已核对期限' if facts.decimal(m[1]) in months else m[0],prose)
+    # The user's own duration words ("三个月", "一个月") are ordinary prose, not a
+    # number claim; neutralise them only when the span length is a verified count.
+    from app.agent.requirements import yuan_minor
+    def duration_word(match):
+        minor=yuan_minor(match[1]);value=Decimal(minor)/100 if minor is not None else None
+        return '已核对期限' if value in months else match[0]
+    prose=re.sub(r'([零〇一二两三四五六七八九十]+)\s*个(?:完整)?月',duration_word,prose)
     # A historical monthly average is intrinsically a one-month quantity.
     if any(f['key']=='monthly_expense_mean' for f in r['facts']):prose=prose.replace('一个月','每月')
     def verified_date(value):
         nonlocal prose
         if isinstance(value,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):
             y,m,d=map(int,value.split('-'))
-            # Only complete dates from typed metadata; no amount/month whitelist.
-            for form in (value,f'{y}年{m}月{d}日',f'{y}年{m:02}月{d:02}日'):
-                prose=prose.replace(form,'已核对日期')
+            # Most specific first: a loose "9-01" pattern would otherwise eat the "9"
+            # of "09-01" and leave a stray "0" behind. Whitespace is tolerated
+            # because models write "2026 年 9 月" as readily as "2026年9月".
+            for pattern in (rf'{y}\s*-\s*{m:02d}\s*-\s*{d:02d}',rf'{y}\s*-\s*{m}\s*-\s*{d}',
+                    rf'{y}\s*年\s*{m:02d}\s*月\s*{d:02d}\s*日',rf'{y}\s*年\s*{m}\s*月\s*{d}\s*日',
+                    rf'{m:02d}\s*月\s*{d:02d}\s*日',rf'{m}\s*月\s*{d}\s*日',
+                    rf'{m:02d}\s*-\s*{d:02d}',rf'{m}\s*-\s*{d}',
+                    rf'{y}\s*年\s*{m:02d}\s*月',rf'{y}\s*年\s*{m}\s*月'):
+                prose=re.sub(pattern,'已核对日期',prose)
+    def mask_seen(mask,label):
+        """Neutralise a queried card/account tail, tolerating "尾号 3355" spacing."""
+        nonlocal prose
+        if isinstance(mask,str) and re.fullmatch(r'\*\*\d{4}',mask):
+            prose=re.sub(r'尾号\s*'+re.escape(mask[2:]),label,prose)
+            prose=prose.replace(mask,label)
     for e in r['evidence']:
         data=e.get('data') or {}
+        # A window the coverage map does not touch at all produces arithmetic zeros,
+        # not "you spent nothing": never let that render as a period total.
+        coverage=data.get('coverage') if isinstance(data,dict) else None
+        if isinstance(coverage,dict) and coverage.get('status')=='incomplete' and not coverage.get('segments') \
+                and (data.get('totals') or {}).get('is_complete') is False:
+            raise DomainError('ANALYSIS_INCOMPLETE',
+                '这个区间没有任何已覆盖的流水记录，不能把 0 当成该区间的真实总额；'
+                '请说明该区间未被覆盖，并改用有覆盖的区间或请用户确认口径。',422)
         if e['tool'] in {'list_accounts','list_cards'} and isinstance(data,list):
             for record in data:
                 for key in ('account_mask','card_mask'):
                     mask=record.get(key) or ''
-                    if re.fullmatch(r'\*\*\d{4}',mask):prose=prose.replace(mask,'已查询尾号').replace('尾号'+mask[2:],'已查询尾号')
+                    if re.fullmatch(r'\*\*\d{4}',mask):mask_seen(mask,'已查询尾号')
         if isinstance(data,dict):
             for key in ('period_start','period_end','snapshot_as_of','as_of'):
                 value=data.get(key)
                 verified_date(value)
+            if e['tool'] in {'read_subscriptions','identify_subscriptions'}:
+                contract_data=data.get('confirmed',data)
+                verified_date(contract_data.get('as_of'))
+                for value in contract_data.get('period',{}).values():verified_date(value)
+                for contract in contract_data.get('contracts',[]):
+                    for key in ('next_billing_date','access_end_date','cancel_requested_on','cancellation_effective_on'):
+                        verified_date(contract.get(key))
             if e['tool']=='financial_planning_basis':
                 due=data.get('upcoming_obligations',{})
                 verified_date(due.get('as_of'));verified_date(due.get('through'))
@@ -114,7 +345,7 @@ def render_response(response,r):
                 for card in data.get('credit_cards',[]):
                     mask=card.get('card_mask') or ''
                     if re.fullmatch(r'\*\*\d{4}',mask):
-                        prose=prose.replace(mask,'已查询卡片').replace('尾号'+mask[2:],'已查询卡片')
+                        mask_seen(mask,'已查询卡片')
                     for key,label in [('statement_day','账单日'),('due_day','还款日')]:
                         day=str(card.get(key) or '')
                         if day.isdigit() and 1<=int(day)<=31:
@@ -135,19 +366,21 @@ def render_response(response,r):
                     for part in (record.get('summary',{}),record.get('receipt') or {}):
                         for key in ('card_mask','old_card_mask','new_card_mask'):
                             mask=part.get(key) or ''
-                            if re.fullmatch(r'\*\*\d{4}',mask):prose=prose.replace(mask,'已核对卡片').replace('尾号'+mask[2:],'已核对卡片')
+                            if re.fullmatch(r'\*\*\d{4}',mask):mask_seen(mask,'已核对卡片')
                         date=part.get('access_end_date')
                         verified_date(date)
     user_text='\n'.join(r.get('user_messages',[]))
     prose=re.sub(r'[0-9]+\s*(?:天|人)',lambda m:'用户指定条件' if m[0] in user_text else m[0],prose)
-    counts={facts.decimal(f['value']) for f in r['facts'] if f['unit']=='number' and (f['key'].endswith('_count') or f['key'].split('.')[-1]=='count')}
-    prose=re.sub(r'([0-9]+)\s*(?:笔|次)',lambda m:'已核对笔数' if facts.decimal(m[1]) in counts else m[0],prose)
+    counts={facts.decimal(f['value']) for f in r['facts'] if f['unit']!='yuan' and (
+        f['key'].endswith('_count') or f['key'].split('.')[-1]=='count'
+        or re.search(r'笔数|笔|次数|条数|件数|份数|项数|数量',f.get('label') or ''))}
+    prose=re.sub(r'([0-9]+)\s*(?:笔|次|份|项|条)',lambda m:'已核对数量' if facts.decimal(m[1]) in counts else m[0],prose)
     queried_dates=[v for e in r['evidence'] for v in e.get('query',{}).values() if isinstance(v,str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}',v)]
     for day in queried_dates:
         y,m,d=map(int,day.split('-'))
         for form in (day,f'{y}年{m}月{d}日',f'{y}年{m}月',f'{m}月'):
             prose=prose.replace(form,'已查询月份')
-    prose=re.sub(r'(?m)^\s*[0-9]{1,2}[.、)]\s*','• ',prose)
+    prose=re.sub(r'(?m)^\s*(?:\*\*)?[0-9]{1,2}[.、)]\s*(?:\*\*)?\s*','• ',prose)
     prose=re.sub(r'(?:还|尚|暂)?(?:不能|无法|不足以)(?:确定|判断|说明|断言|认定)?[^。；\n]{0,24}(?:负担得起|预算充足|还款没有压力)',
         '尚待补充成本信息',prose)
     refs=list(dict.fromkeys(response.evidence_refs+[f['source_ref'] for f in used]))
@@ -203,6 +436,7 @@ def context(db,task,r):
     if progress:
         progress['nodes']=[{k:n.get(k) for k in ('id','name','goal_ids','depends_on','status','error_code','receipt_refs','resource_ref','invalidated','verification_required','next_step')} for n in progress['nodes'] if not n.get('invalidated')][-24:]
     return {k:base[k] for k in ('demo_date','current_time','birthday_business_now_utc') if k in base}|{
+        'current_time_utc':datetime.now(timezone.utc).isoformat(),
         'execution_graph':progress,'dialogue_context':ctx,'tool_budget':config()['tools']-(len(r['nodes'])-r.get('turn_start_node_count',0)),
         'model_budget':{'remaining_calls':(ACTIVE.get() or {}).get('remaining'),
             'guidance':'证据足够就综合回答；余量较少时不再扩展备选情景或重复查询，优先完成当前目标。'},
@@ -240,7 +474,10 @@ def observation(r,node,data,error=None,*,record=True):
         result['stale_evidence_refs']=r['stale_evidence']
     if error:
         result['error']=error
+        from app.agent.failure_policy import classify
+        node['failure_policy']=classify(error['code'],registry.execution_policy(node['name'],node['arguments'])['effect'])
         result['recovery']={'identical_attempts':len(attempts.prior_rejections(r,node))+1,
+            **node['failure_policy'],
             'instruction':'按错误字段修正；相同失败参数最多尝试两次。不得省略用户条件、切换工具绕过权限，无法继续时说明缺项或交由用户处理。',
             'active_evidence_refs':[e['source_ref'] for e in current_evidence(r)['evidence'] if not e.get('error')]}
     if not error and node['name']=='read_tool_catalog':result['data']=data
@@ -288,7 +525,12 @@ def prepare(db,session,task,r,node):
     if advice_only(r['request']):
         raise DomainError('ANALYSIS_ONLY','用户当前仅询问建议或明确暂不办理；只能查询、计算和解释，不能准备资金操作单。',422)
     quote=opctx.pop('instruction_quote',None) or r['request']
-    if quote not in r['request']:raise DomainError('UNGROUNDED_OPERATION','办理原文没有本轮用户消息支持，不能重放历史办理指令',422)
+    original_quote=quote
+    if node['name']=='prepare_merchant_contract_cancel':
+        from app.agent.subscription_selection import continuation_quote
+        quote=continuation_quote(r,node,quote)
+    inherited=node['name']=='prepare_merchant_contract_cancel' and quote!=original_quote
+    if quote not in r['request'] and not inherited:raise DomainError('UNGROUNDED_OPERATION','办理原文没有本轮用户消息支持，不能重放历史办理指令',422)
     canonical,value=protocol.operation_values(node['name'],value)
     signature=canonical+json.dumps({k:v for k,v in value.items() if v is not None},sort_keys=True,ensure_ascii=False)
     if signature in r.get('prepared_signatures',{}):
@@ -308,8 +550,20 @@ def prepare(db,session,task,r,node):
     from app.agent.servicing_flow import TOOLS as SERVICE_TOOLS,prepare as prepare_service
     if node['name'] in SERVICE_TOOLS:
         from app.agent.servicing_flow import validate_context
+        if isinstance(opctx,dict):
+            # A "先别取消" said earlier must not block the user from asking again now.
+            opctx['prohibitions']=supersede_stale_prohibitions(opctx.get('prohibitions'),r['request'])
         validate_context(node['name'],opctx,subject=value.get('merchant'),amount_yuan=value.get('amount_yuan'))
+        before_version=checkpoints.version(db,task)
+        if r.get('evidence_version')!=before_version:invalidate_snapshot(r)
         result=prepare_service(db,session,task,node['name'],value,quote,modify=opctx.get('behavior')=='modify')
+        r['evidence_version']=checkpoints.version(db,task)
+        if node['name']=='prepare_merchant_contract_cancel' and result.get('service_request'):
+            record=result['service_request'];merchant=record['summary']['merchant']
+            for goal in r['goals']:
+                if goal['id'] in node.get('goal_ids',[]):
+                    suffix='（合同：'+merchant[:100]+'）'
+                    goal['text']=goal['quote'][:300-len(suffix)]+suffix
         r['last_operation_quote']=quote
         r.setdefault('prepared_signatures',{})[signature]={'node':node['id'],'quote':quote}
         wait=prepared_state(task,result);wait.update(node_id=node['id'],plan_version=task.plan_version,
@@ -392,6 +646,9 @@ def finish(db,task,r,response):
     from app.agent.service import _say,view
     from app.agent.dialogue import safe_explanation,evidence_reply
     active=current_evidence(r);inserted=False;selected=set()
+    from app.agent.subscription_selection import validate_completion
+    responding=next((n for n in reversed(r['nodes']) if n['name']=='respond' and n['status'] in {'pending','running'}),None)
+    validate_completion(r,responding,response)
     if response.synthesis:
         from app.agent import planning_reply
         if not any(e['tool']=='financial_planning_basis' and not e.get('error') for e in active['evidence']):
@@ -420,7 +677,7 @@ def finish(db,task,r,response):
             from app.agent.dialogue_schema import DialogueTurn
             from app.agent.tool_catalog import READ_DESCRIPTIONS
             visible=[e for e in attempts.presentation(active)['evidence'] if e['tool'] in registry.DESCRIPTIONS and e['tool'] not in READ_DESCRIPTIONS]
-            if inserted and any(e['tool']=='summarize_spending' and not e.get('error') for e in visible):
+            if inserted and any(e['tool'] in {'summarize_spending','read_subscriptions','identify_subscriptions'} and not e.get('error') for e in visible):
                 text+='\n\n'+read_presentation.scope_notes(active)
             elif visible:text+='\n\n'+evidence_reply(SimpleNamespace(reply=None,intent='reply',dialogue=DialogueTurn(behavior='insert_query')),visible)
     else:
@@ -432,7 +689,8 @@ def finish(db,task,r,response):
     graph.responded(r,response)
     for n in r['nodes']:
         if n['name']=='respond' and n['status'] in {'pending','running'}:n['status']='succeeded'
-    r['status']='gathering_info' if response.needs_input else 'partially_completed' if any(attempts.unresolved(n) for n in r['nodes']) else 'completed'
+    needs_input=response.needs_input or bool(response.synthesis and response.synthesis.questions)
+    r['status']='gathering_info' if needs_input else 'partially_completed' if any(attempts.unresolved(n) for n in r['nodes']) else 'completed'
     save(task,r);current=view(db,task)
     pending=any(op['status']=='pending_confirmation' for op in current.get('authorization_operations',[]))
     _say(db,task,text,'awaiting_confirmation' if pending else r['status']);return view(db,task)
@@ -459,6 +717,17 @@ def send(db,session,task,text):
         if continued:r=continued
         else:graph.initialize(task,r);r['evidence_version']=checkpoints.version(db,task)
         r['request_id']=request_id
+        wait=r.get('wait') or {}
+        if wait.get('kind')=='authorization' and re.fullmatch(r'\s*(?:确认|同意|确认取消|同意取消)[。！!\s]*',text):
+            current=view(db,task)
+            pending=next((op for op in current.get('authorization_operations',[]) if op['resource_kind']==wait['resource_kind']
+                and op['resource_id']==wait['resource_id'] and op['status']=='pending_confirmation'),None)
+            is_cancel=(current.get('service_request') or {}).get('kind')=='cancel_contract'
+            if pending and ('取消' not in text or is_cancel):
+                r['status']='awaiting_confirmation';save(task,r)
+                from app.agent.service import _say
+                _say(db,task,'原固定单仍待确认，没有重复建单，也未执行。请在页面核对固定条款并手动确认；聊天中的同意不会授权办理。','awaiting_confirmation')
+                return view(db,task)
         save(task,r);revision=task.updated_at_utc;commit(db)
     return run(db,session,task.id,r,request_id,revision)
 
@@ -466,10 +735,40 @@ def send(db,session,task,text):
 def run(db,session,tid,r,request_id,revision):
     from app.agent.service import _say,view
     from app.agent.model_budget import budget
-    setting=config();used_tools=0;feedback=0
+    setting=config();used_tools=0;feedback=0;draining=False
     with budget(setting['calls'],setting['seconds']):
         try:
             while True:
+                if draining:
+                    prior={n['id']:n for n in r['nodes']}
+                    ready=next((i for i,n in enumerate(r['queue']) if
+                        n.get('policy',{}).get('effect') in {'read','calculate'} and
+                        n.get('policy',{}).get('risk_floor')=='green' and n['name'] not in protocol.OPERATIONS and
+                        all(d in prior and prior[d]['status']=='succeeded' and not prior[d].get('invalidated') for d in n.get('depends_on',[]))),None)
+                    if ready is None:
+                        with atomic_write(db):
+                            task=check(db,session,tid,r,request_id,revision)
+                            start=r.get('turn_start_node_count',0)
+                            refs={ref for n in r['nodes'][start:] if n.get('policy',{}).get('effect')=='read' and n['status']=='succeeded' for ref in n.get('result_refs',[])}
+                            visible=[e for e in current_evidence(r)['evidence'] if e['source_ref'] in refs and not e.get('error')]
+                            state=view(db,task)
+                            service=state.get('service_request') or {}
+                            subscriptions=next((e for e in reversed(visible) if e['tool'] in {'read_subscriptions','identify_subscriptions'}),None)
+                            if service.get('kind')=='cancel_contract' and service['status']=='pending_confirmation' and subscriptions:
+                                data=subscriptions.get('raw_data') or subscriptions.get('data') or {};data=data.get('confirmed',data)
+                                summary=data.get('summary',{});merchant=service['summary']['merchant']
+                                details=(f"已查询{summary['contract_count']}份订阅，{summary['auto_renew_contract_count']}份开启续费，折月合计{summary['auto_renew_monthly_minor']/100:.2f}元。\n\n"
+                                    +'已为“'+merchant+'”准备取消下期续订的固定单，尚未执行。请在下方核对条款并手动确认；不退款，也不解除独立银行代扣。')
+                                _say(db,task,details,r['status']);return view(db,task)
+                            text=None
+                            if (r.get('wait') or {}).get('kind')!='input':
+                                # When a specialised flow is already waiting for a specific
+                                # answer it owns the message; a generic closing line would
+                                # bury the concrete question it just asked.
+                                text=closing_text(state,r,visible)
+                            if text:_say(db,task,text,r['status'])
+                            return view(db,task)
+                    r['queue'].insert(0,r['queue'].pop(ready))
                 if not r['queue']:
                     with atomic_write(db):
                         task=check(db,session,tid,r,request_id,revision);ctx=context(db,task,r);commit(db)
@@ -498,13 +797,19 @@ def run(db,session,tid,r,request_id,revision):
                             if any(n=='respond' for _,n,_ in parsed) and len(parsed)>1:raise DomainError('INVALID_TOOL_BATCH','回答须在工具结果返回后单独生成',422)
                         except (ValueError,DomainError) as error:
                             invalid=attempts.validation_feedback(error,model)
-                        candidates=None
+                        candidates=None;renamed_goals={}
                         if not invalid and parsed and parsed[0][1]=='declare_goals':
                             try:
                                 preview=deepcopy(r);value=dict(parsed[0][2]);value.pop('execution',None)
-                                graph.declare(preview,value);candidates=preview['goals']
+                                declared=graph.declare(preview,value);candidates=preview['goals']
+                                renamed_goals=declared.get('renamed_goal_ids') or {}
                             except (DomainError,ValueError) as error:
                                 invalid_id=parsed[0][0]['id'];invalid=attempts.validation_feedback(error,None)
+                        if renamed_goals:
+                            # Write the server-assigned ids back into the outgoing call so the
+                            # executed declaration, graph.bind and graph.validate all agree.
+                            for goal in parsed[0][2].get('goals') or []:
+                                if goal.get('id') in renamed_goals:goal['id']=renamed_goals[goal['id']]
                         batch_start=len(r['queue'])
                         for call in message['tool_calls']:
                             node={'id':'s'+str(len(r['nodes'])+len(r['queue'])+1),'model_call_id':call['id'],
@@ -520,6 +825,9 @@ def run(db,session,tid,r,request_id,revision):
                                 invalid_id=call['id'];invalid=attempts.validation_feedback(error,None);node['batch_error']=invalid;graph.bind(task,r,node,{})
                             r['queue'].append(node)
                         if invalid:
+                            # Deliberate invariant: a batch is validated as a unit, so a
+                            # rejected call voids the whole batch (INVALID_TOOL contract).
+                            # Callers keep validated arguments; the repair path re-issues.
                             for node in r['queue'][batch_start:]:
                                 node['batch_error']=invalid if node['model_call_id']==invalid_id else {'code':'BATCH_NOT_EXECUTED','message':'同批其他调用校验失败，本调用没有执行；修正后可重新调用。'}
                                 node['depends_on']=[];node['dependency_sources']={}
@@ -528,7 +836,7 @@ def run(db,session,tid,r,request_id,revision):
                 with atomic_write(db):
                     task=check(db,session,tid,r,request_id,revision)
                     if used_tools>=setting['tools'] or len(r['nodes'])>=64:raise DomainError('TOOL_BUDGET_EXCEEDED','工具调用已达到本轮上限，保留已完成结果',409)
-                    node=r['queue'].pop(0);r['nodes'].append(node);used_tools+=1
+                    node=graph.next_ready(r);r['nodes'].append(node);used_tools+=1
                     name,args=node['name'],node['arguments']
                     try:
                         graph.start(r,node)
@@ -537,7 +845,20 @@ def run(db,session,tid,r,request_id,revision):
                         if node.get('batch_error'):raise DomainError(node['batch_error']['code'],node['batch_error']['message'],422)
                         if name=='declare_goals':
                             data=graph.declare(r,args)
+                            if renamed_goals:
+                                data['renamed_goal_ids']=renamed_goals
+                                data['next']=('目标ID已由服务端重新分配：'+'、'.join(f'{k}→{v}' for k,v in renamed_goals.items())
+                                    +'。请用返回的id绑定goal_ids，不要继续使用旧ID。'+data.get('next',''))
                             result=observation(r,node,data);append_result(r,node,result);save(task,r);commit(db);continue
+                        if name=='prepare_review_plan':
+                            from app.agent.workflow_plans import prepare as review_draft
+                            data=review_draft(task,r,args,node)
+                            result=observation(r,node,data);append_result(r,node,result)
+                            for goal in r['goals']:
+                                if goal['id'] in node['goal_ids']:goal['needs_input']=True
+                            save(task,r);commit(db)
+                            _say(db,task,'只读复查草稿已保存，尚未安排执行。请到“联动计划”核对时间、频率、参考额和授权期限，勾选范围后手动确认。结果保存在页面，不会转账、锁款或发送站外消息。','gathering_info')
+                            return view(db,task)
                         if name=='revise_goals':
                             data=checkpoints.revise(db,session,task,r,args)
                             result=observation(r,node,data);append_result(r,node,result);save(task,r);revision=task.updated_at_utc;commit(db);continue
@@ -549,19 +870,41 @@ def run(db,session,tid,r,request_id,revision):
                             node['status']='awaiting_confirmation' if wait['kind'] in {'authorization','subscription_precondition'} else 'pending'
                             graph.waiting(task,r,node,wait,result)
                             r['wait']=wait;r['status']='awaiting_confirmation' if wait['kind']!='input' else 'gathering_info'
-                            save(task,r);commit(db);return view(db,task)
+                            save(task,r);revision=task.updated_at_utc;commit(db);draining=True;continue
                         if name=='calculate':data=calculate(r,node)
                         elif name=='manage_task':
                             quote=args['instruction_quote'];action=args['action']
-                            if quote not in r['request'] or re.search('不要|不想|别|如何|怎么|假设',quote):raise DomainError('UNGROUNDED_CONTROL','任务控制缺少用户明确指令',422)
+                            if not control_grounded(action,quote,r['request']):
+                                # The user's words decide the control, not the model's label:
+                                # adopt the action only when the quote grounds exactly one.
+                                grounded=[a for a in ('pause','cancel','continue','handoff') if control_grounded(a,quote,r['request'])]
+                                if len(grounded)!=1:
+                                    raise DomainError('UNGROUNDED_CONTROL','任务控制缺少用户明确指令',422)
+                                action=grounded[0]
+                            if action=='cancel':
+                                from app.agent.cancellation_language import goal_cancel_allowed
+                                if not goal_cancel_allowed(quote,r['request'],[g['text'] for g in r['goals']]):
+                                    raise DomainError('UNGROUNDED_CONTROL','取消订阅是业务需求，不是取消整个任务。继续准备固定单或澄清对象，不能终止用户目标。',422)
                             from app.agent.control import change
                             from app.agent.service import cancel
                             if action=='cancel':cancel(db,session,tid)
                             else:change(db,task,'resume' if action=='continue' else action,quote)
                             data={'state':action,'execution':'未授权任何新业务'}
                             result=observation(r,node,data);append_result(r,node,result);r['status']='paused' if action in {'pause','handoff'} else 'cancelled' if action=='cancel' else 'completed'
-                            save(task,r);commit(db);return view(db,task)
+                            save(task,r);commit(db)
+                            if action in {'pause','handoff'}:
+                                # Control actions must answer the user, not leave the previous
+                                # "please confirm this order" message as the latest reply.
+                                from app.agent.service import _say
+                                _say(db,task,('已暂停当前任务，待办不会自动继续；已发生的业务不受影响，原固定单仍在页面上待你处理。需要继续时告诉我。'
+                                    if action=='pause' else '已请求人工接管；已发生的业务不受影响，你仍可在页面查看原固定单。'),'paused')
+                            return view(db,task)
                         else:
+                            if name in SELF_ASSET_TOOLS:
+                                foreign=foreign_subject_message(db,session,r['request'])
+                                if foreign:raise DomainError('FOREIGN_SUBJECT',foreign,403)
+                            period=period_mismatch_message(name,args,r['request'],demo_day(db))
+                            if period:raise DomainError('PERIOD_UNGROUNDED',period,422)
                             signature=name+json.dumps(args,sort_keys=True)
                             duplicate=next((e for e in r['evidence'] if not e.get('error') and e['source_ref'] not in r.get('stale_evidence',[]) and e['tool']+json.dumps(e['query'],sort_keys=True)==signature),None)
                             if duplicate:
@@ -576,7 +919,7 @@ def run(db,session,tid,r,request_id,revision):
                         detail=getattr(problem,'detail',{})
                         code=getattr(problem,'code','INVALID_ARGUMENTS' if isinstance(problem,ValueError) else detail.get('error_code','READ_REJECTED') if isinstance(detail,dict) else 'READ_REJECTED')
                         message=getattr(problem,'message',('计算参数格式错误；calculate.calculation.inputs须为操作数数组，每项引用本轮node/key，或提供value/unit/label。' if name=='calculate' else '当前工具参数格式不符，请按此工具的字段与类型修正，未执行该调用。') if isinstance(problem,ValueError) else detail.get('message','请求被校验拒绝') if isinstance(detail,dict) else '请求被校验拒绝')
-                        if code=='SUBSCRIPTION_CONFIRMATION_REQUIRED':
+                        if code=='SUBSCRIPTION_CONFIRMATION_REQUIRED' and not draining:
                             from app.agent.conversation_reads import stage_subscription_access
                             stage_subscription_access(task,r['request'],[{'tool':name,'query':args,'error':{'code':code}}])
                             ctx=json.loads(task.context_json);pending=ctx['pending_subscription_query'];pending['runtime_id']=r['id'];task.context_json=json.dumps(ctx,ensure_ascii=False)
@@ -584,11 +927,14 @@ def run(db,session,tid,r,request_id,revision):
                             node['status']='awaiting_confirmation';node['next_step']='请在页面确认本人订阅查询范围；该授权不包含取消代扣。';r['status']='awaiting_confirmation';save(task,r)
                             _say(db,task,'这项工具需要先确认本人订阅查询范围。请在下面手动确认；确认后继续刚才的分析，不会取消或扣款。','gathering_info');return view(db,task)
                         if name=='revise_goals' and args.get('action')=='update':
+                            # Deliberate invariant (see test_failed_revision_cannot_be_bypassed_
+                            # with_new_calculation): while a user-stated change is unrecorded,
+                            # later calculate/respond on that goal stay locked.
                             owned={g['id'] for g in r.get('goals',[])}
                             r['revision_pending']=list(dict.fromkeys(r.get('revision_pending',[])+[gid for gid in args.get('goal_ids',[]) if gid in owned]))
                         error={'code':code,'message':message}
                         if node.get('batch_error'):error.update(node['batch_error'])
-                        node['error_code']=code
+                        node['error_code']=code;node['error_message']=error['message']
                         result=observation(r,node,None,error);record_step(db,task,node,{'error':error});append_result(r,node,result)
                     save(task,r);revision=task.updated_at_utc;commit(db)
         except DomainError as error:
@@ -682,7 +1028,11 @@ def queue_authorization(background,db,session,tid,kind,rid,action_id,result,*,ca
             if error.code=='TASK_PAUSED':return view(db,task)
             raise
         r['status']='running';save(task,r);task.status='running_readonly';commit(db)
-    background.add_task(_authorized_background,factory,session.id,tid,r['id'],kind,rid,action_id,cancelled,expected_request_id=r.get('request_id'))
+    from app.domain.workflows import enqueue_receipt,run_job
+    with atomic_write(db):
+        session,task=load(db,session,tid)
+        job_id=enqueue_receipt(db,task,kind,rid,action_id,cancelled=cancelled)
+    if job_id:background.add_task(run_job,factory,job_id)
     current=view(db,task)
     # Release the request session's read transaction before a background writer.
     db.rollback()
@@ -747,9 +1097,12 @@ def resume_subscription(db,session,tid,pending_id):
         if node['name'] not in {'read_subscriptions','identify_subscriptions','read_financial_history','read_service_requests'}:raise DomainError('INVALID_TOOL','此确认只支持受保护查询',422)
         registry.validate(node['name'],node['arguments']);confirm_subscription_access(db,session.id)
         data=registry.execute(db,session_id=session.id,owner_id=session.owner_id,name=node['name'],arguments=node['arguments'],agent_task_id=tid)
-        # Prior observations retain their timestamps, but financial calculations
-        # must not silently treat pre-consent values as refreshed balances.
-        invalidate_snapshot(r)
+        # A read-consent grant changes no financial state. Keep the timestamped
+        # observations if their owned-data version is unchanged; otherwise make
+        # the old financial snapshot stale before the model can reuse it.
+        current_version=checkpoints.version(db,task)
+        if r.get('evidence_version')!=current_version:invalidate_snapshot(r)
+        r['evidence_version']=current_version
         append_result(r,node,observation(r,node,data));record_step(db,task,node,data)
         ctx=json.loads(task.context_json);ctx.pop('pending_subscription_query',None);ctx['completed_subscription_query']=pending_id;task.context_json=json.dumps(ctx,ensure_ascii=False)
         r['wait']=None;r['status']='running';save(task,r)

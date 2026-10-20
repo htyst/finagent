@@ -142,6 +142,8 @@ def confirm(db,session,task_id,kind,rid,action_id,token):
         elif status=='collecting':message='AA收款已发起，等待成员付款；发起不代表款项已经到账。'
         if not message:message='已完成本单确认，办理状态和回执已同步到当前对话。'
         _say(db,task,message,current['status'])
+        from app.domain.workflows import enqueue_receipt
+        enqueue_receipt(db,task,kind,rid,action_id)
         return view(db,task)
 
 
@@ -169,6 +171,8 @@ def cancel(db,session,task_id,kind,rid,action_id):
         stop(db,session_id=session.id,**{field:rid})
         current=view(db,task)
         _say(db,task,'本单取消结果已同步；已执行交易和已产生的回执不会撤回。',current['status'])
+        from app.domain.workflows import enqueue_receipt
+        enqueue_receipt(db,task,kind,rid,action_id,cancelled=True)
         return view(db,task)
 
 

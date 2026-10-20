@@ -17,8 +17,10 @@ def dimension(text):
 def barriers(messages):
     result={'money':0,'time':0,'other':0}
     for i,text in enumerate(messages):
-        if CORRECTION.search(text):
-            kind=dimension(text)
+        # Deferring confirmation does not replace the financial assumptions.
+        changed=re.sub(r'(?:先不|暂不|不要|不)确认(?:取消|执行|转账|办理)?', '', text)
+        if CORRECTION.search(changed):
+            kind=dimension(changed)
             for key in result:
                 if kind=='all' or key==kind:result[key]=i
     return result
@@ -60,4 +62,11 @@ def validate_quote(operand,messages):
 
 
 def advice_only(text):
+    # The alternative branch is not a prohibition on preparing the true branch.
+    # Unconditional prohibitions before the condition remain fully effective.
+    if re.search(r'如果|若|假如',text) and re.search(r'否则|不然',text):
+        branch,rest=re.split(r'否则|不然',text,maxsplit=1)
+        # A later standalone prohibition still governs the entire request.
+        suffix=re.split(r'[。；;\n]',rest,maxsplit=1)
+        text=branch+('。'+suffix[1] if len(suffix)>1 else '')
     return bool(re.search(r'(?:只|仅).{0,10}(?:建议|分析|咨询|测算|比较)|(?:不要|不必|先不|暂不|不需要|不)(?:自动|实际|立即)?(?:办理|操作|转账|申购|锁定|预留)|(?:能否|是否|能不能|可不可以).{0,25}(?:负担|旅游|旅行|买|预算)',text))

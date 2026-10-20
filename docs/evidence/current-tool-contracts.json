@@ -1,7 +1,7 @@
 {
   "contract_version": "tool-contracts-v1",
-  "tool_count": 64,
-  "model_tool_count": 58,
+  "tool_count": 65,
+  "model_tool_count": 59,
   "tools": [
     {
       "name": "analyze_finances",
@@ -7481,6 +7481,173 @@
       "idempotency": "domain resource ID and receipt; prepare replay guard"
     },
     {
+      "name": "prepare_review_plan",
+      "model_visible": true,
+      "alias_of": null,
+      "fixed_arguments": {},
+      "description": "准备定期只读余额复查草稿：明确首次ISO时间及授权截止（带时区），间隔0为一次、1至90天为周期，可给人民币参考额target_yuan。使用服务端当前时间，不用历史账本日期排未来任务。只保存草稿，用户在联动计划页面确认后才调度；结果在页面查询，不承诺站外通知。不转账、不锁款、不读取订阅合同。",
+      "input_schema": {
+        "$defs": {
+          "ExecutionBinding": {
+            "additionalProperties": false,
+            "properties": {
+              "goal_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "title": "Goal Ids",
+                "type": "array"
+              },
+              "depends_on": {
+                "description": "仅列真实前置调用ID；独立查询没有依赖，不把串行顺序当数据依赖。",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "title": "Depends On",
+                "type": "array"
+              }
+            },
+            "title": "ExecutionBinding",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "run_at": {
+            "title": "Run At",
+            "type": "string"
+          },
+          "end_at": {
+            "title": "End At",
+            "type": "string"
+          },
+          "interval_days": {
+            "maximum": 90,
+            "minimum": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "target_yuan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Yuan"
+          },
+          "instruction_quote": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Instruction Quote",
+            "type": "string"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExecutionBinding"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "可选目标与真实前置调用关联；不包含权限或完成状态。简单问题无需声明复杂计划。"
+          }
+        },
+        "required": [
+          "title",
+          "run_at",
+          "end_at",
+          "interval_days",
+          "instruction_quote"
+        ],
+        "title": "ReviewDraftExecution",
+        "type": "object"
+      },
+      "output_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "source_ref": {
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          }
+        },
+        "required": [
+          "call_id",
+          "status",
+          "source_ref"
+        ],
+        "title": "ObservationContract",
+        "type": "object"
+      },
+      "output_schema_scope": "runtime observation envelope; domain data is tool-dependent, not claimed fully typed",
+      "risk_policy": {
+        "effect": "metadata",
+        "risk_floor": "none",
+        "risk_policy": "user_grounded_goals",
+        "policy_version": "g01-tool-policy-v1",
+        "can_submit": false
+      },
+      "owner_check": "server session+owner+dataset+task",
+      "authorization": "independent fixed form; no model submit",
+      "idempotency": "domain resource ID and receipt; prepare replay guard"
+    },
+    {
       "name": "prepare_schedule",
       "model_visible": false,
       "alias_of": null,
@@ -12718,6 +12885,27 @@
             ],
             "default": null,
             "title": "Recovery Reason"
+          },
+          "failure_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Failure Policy"
+          },
+          "blocked_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Blocked By",
+            "type": "array"
           }
         },
         "required": [
@@ -12865,5 +13053,5 @@
     "title": "GraphContract",
     "type": "object"
   },
-  "sha256": "f969e0c6153794ee67508807bad539b60455ddbaf9462d3a8a23b5fa2fe7c14e"
+  "sha256": "56728d16d1b6180f9569aa36956ee940e2c04811683dad0315c653f52a649d8c"
 }

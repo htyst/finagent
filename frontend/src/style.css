@@ -19,3 +19,6 @@
 .execution-state.is-completed{color:#07805c}.execution-state.is-waiting_authorization,.execution-state.is-waiting_input{color:#9b6100}.execution-state.is-failed{color:#a12b36}
 .execution-progress .goal-details{margin-bottom:0}.execution-progress ol{padding-left:20px;overflow-wrap:anywhere}
 @media(max-width:600px){.execution-progress{padding:11px}.execution-heading,.execution-goals li>div{gap:5px}}
+
+/* Task progress lives in the task center; the conversation uses the full panel. */
+.assistant-workspace.is-working{grid-template-columns:minmax(0,1fr)}

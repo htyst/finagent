@@ -6,7 +6,7 @@ from app.agent import analysis_workflow as facts
 def fact_block(runtime):
     lines=[];seen=set()
     for f in facts.focused_facts(runtime['facts']):
-        label=re.sub(r'（[A-Za-z_][A-Za-z0-9_.]*）','',f['label'])
+        label=re.sub(r'（[A-Za-z0-9_.]+）','',f['label'])
         if f['key'].startswith('comparison.'):label='对照区间'+label
         signature=(f['source_ref'],label,f['value'],f['unit'])
         if signature in seen:continue
@@ -36,6 +36,10 @@ def scope_notes(runtime):
     from app.agent.analytics_summary import range_label
     lines=[]
     for e in runtime['evidence']:
+        if not e.get('error') and e['tool'] in {'read_subscriptions','identify_subscriptions'}:
+            data=e.get('raw_data') or e.get('data') or {};data=data.get('confirmed',data)
+            lines.append('订阅合同快照日期：'+str(data.get('as_of') or '未知')+'。取消续订与解除银行代扣分别办理；取消固定单尚需手动确认，不代表已退款。')
+            continue
         if e.get('error') or e['tool']!='summarize_spending':continue
         data=e.get('raw_data') or e.get('data');current=data['current']
         lines.append('统计区间：'+range_label(current['period'])+'（北京时间）。'+(
@@ -60,7 +64,8 @@ def fallback(runtime,code):
         if code not in {'ANALYSIS_INCOMPLETE','ANALYSIS_ANSWER_INVALID','UNSUPPORTED_ANSWER'}:
             text+='\n\n已保留查询结果，进一步分析暂未完成，可稍后继续。'
     else:
-        text='已保留查询结果，进一步分析暂未完成，可稍后继续。' if runtime['evidence'] else '暂时未能完成查询，请稍后重试或缩小查询范围。'
+        verified=any(not e.get('error') and e['tool'] not in {'respond','declare_goals','revise_goals','manage_task'} for e in runtime['evidence'])
+        text='已保留查询结果，进一步分析暂未完成，可稍后继续。' if verified else '暂时未能取得有效查询结果，请稍后重试或缩小查询范围。'
         block=fact_block(runtime)
         if block:text+='\n\n'+block
     if runtime.get('completed_operations'):text+='\n\n已经办理的结果请查看原操作单和回执。'

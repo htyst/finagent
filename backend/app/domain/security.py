@@ -400,6 +400,11 @@ def assert_subscription_access(db, session_id):
         SecurityAuthorization.owner_id == session.owner_id))
     if not row or row.status != 'active' or row.digest != digest({'dataset': session.dataset_version}) or datetime.fromisoformat(row.expires_at) <= now():
         raise DomainError('SUBSCRIPTION_CONFIRMATION_REQUIRED', '订阅查询为黄色操作，请先在订阅面板明确确认查询范围', 403)
+    # Sliding renewal: one confirmation covers one continuous working session. The
+    # window only ever extends an authorization that is still valid, so an idle
+    # user still has to re-confirm instead of inheriting a longer blanket grant.
+    row.expires_at = (now() + timedelta(minutes=5)).isoformat()
+    return row
 
 
 def confirm_subscription_access(db, session_id):

@@ -43,10 +43,11 @@ def version(db,task):
     return sha256(json.dumps(values,sort_keys=True,default=str).encode()).hexdigest()
 
 
-def invalidate(r,seeds,reason):
+def invalidate(r,seeds,reason,*,preserve_prepared=False):
     affected=set(seeds)
     while True:
-        more={n['id'] for n in r['nodes'] if set(n.get('depends_on',[]))&affected and not n.get('receipt_refs')}
+        more={n['id'] for n in r['nodes'] if set(n.get('depends_on',[]))&affected and not n.get('receipt_refs')
+            and not (preserve_prepared and n.get('resource_ref') and n.get('status')=='awaiting_confirmation')}
         if more<=affected:break
         affected|=more
     refs=[]
@@ -88,9 +89,9 @@ def reconcile(db,session,task,r):
     current=version(db,task)
     if r.get('evidence_version') and r['evidence_version']!=current:
         seeds=[n['id'] for n in r['nodes'] if n.get('policy',{}).get('effect') in {'read','calculate'} and n['name']!='search_knowledge']
-        invalidate(r,seeds,'owned_resource_version_changed')
+        invalidate(r,seeds,'owned_resource_version_changed',preserve_prepared=True)
     protected=[n['id'] for n in r['nodes'] if n.get('policy',{}).get('risk_floor')=='yellow' and n.get('policy',{}).get('effect')=='read']
-    if protected:invalidate(r,protected,'protected_query_requires_current_scope_confirmation')
+    if protected:invalidate(r,protected,'protected_query_requires_current_scope_confirmation',preserve_prepared=True)
     r['evidence_version']=current
     return business
 
@@ -107,6 +108,7 @@ def continuation(db,session,task,previous,text,history):
     sources=[g['quote'] for g in r['goals']]+[c['quote'] for g in r['goals'] for c in g.get('constraints',[])]
     r['user_requests']=list(dict.fromkeys(sources+r['user_requests'][-32:]))
     r.update(request=text,messages=history,user_messages=[m['content'] for m in history if m['role']=='user'],queue=[],status='running')
+    r.pop('failure_classification',None)
     # Invalidate old user-derived amounts at the existing F01 provenance barrier,
     # even if the model forgets to call revise_goals. This is validation, not routing.
     from app.agent import analysis_workflow as facts
@@ -157,8 +159,9 @@ def revise(db,session,task,r,args):
         raise DomainError('UNGROUNDED_GOAL_CHANGE','变更及约束必须来自本轮用户明确原话',422)
     action=args['action']
     if action=='cancel':
-        import re
-        if re.search(r'不要取消|别取消|不取消|不想取消|勿取消',quote):raise DomainError('UNGROUNDED_GOAL_CHANGE','用户明确否定取消，没有取消目标',422)
+        from app.agent.cancellation_language import goal_cancel_allowed
+        if not goal_cancel_allowed(quote,r['request'],[g['text'] for g in r['goals'] if g['id'] in ids]):
+            raise DomainError('UNGROUNDED_GOAL_CHANGE','用户未要求放弃该目标；取消订阅是业务需求，确认取消不能变成取消目标。',422)
     if action in {'update','cancel'}:
         if action=='cancel' and args['constraints']:raise DomainError('INVALID_ARGUMENTS','取消目标不接受新约束',422)
         for n in r['nodes']:

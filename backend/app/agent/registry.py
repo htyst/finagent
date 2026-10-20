@@ -387,6 +387,6 @@ def execution_policy(name,arguments=None):
             elif base=='prepare_card_management' and action=='limit':floor='dynamic';rule='domain_current_controls'
     elif name=='calculate':effect='calculate';floor='green';rule='validated_facts'
     elif name=='respond':effect='answer';floor='none';rule='validated_evidence'
-    elif name in {'declare_goals','revise_goals'}:effect='metadata';floor='none';rule='user_grounded_goals'
+    elif name in {'declare_goals','revise_goals','prepare_review_plan'}:effect='metadata';floor='none';rule='user_grounded_goals'
     elif name=='manage_task':effect='control';floor='none';rule='explicit_user_control'
     return dict(effect=effect,risk_floor=floor,risk_policy=rule,policy_version='g01-tool-policy-v1',can_submit=False)

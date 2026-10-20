@@ -19,7 +19,7 @@ def session(db):return db.get(DemoSession,'s1')
 
 def test_catalog_matches_all_actual_tools_and_contains_no_execution_api():
     catalog=tool_catalog.catalog();names=set(protocol.models())
-    assert catalog['tool_count']==64
+    assert catalog['tool_count']==65
     assert 'declare_goals' in names
     assert registry.execution_policy('declare_goals')['effect']=='metadata'
     assert registry.execution_policy('declare_goals')['can_submit'] is False

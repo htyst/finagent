@@ -2,6 +2,7 @@ import { WorkspaceDrafts } from './WorkspaceDrafts';
 import CardManagement from './CardManagement';
 import Subscriptions from './Subscriptions';
 import Birthdays from './Birthdays';
+import WorkflowPlans from './WorkflowPlans';
 import { useEffect, useRef, useState } from 'react';
 import { api, setExpectedUser } from './api';
 import SpendingPanel from './SpendingPanel';
@@ -204,7 +205,7 @@ function SessionWorkspace({page, navigate, info, accounts, cards, tx, offset, bu
   useEffect(() => { onPending(task?.status === 'awaiting_confirmation' || task?.status === 'gathering_info'); }, [task?.status, onPending]);
   const [major, minor] = page.split('/');
   const assetTabs = [['accounts','账户'],['profile','金融档案'],['bills','账单'],['cards','卡片'],['wealth','理财'],['subscriptions','订阅代扣'],['recipients','收款人']];
-  const taskTabs = [['current','待我处理'],['schedules','预约与 AA'],['birthdays','生日安排'],['manual','手工办理']];
+  const taskTabs = [['current','待我处理'],['schedules','预约与 AA'],['plans','联动计划'],['manual','手工办理']];
   const demoTabs = [['','运行状态'],['cards','卡片模拟'],['payments','成员付款'],['delivery','供应商送达'],['operator','模拟坐席']];
   const navTo = (target: string) => { if (target === 'assistant') setHome(false); navigate(target); };
   async function checkModel() {
@@ -216,7 +217,7 @@ function SessionWorkspace({page, navigate, info, accounts, cards, tx, offset, bu
   return <><SecurityStatus />
     {major === 'assistant' && <AgentPanel workspace={workspace} accounts={accounts} mode={info?.mode ?? 'mock'} onNavigate={navTo} balance={available} home={home} onHomeChange={setHome} />}
     {major === 'assets' && <><div className="page-heading"><div><h2>我的资产</h2><p>查看账户、账单和已关联服务</p></div><button className="secondary" onClick={() => navTo('assistant')}>对话办理</button></div><div className="page-tabs" role="navigation" aria-label="资产分类">{assetTabs.map(([key,label]) => <button key={key} aria-current={(minor || 'accounts') === key ? 'page' : undefined} onClick={() => navigate('assets/'+key)}>{label}</button>)}</div>
-      {(!minor || minor === 'accounts') && <>        <section className="section"><div className="section-heading"><div><p className="eyebrow">ACCOUNTS</p><h2>我的账户</h2></div><span>余额均为模拟金额</span></div><div className="account-grid">{accounts.map((a) => <article className="account-card" key={a.id}><div className="account-top"><span>{a.alias}</span><span className={a.status === 'active' ? 'tag good' : 'tag'}>{labels[a.status] ?? a.status}</span></div><strong>{money(a.balance_minor)}</strong><div className="account-foot"><span>CNY · {a.account_mask}</span><span>账面余额</span></div><dl className="account-funds"><div><dt>一般可用</dt><dd>{a.available_balance_minor === undefined ? '未提供' : money(a.available_balance_minor)}</dd></div><div><dt>生日专款</dt><dd>{a.reserved_minor === undefined ? '未提供' : money(a.reserved_minor)}</dd></div></dl>{a.restriction_message && <p className="operation-note">{a.restriction_message}</p>}</article>)}</div></section>
+      {(!minor || minor === 'accounts') && <>        <section className="section"><div className="section-heading"><div><p className="eyebrow">ACCOUNTS</p><h2>我的账户</h2></div><span>余额均为模拟金额</span></div><div className="account-grid">{accounts.map((a) => <article className="account-card" key={a.id}><div className="account-top"><span>{a.alias}</span><span className={a.status === 'active' ? 'tag good' : 'tag'}>{labels[a.status] ?? a.status}</span></div><strong>{money(a.balance_minor)}</strong><div className="account-foot"><span>CNY · {a.account_mask}</span><span>账面余额</span></div><dl className="account-funds"><div><dt>一般可用</dt><dd>{a.available_balance_minor === undefined ? '未提供' : money(a.available_balance_minor)}</dd></div><div><dt>已预留资金</dt><dd>{a.reserved_minor === undefined ? '未提供' : money(a.reserved_minor)}</dd></div></dl>{a.restriction_message && <p className="operation-note">{a.restriction_message}</p>}</article>)}</div></section>
 
         <section className="section"><div className="section-heading"><div><p className="eyebrow">CARDS</p><h2>我的卡片</h2></div><span>仅显示尾号</span></div><div className="card-grid">{cards.map((c) => <article className="bank-card" key={c.id}><div className="bank-card-top"><span>{c.brand}</span><span className={c.status === 'active' ? 'tag good' : 'tag warning'}>{labels[c.status] ?? c.status}</span></div><div className="chip" /><div className="card-bottom"><div><small>{c.alias}</small><strong>•••• {c.card_mask.slice(-4)}</strong></div><small>{c.card_type === 'credit' ? '信用卡 · 导入资料只读' : `关联 ${accounts.find((a) => a.id === c.account_id)?.alias ?? c.account_id ?? '未提供'}`}</small></div></article>)}</div></section>
 
@@ -231,9 +232,10 @@ function SessionWorkspace({page, navigate, info, accounts, cards, tx, offset, bu
       {minor === 'recipients' && <RecipientNotes />}
     </>}
     {major === 'tasks' && <><div className="page-heading"><div><h2>任务中心</h2><p>核对待处理事项，继续已保存的安排</p></div><button className="secondary" onClick={() => navTo('assistant')}>回到智能助手</button></div><div className="page-tabs" aria-label="任务分类">{taskTabs.map(([key,label]) => <button key={key} aria-current={(minor || 'current') === key ? 'page' : undefined} onClick={() => navigate('tasks/'+key)}>{label}</button>)}</div>
-      {(!minor || minor === 'current') && <><TaskContextPanel workspace={workspace} onNavigate={navTo} standalone /><p className="caption">当前接口恢复最近的对话任务；预约、AA 与生日记录在各自页签查看，不提供虚构的历史列表。</p></>}
+      {(!minor || minor === 'current') && <><TaskContextPanel workspace={workspace} onNavigate={navTo} standalone /><p className="caption">在联动计划中查看目标历史、后续复查和生活安排；已发生业务以固定单及回执为准。</p></>}
       {minor === 'schedules' && <BankingWorkflows revision={revision} onChanged={onChanged} />}
-      {minor === 'birthdays' && <Birthdays revision={revision} onChanged={onChanged} />}
+      {minor === 'plans' && <WorkflowPlans revision={revision} onNavigate={navTo} onOpenTask={async (id,view) => { await workspace.openTask(id); navTo(view==='progress'?'tasks/current':'assistant'); }} onPrompt={text => { workspace.startNewConversation(); workspace.setInput(text); navTo('assistant'); }} />}
+      {['occasions','birthdays'].includes(minor) && <><button className="text-button" onClick={() => navigate('tasks/plans')}>返回联动计划</button><Birthdays revision={revision} onChanged={onChanged} /></>}
       {minor === 'manual' && <OperationPanel accounts={accounts} cards={cards.filter((c): c is Card & {account_id: string} => !c.read_only && c.status !== 'expired' && c.account_id !== null)} agentProposalId={task?.proposal?.id ?? null} revision={revision} onChanged={onChanged} />}
     </>}
     {major === 'security' && <><div className="page-heading"><div><h2>安全与记录</h2><p>每一笔操作都由服务端核验权限和固定条款</p></div></div><div className="security-principles"><article><span className="tag good">绿色 · 自动查询</span><h3>有依据地回答</h3><p>余额、流水和账单来自业务接口。模型不可编造账户或交易结果。</p></article><article><span className="tag warning">黄色 · 明确确认</span><h3>先核对，再执行</h3><p>小额转账、订阅查询与取消等按当前服务端规则办理。</p></article><article><span className="tag danger">红色 · 独立强验证</span><h3>固定单绑定验证</h3><p>大额转账、挂失和申购等需要独立模拟短信验证；不在聊天中接收验证码。</p></article></div><section className="section"><h3>当前操作记录</h3><TaskContextPanel workspace={workspace} onNavigate={navTo} standalone /></section><section className="section"><h3>恢复与求助</h3><p>未收到响应时先查询原单状态；已经发生的交易不会因暂停或取消而撤回。模拟坐席不能替你授权。后台安全锁由服务端执行。</p><button className="secondary" disabled={!task || workspace.unavailable} onClick={() => void workspace.taskAction('handoff')}>请求人工接管</button><p className="caption">本系统使用合成数据、模拟银行与本机模拟认证，不代表真实银行认证。</p></section></>}

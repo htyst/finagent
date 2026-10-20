@@ -29,6 +29,16 @@ def validate_judgment(text,selected_facts):
 
 
 def validate_assertions(text,r):
+    from app.agent.numeric_judgments import validate
+    validate(text,r)
+    required_dues=False
+    for message in reversed(r.get('user_messages',[])):
+        if re.search(r'(?:不扣|不计入|不考虑).{0,8}(?:应付|账单|还款)',message):break
+        if re.search(r'(?:应付款|应付|还款|账单).{0,12}(?:先扣|扣除|扣掉|计入|覆盖)|(?:先扣|扣除|覆盖).{0,12}(?:应付款|应付|还款|账单)',message):
+            required_dues=True;break
+    selected=set(re.findall(r'\{\{(f\d+)\}\}',text))
+    if required_dues and any(f.get('known_dues_not_deducted') and (not selected or f['id'] in selected) for f in r['facts']):
+        raise DomainError('ANALYSIS_JUDGMENT','用户明确要求先扣已知应付款，不能只列未扣应付款的基础缓冲并附免责声明。请用obligation_budget或有证据的应付款扣减重新计算后回答。',422)
     # Same guard for structured synthesis and ordinary text; no output bypass.
     if any(f.get('known_dues_not_deducted') for f in r['facts']):
         from app.agent.analysis_workflow import unsupported_affordability_claim
@@ -102,9 +112,13 @@ def response_text(synthesis,r):
 
 
 def notes(r,selected):
-    basis=next((e.get('data') for e in reversed(r['evidence']) if e['tool']=='financial_planning_basis' and not e.get('error')),None)
+    sources={source for f in r['facts'] if f['id'] in selected for source in [f['source_ref'],*f.get('sources',[])]}
+    bases=[e.get('data') for e in r['evidence'] if e['tool']=='financial_planning_basis' and not e.get('error') and e['source_ref'] in sources]
+    if not sources:
+        # Even a qualitative answer must disclose a known coverage gap.
+        bases=[e.get('data') for e in r['evidence'] if e['tool']=='financial_planning_basis' and not e.get('error')][-1:]
     lines=[]
-    if basis:
+    for basis in bases:
         coverage=basis['coverage']
         lines.append('依据：'+basis['period_start']+' 至 '+basis['period_end']+'的完整月流水；可用活期为本轮查询，其他资产负债快照截至'+basis['snapshot_as_of']+'。')
         if coverage['status']!='complete':lines.append('部分月份缺失；均值仅取完整覆盖月份，不能代表全部区间。')
