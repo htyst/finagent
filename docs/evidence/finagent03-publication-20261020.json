@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-20",
+  "source_commit": "d9ecbedb13d1263c21297235b1daba42f6c70dab",
+  "candidate_actions": {
+    "run_id": 39368883890,
+    "url": "https://github.com/htyst/finagent/actions/runs/39368883890",
+    "conclusion": "success",
+    "jobs": {
+      "source": "success",
+      "frontend": "success",
+      "cloud": "success"
+    }
+  },
+  "backend": {
+    "passed": 1097,
+    "subtests_passed": 4,
+    "failed": 0,
+    "warnings": 4,
+    "seconds": 172.62,
+    "model_mode": "mock_or_test_double"
+  },
+  "frontend": {
+    "api_passed": 16,
+    "goal_progress_passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "typecheck": "passed",
+    "production_build": "passed"
+  },
+  "browser": {
+    "engine": "Edge",
+    "model_mode": "test_double",
+    "isolated_database": true,
+    "workflow_checks_passed": 15,
+    "g01_checks_passed": 17,
+    "errors": 0,
+    "test_services_stopped": true
+  },
+  "cloud_image": {
+    "build": "passed",
+    "health": "passed",
+    "access_protection": "passed",
+    "migration": "0019_workflow_orchestration",
+    "volume_restart": "passed"
+  },
+  "publication": {
+    "changed_source_files_verified": 66,
+    "new_runtime_database_uploaded": false,
+    "secrets_uploaded": false
+  },
+  "real_deepseek_tested_this_round": false,
+  "public_website_deployed": false,
+  "limitations": [
+    "Container CI is deployment verification, not public hosting.",
+    "No Google Cloud project or deployment permissions provided.",
+    "Current real-model full business acceptance not verified.",
+    "Historical migration and library warnings retained."
+  ]
+}
