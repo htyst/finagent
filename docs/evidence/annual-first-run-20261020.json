@@ -34,5 +34,24 @@
   "runtime_bank_uploaded": false,
   "credentials_uploaded": false,
   "real_model_called": false,
-  "remote_checks": "See Actions for this commit; local targeted results do not substitute full remote regression."
+  "remote_checks": "Candidate run above passed; final main Actions must also be checked for the final documentation commit.",
+  "candidate_actions": {
+    "run_id": 39380527673,
+    "url": "https://github.com/htyst/finagent/actions/runs/39380527673",
+    "code_commit": "dd17d25f4b71d8f348ce714253ecf0037a8dadb4",
+    "conclusion": "success",
+    "jobs": {
+      "source": "success",
+      "frontend": "success",
+      "cloud": "success"
+    },
+    "backend_passed": 1107,
+    "backend_subtests_passed": 4,
+    "backend_failed": 0,
+    "backend_warnings": 4,
+    "backend_seconds": 224.09,
+    "frontend_passed": 36,
+    "cloud_exact_verifications": 3,
+    "annual_archive_rows": 28399
+  }
 }
