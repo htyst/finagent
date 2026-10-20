@@ -47,13 +47,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-node.ps1
 # 创建项目自己的 .venv，按锁文件安装 Python/npm 依赖。
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 
-# 只在首次运行、没有演示库时导入年度合成数据。
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\import-financial-demo.ps1
-
+# 首次启动自动导入完整年度合成数据；已有库保留，不会自动重置。
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1 -Mode mock
 ```
 
 打开 **http://127.0.0.1:5173**，选择演示用户“林晓”。后端地址为 http://127.0.0.1:8000；`/api/health` 和 `/api/demo/info` 可用于检查服务。
+
+首次全新安装应看到 **20 位用户、56 个账户、25,471 笔现金流水**；另有信用卡、负债、订阅等完整年度档案。可在 PowerShell 运行 `(Invoke-RestMethod http://127.0.0.1:8000/api/demo/users).data.Count` 核对用户数量，应为 `20`。
 
 这些命令只为各自进程指定执行策略，不修改系统执行策略。若组织策略禁止执行脚本，应遵循本机管理要求。
 
@@ -129,7 +129,8 @@ Mock 使用本地规则，适合先验证安装与界面；Live 才使用 DeepSe
 | 情况 | 处理 |
 | --- | --- |
 | 8000 或 5173 已占用 | 先在原 FinAgent 启动终端按 Ctrl+C；不要结束来源不明的进程，也不要同时启动两套模式。 |
-| 未找到演示数据库 | 完成 setup 后首次运行 import-financial-demo.ps1；缺少 datasets 时重新拉取完整源码。 |
+| 未找到演示数据库 | 完成 setup 后正常启动会自动导入年度数据；缺少 datasets 会明确报错，请完整拉取源码。 |
+| 更新后仍只有 3 位用户 | 已有三用户运行库被保留。先停止服务，按下方“恢复完整年度数据”步骤备份并显式导入；更新源码不会自动覆盖业务数据。 |
 | 依赖缺失或复制来的 .venv 不可用 | 在本机运行 setup.ps1；不要提交或复用另一台电脑的虚拟环境/node_modules。 |
 | Node 未找到或版本不符 | 运行 setup-node.ps1，再运行 setup.ps1。 |
 | Live 密钥/网络/模型出错 | 检查本地 .env、API 账户和网络，重启后检查连接；Mock 可用于独立检查安装。 |
@@ -140,6 +141,30 @@ Mock 使用本地规则，适合先验证安装与界面；Live 才使用 DeepSe
 运行数据库保存在 `var/finagent.sqlite3`，密钥保存在本机 `.env`。正常启动只升级数据库结构，不清空数据；当前迁移 head 为 **0019_workflow_orchestration**。升级前应停止服务并用 SQLite backup API 备份数据库。
 
 **不要把重新导入当作日常启动命令。** 重新导入会先备份再替换演示库；旧 `reset-demo.ps1` 会恢复三人样本并清空后续业务记录，已有数据时不要运行。
+
+### 恢复完整年度数据（已有库只有三位用户时）
+
+原因及本次修复见 [首次运行数据完整性](docs/FinAgent03-首次运行数据完整性-20261020.md)。首次全新启动、Docker 和云镜像现统一导入完整年度数据；此前创建的旧库不会被自动替换。
+
+如果这个三用户库只有可以替换的演示数据，先停止该项目的前后端，再运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\import-financial-demo.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1 -Mode mock
+```
+
+导入器会在 `var/backups/before-financial-install-*/finagent.sqlite3` 保存旧库，再验证年度库后替换。**这是显式替换演示数据，会替换当前任务与交易记录；备份中的旧记录不会自动合并到新年度库。** 如果要保留当前使用现场，可在另一个新克隆目录首次启动，不替换旧库。
+
+Docker Compose 已有三用户卷时，同样保留现有数据。需要切换年度演示数据时，先停止该项目并备份卷，再执行：
+
+```bash
+docker compose stop
+docker compose build
+docker compose run --rm --no-deps backend python scripts/install-financial-demo.py
+docker compose up -d
+```
+
+不要使用 `docker compose down -v` 清空旧卷。云托管已有卷也不会自动重置，应先备份并停止服务，再在平台支持的维护任务中挂载原卷执行上述 Python 导入器；具体维护方式按云平台提供的磁盘操作能力办理。
 
 ## 7. 测试与当前边界
 
@@ -165,7 +190,7 @@ Mock 使用本地规则，适合先验证安装与界面；Live 才使用 DeepSe
 
 ## 8. GitHub Actions、云部署与分发
 
-[查看 Actions](https://github.com/htyst/finagent/actions)：每次提交运行完整后端回归、前端测试／类型检查／构建，以及云镜像访问保护、健康检查、卷重启验证。检查不使用真实 API Key，不消耗 DeepSeek 用量。绿色 CI 证明列出的检查通过；公网网站还需要部署到云托管账号。
+[查看 Actions](https://github.com/htyst/finagent/actions)：每次提交运行完整后端回归、前端测试／类型检查／构建，以及两种后端镜像的完整年度数据、用户列表、访问保护、健康检查、卷重启验证。检查不使用真实 API Key，不消耗 DeepSeek 用量。绿色 CI 证明列出的检查通过；公网网站还需要部署到云托管账号。
 
 现有 `Dockerfile.cloud`、`render.yaml` 和 [云部署教程](docs/GitHub与云部署使用说明.md) 保留；访问密码、API Key 均只设置在云平台，运行库使用持久卷。Render 配置会产生云托管费用，应用不会自动创建付费服务。使用者在云端部署后，不需要作者电脑持续运行。
 

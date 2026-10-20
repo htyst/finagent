@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-20",
+  "base_commit": "80ff0412c57af1343cbc093d0535169eae478575",
+  "downloaded_source_vs_local": {
+    "business_source_and_dataset_files_compared": 380,
+    "differences": []
+  },
+  "local_targeted_regression": {
+    "passed": 16,
+    "failed": 0,
+    "warnings": 1,
+    "model": "mock_or_test_double"
+  },
+  "browser": {
+    "engine": "Edge",
+    "mode": "Mock",
+    "checks_passed": 5,
+    "users_listed": 20,
+    "users_opened": 20,
+    "page_errors": 0,
+    "test_services_stopped": true
+  },
+  "baseline": {
+    "users": 20,
+    "accounts": 56,
+    "debit_cards": 40,
+    "archived_credit_cards": 12,
+    "cash_transactions": 25471,
+    "liability_events": 903,
+    "subscriptions": 48,
+    "csv_files_hash_verified": 23
+  },
+  "existing_data_policy": "migrate only; never automatically replace an existing bank",
+  "runtime_bank_uploaded": false,
+  "credentials_uploaded": false,
+  "real_model_called": false,
+  "remote_checks": "See Actions for this commit; local targeted results do not substitute full remote regression."
+}

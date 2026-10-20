@@ -11,7 +11,6 @@ if (-not (Test-SupportedPython -Command $python -RequireVenv)) { throw '项目 P
 if (-not (Test-Path -LiteralPath $vite)) { throw '前端依赖缺失，请先运行 .\scripts\setup.ps1' }
 . (Join-Path $PSScriptRoot 'resolve-node.ps1')
 $node = Get-ProjectNode -ProjectRoot $root
-if (-not (Test-Path -LiteralPath (Join-Path $root 'var\finagent.sqlite3'))) { throw '年度演示数据库不存在，请先运行 .\scripts\import-financial-demo.ps1；已有数据时不要重置。' }
 foreach ($port in @(8000,5173)) {
     if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) {
         throw "端口 $port 已被占用，请先停止之前的开发服务。"
@@ -29,6 +28,11 @@ if ($Mode -eq 'live') {
 $env:FINAGENT_DB_PATH = Join-Path $root 'var\finagent.sqlite3'
 $env:FINAGENT_MODE = $Mode
 $env:FINAGENT_ALLOWED_ORIGIN = 'http://127.0.0.1:5173'
+# A fresh checkout initializes the complete annual CSV dataset; existing banks are retained.
+if (-not (Test-Path -LiteralPath $env:FINAGENT_DB_PATH)) {
+    & $python -B (Join-Path $PSScriptRoot 'initialize-demo.py')
+    if ($LASTEXITCODE -ne 0) { throw '年度演示数据初始化失败；不会降级为三用户样本。请查看上方错误。' }
+}
 # Upgrade schema only. Never call reset from the normal startup path.
 & $python -m app.data.cli migrate
 if ($LASTEXITCODE -ne 0) { throw '数据库升级失败，服务未启动；请保留数据并检查上方错误。' }

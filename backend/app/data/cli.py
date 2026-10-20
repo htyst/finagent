@@ -47,7 +47,7 @@ def main() -> None:
             print(f"已重置合成数据：日期={selected}，种子版本={SEED_VERSION}，数据版本={version}")
     else:
         if not path.exists():
-            raise SystemExit("数据库不存在，请先运行 reset-demo.ps1")
+            raise SystemExit("数据库不存在；首次使用请运行 scripts/initialize-demo.py（完整年度合成数据）")
         if args.action == "migrate":
             migrate()
             print("数据库结构升级完成，保留已有演示数据")

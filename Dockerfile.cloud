@@ -10,7 +10,8 @@ WORKDIR /app
 COPY backend/requirements.lock backend/requirements.lock
 RUN pip install --no-cache-dir -r backend/requirements.lock
 COPY backend backend
-COPY scripts/container-start.py scripts/cloud-start.py scripts/local-auth.py scripts/cloud-approver.py scripts/backup-database.py scripts/
+COPY scripts/initialize-demo.py scripts/import-financial-dataset.py scripts/install-financial-demo.py scripts/container-start.py scripts/cloud-start.py scripts/local-auth.py scripts/cloud-approver.py scripts/backup-database.py scripts/
+COPY datasets/demo_financial_v2 datasets/demo_financial_v2
 COPY --from=frontend /build/dist frontend/dist
 RUN mkdir -p /app/var && chown 10001:10001 /app/var
 ENV PYTHONPATH=/app/backend PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 FINAGENT_MODE=mock FINAGENT_SECURE_COOKIE=1

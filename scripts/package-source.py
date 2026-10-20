@@ -23,6 +23,7 @@ REQUIRED = {'backend/tests/test_security.py', 'backend/tests/test_background.py'
             'scripts/Launcher.cs', 'scripts/ServiceProcesses.cs', 'scripts/build-launcher.ps1',
             'scripts/launcher-run.ps1', 'scripts/dev.ps1', 'scripts/setup.ps1',
             'scripts/install-financial-demo.py', 'scripts/import-financial-dataset.py',
+            'scripts/initialize-demo.py',
             'datasets/demo_financial_v2/csv_file_manifest.json', 'datasets/demo_financial_v2/manifest.json'}
 
 

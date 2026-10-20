@@ -3,7 +3,8 @@ WORKDIR /app
 COPY backend/requirements.lock /app/backend/requirements.lock
 RUN pip install --no-cache-dir -r /app/backend/requirements.lock
 COPY backend /app/backend
-COPY scripts/container-start.py scripts/local-auth.py /app/scripts/
+COPY scripts/container-start.py scripts/initialize-demo.py scripts/import-financial-dataset.py scripts/install-financial-demo.py scripts/local-auth.py /app/scripts/
+COPY datasets/demo_financial_v2 /app/datasets/demo_financial_v2
 RUN mkdir -p /app/var && chown 10001:10001 /app/var
 ENV PYTHONPATH=/app/backend PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 FINAGENT_MODE=mock
 USER 10001:10001

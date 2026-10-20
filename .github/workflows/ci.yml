@@ -62,8 +62,10 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18080/api/health
           docker exec finagent-ci python -c "import sqlite3; db=sqlite3.connect('file:/app/var/finagent.sqlite3?mode=ro',uri=True); assert db.execute('select version_num from alembic_version').fetchone()[0] == '0019_workflow_orchestration'; db.close()"
+          docker exec finagent-ci python scripts/initialize-demo.py --check-only
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/)" = 401
           curl -fsS -u guest:TEST-ONLY-cloud-ci-password http://127.0.0.1:18080/ | head -c 200
+          curl -fsS -u guest:TEST-ONLY-cloud-ci-password http://127.0.0.1:18080/api/demo/users | python -c "import json,sys; assert len(json.load(sys.stdin)['data']) == 20"
           docker exec finagent-ci python -c "from pathlib import Path; Path('/app/var/ci-persistence.txt').write_text('TEST-ONLY')"
           docker restart finagent-ci
           for attempt in $(seq 1 90); do
@@ -72,4 +74,21 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18080/api/health
           docker exec finagent-ci python -c "import sqlite3; db=sqlite3.connect('file:/app/var/finagent.sqlite3?mode=ro',uri=True); assert db.execute('select version_num from alembic_version').fetchone()[0] == '0019_workflow_orchestration'; db.close()"
+          docker exec finagent-ci python scripts/initialize-demo.py --check-only
           docker exec finagent-ci python -c "from pathlib import Path; assert Path('/app/var/ci-persistence.txt').read_text() == 'TEST-ONLY'"
+      - name: Local backend image also initializes the full annual bank
+        shell: bash
+        run: |
+          docker build -f Dockerfile.backend -t finagent-backend-ci .
+          docker volume create finagent-backend-ci-data
+          docker run -d --name finagent-backend-ci -p 127.0.0.1:18081:8000 \
+            -v finagent-backend-ci-data:/app/var \
+            -e FINAGENT_MODE=mock finagent-backend-ci
+          trap 'docker logs finagent-backend-ci; docker rm -f finagent-backend-ci; docker volume rm finagent-backend-ci-data' EXIT
+          for attempt in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:18081/api/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18081/api/health
+          curl -fsS http://127.0.0.1:18081/api/demo/users | python -c "import json,sys; assert len(json.load(sys.stdin)['data']) == 20"
+          docker exec finagent-backend-ci python scripts/initialize-demo.py --check-only

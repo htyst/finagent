@@ -23,7 +23,8 @@ def test_local_container_keeps_default_app_and_port(tmp_path, monkeypatch):
     monkeypatch.delenv('FINAGENT_APP_ENTRY', raising=False)
     monkeypatch.delenv('PORT', raising=False)
     calls = launch(monkeypatch, tmp_path / 'bank.sqlite3')
-    assert calls[0] == ('database', [sys.executable, '-m', 'app.data.cli', 'reset'])
+    assert calls[0] == ('database', [sys.executable, str(ENTRYPOINT.with_name('initialize-demo.py')),
+                                    '--database', str(tmp_path / 'bank.sqlite3')])
     assert calls[1] == ('server', [sys.executable, '-m', 'uvicorn', 'app.main:app',
                                   '--host', '0.0.0.0', '--port', '8000'])
 
@@ -60,4 +61,17 @@ def test_unsupported_entry_stops_before_database_changes(tmp_path, monkeypatch):
         pytest.fail('Database command must not run for invalid configuration')
     monkeypatch.setattr('subprocess.run', unexpected_run)
     with pytest.raises(SystemExit, match='Unsupported application entry'):
+        runpy.run_path(str(ENTRYPOINT), run_name='__main__')
+
+
+def test_initialization_failure_never_starts_server(tmp_path, monkeypatch):
+    import subprocess
+    monkeypatch.delenv('PORT', raising=False)
+    monkeypatch.delenv('FINAGENT_APP_ENTRY', raising=False)
+    monkeypatch.setattr(app.config, 'database_path', lambda: tmp_path / 'bank.sqlite3')
+    def fail(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+    monkeypatch.setattr('subprocess.run', fail)
+    monkeypatch.setattr('os.execv', lambda *args: pytest.fail('Server must not start without data'))
+    with pytest.raises(subprocess.CalledProcessError):
         runpy.run_path(str(ENTRYPOINT), run_name='__main__')
